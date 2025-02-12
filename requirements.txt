@@ -1,0 +1,8 @@
+numpy==1.23.0
+pandas==2.2.3
+keras==2.10.0
+tqdm==4.66.6
+tensorflow==2.11.0
+shap==0.45.0
+scikit-learn==1.5.2
+networkx==3.2.1
