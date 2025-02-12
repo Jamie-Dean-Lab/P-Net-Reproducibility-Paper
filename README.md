@@ -2,9 +2,9 @@
 
 This is the implementation of P-NET (a Biologically Informed Neural Network). The code was written by Haitham A Elmarakeby et al. in “Biologically informed deep neural network for prostate cancer discover" (paper link: https://www.nature.com/articles/s41586-021-03922-4) and adapted to work for Python 3. It is used for three tasks:
 
-Prostate Cancer Classification (primary or metastatic) - reproducibility of the results outlined in the paper
-Gliom Classification (Lower Grade Glioma or Glioblastoma) - using the TCGA dataset
-Radiosensitivity Prediction - using 511 cell lines from the CCLE dataset
+1. Prostate Cancer Classification (primary or metastatic) - reproducibility of the results outlined in the paper
+2. Glioma Classification (Lower Grade Glioma or Glioblastoma) - using the TCGA dataset
+3. Radiosensitivity Prediction - using 511 cell lines from the CCLE dataset
 
 The code has been heavily refactored to allow input datasets to be more easily integrated for experiments beyond the original Prostate Cancer Classification task. Issues around reproducibility of results have also been fixed and the pipeline and configuration has been cleaned up to ensure that settings within the configuration files will influence each run where previously sometimes there was overriding of parameters hidden in the pipeline. The pipeline has also been designed to be more extensible, allowing users to write their own functions to be inserted at different stages of the pipeline for the purposes of experiments and are described below
 
