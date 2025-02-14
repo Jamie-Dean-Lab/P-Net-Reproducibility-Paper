@@ -19,7 +19,7 @@ class TFModel:
     """
     Class wrapper around a TensorFlow Model
     """
-    def __init__(self, run_id, model, model_params, fitting_params, feature_importance):
+    def __init__(self, run_id, model, model_params, fitting_params):
         """
         Constructor for the Model class
         
@@ -28,11 +28,10 @@ class TFModel:
             model (function that returns a Model object) : Function used to build the desired model
             model_params (dict) : dictionary containing the parameters required for calling the model function
             fitting_params (dict) : dictionary containing parameters for fitting the model
-            feature_importance (str) : string specifying what kind of feature importance to compute
         """
-        self.set_params(run_id, model, model_params, fitting_params, feature_importance)
+        self.set_params(run_id, model, model_params, fitting_params)
 
-    def set_params(self, run_id, model, model_params, fitting_params, feature_importance):
+    def set_params(self, run_id, model, model_params, fitting_params):
         """
         Support function to enable flexible resetting of config
         
@@ -41,12 +40,10 @@ class TFModel:
             model (function that returns a Model object) : Function used to build the desired model
             model_params (dict) : dictionary containing the parameters required for calling the model function
             fitting_params (dict) : dictionary containing parameters for fitting the model
-            feature_importance (str) : string specifying what kind of feature importance to compute
         """
         self.model = model
         self.run_id = run_id
         self.fitting_params = fitting_params
-        self.feature_importance = feature_importance
         self.model_params = model_params
     
     def get_callbacks(self):

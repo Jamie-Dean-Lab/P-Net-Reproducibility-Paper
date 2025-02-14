@@ -51,11 +51,5 @@ config = {
         "shuffle_samples" : True,
         "class_weight" : [[0.75, 1.5]] * (n_hidden_layers + 1)
     },
-    "feature_importance" : "deepexplain_deeplift",
-    "results_processors" : [lambda x : save_results(x, save_supervised_result, {"auc" : roc_auc_score,
-                                                                          "auprc" : average_precision_score,
-                                                                          "f1" : lambda ys, preds : f1_score(ys, (preds > 0.5).astype(int)),
-                                                                          "accuracy" : lambda ys, preds : accuracy_score(ys, (preds > 0.5).astype(int))}, 
-                                                                          "individual"),
-                            plot_history, get_deeplift_global]
+    "grid_search" : []
 }

@@ -73,7 +73,7 @@ class Pipeline:
         self._summarise_data()
         # Perform training and evaluation
         test_dir = os.path.join(self.config["run_dir"], self.config["run_id"])
-        if "grid_search" not in self.config.keys():
+        if self.config["grid_search"] == 0:
             # Get splits
             train_df, val_df, test_df = self.data.get_specific_split(self.config["train_samples"],
                                                                         self.config["val_samples"],
@@ -83,6 +83,7 @@ class Pipeline:
             self.log.info("Number of validation samples : {}".format(len(val_df)))
             self.log.info("Number of test samples : {}".format(len(test_df)))
             self._fold_run(test_dir, train_df, val_df, test_df)
+            del train_df, val_df, test_df
         else:
             for i in range(len(self.config["grid_search"])):
                 # Set the config params based on grid search
@@ -108,8 +109,7 @@ class Pipeline:
                 self.log.info("Number of validation samples : {}".format(len(val_df)))
                 self.log.info("Number of test samples : {}".format(len(test_df)))
                 self._fold_run(gs_dir, train_df, val_df, test_df)
-
-        
+                del train_df, val_df, test_df
 
     def run_crossvalidation(self, load_data=True):
         """
@@ -285,6 +285,8 @@ class Pipeline:
         for result_processor in self.config["results_processors"]:
             result_processor(results)
         self.fold_logger.handlers.clear()
+        del results, train_preds, val_preds, test_preds, train_hx, model.predictor, train_fold, val_fold, test_fold
+
 
 class TFPipeline(Pipeline):
     """
@@ -293,11 +295,11 @@ class TFPipeline(Pipeline):
     def __init__(self, config : dict):
         super().__init__(config)
         self.nn_model = TFModel(self.config["run_id"], self.config["model"], self.config["model_params"],
-                                self.config["fitting_params"], self.config["feature_importance"])
+                                self.config["fitting_params"])
     
     def _train(self, train_df, val_df):
         self.nn_model.set_params(self.config["run_id"], self.config["model"], self.config["model_params"],
-                                self.config["fitting_params"], self.config["feature_importance"])
+                                self.config["fitting_params"])
         model, train_hx = self.nn_model.fit(train_df, val_df, self.config["rng_seed"])
         return model, train_hx
 
