@@ -33,10 +33,12 @@ The code is meant to be used by importing / copying the pnet_config.py file and 
 4. views - list of tuples containing paths to the datasets you wish to load in, as well as an identifying tag for what kind of data view it is and functions to preprocess the data and extract alignment_ids from the headers
 5. view_alignment_method - a string to specify how to deal with NAs when aligning different views
 6. labels - the response variables you wish to make a prediction for
+   
 The pipeline has 2 run methods. The first method is run_single_split. This is used when you do not want to do full crossvalidation, and lets you split the data into train, validation, and test sets either based on a random seed or a lists of sample ids for each split. To specify these splits you need to set the following config variables
 1. train_samples - either a list of sample ids or a float between 0 and 1 specifying the size of train set
 2. val_samples - either a list of sample ids or a float between 0 and 1 specifying the size of validation set
 3. test_samples - either a list of sample ids or a float between 0 and 1 specifying the size of train samples
+   
 The second method is run_crossvalidation. For this you will need to specify a few extra config variables
 1. tv_split_seed - random seed to make train-validation split reproducible
 2. inner_kfolds - number of train-validation splits to compute per test split
@@ -47,5 +49,6 @@ The pipeline was designed to let users customise different steps in the model de
 1. feature_selector - a class that follows the same format as a sklearn model e.g with fit, fit_transform, transform methods. The purpose of this entry point is to let users define a feature selection method that can be applied during each crossvalidation training run data independently and then apply the feature selection to the validation and test sets when evaluating
 2. data_augmentor - a function that takes in the training dataset and outputs an augmented training dataset e.g with artificial new data points
 3. results_processors - a list of functions that are run after a model for a training run has been completed. This can be various metrics, plotting training history, saving model weights etc.
+   
 #### Grid search
 Grid searching can be done by specifying the desired parameters to gridsearch over in a dictionary where each config item that you want to gridsearch over is a key in the dictionary and the value is a dictionary of the parameters to be searched. The keys of the inner dictionary are just identifiers for that particular parameter setting and the value is the actual value you want to gridsearch over. You then use construct_gs_params on this dictionary and assign the output to grid_search variable in the config
