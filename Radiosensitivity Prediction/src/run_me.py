@@ -1,13 +1,16 @@
 import os, sys
 import pandas as pd
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, explained_variance_score
-from keras.activations import linear
+from keras.activations import linear, relu, tanh, leaky_relu
 from keras.losses import MeanSquaredError
+from functools import partial
 
 sys.path.insert(0, os.getcwd())
 from architecture.data_utils import *
 from architecture.pnet_config import *
 from architecture.pipeline import *
+from architecture.evaluation import *
+from architecture.callbacks_custom import step_decay
 
 # Download data if not done so already and set up run directory
 wd = "Radiosensitivity Prediction"
@@ -43,14 +46,20 @@ config["results_processors"] = [lambda x : save_results(x, save_supervised_resul
                                                                           "individual"),
                             plot_history]
 n_hidden_layers = 5
+step_decay_part = partial(
+    step_decay,
+    init_lr=0.001,
+    drop=0.5,
+    epochs_drop=100,
+)
 config["model_params"] = {
                             "pp_relations" : "architecture/Reactome/ReactomePathwaysRelation.txt",
                             "gp_relations" : "architecture/Reactome/ReactomePathways.gmt",
                             "n_hidden_layers" : n_hidden_layers,
-                            "h_dropout" : [0.5] + [0.1] * n_hidden_layers,
-                            "h_activation" : [tanh] * (n_hidden_layers + 1),
-                            "o_activation" : [linear] * (n_hidden_layers + 1),
-                            "h_reg" : [(L2, {"l2" : 1e-3})] * (n_hidden_layers + 1),
+                            "h_dropout" : [0.6] * (n_hidden_layers + 1),
+                            "h_activation" : [relu, tanh, leaky_relu, tanh, leaky_relu, tanh],
+                            "o_activation" : [relu] * (n_hidden_layers + 1),
+                            "h_reg" : [(L2, {"l2" : 1e-1})] * (n_hidden_layers + 1),
                             "o_reg" : [(L2, {"l2" : 1e-2})] * (n_hidden_layers + 1),
                             "h_kernel_initializer" : ["lecun_uniform"] * (n_hidden_layers + 1),
                             "h_kernel_constraints" : [None] * (n_hidden_layers + 1),

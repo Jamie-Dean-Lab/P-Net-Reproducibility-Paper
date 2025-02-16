@@ -1,15 +1,12 @@
 from keras.optimizers import Adam
 from keras.losses import BinaryCrossentropy
 from keras.activations import tanh, sigmoid
-from keras.initializers.initializers_v2 import LecunUniform
 from keras.regularizers import L2
 from keras.callbacks import LearningRateScheduler
-from sklearn.metrics import roc_auc_score, f1_score, average_precision_score, accuracy_score
 
 from architecture.data_utils import ConcatMultiViewDataset
 from architecture.pipeline import IdentityProcessor
 from architecture.pnet_model import compile_pnet
-from architecture.evaluation import save_results, save_supervised_result, plot_history, get_deeplift_global
 from architecture.callbacks_custom import step_decay_part
 
 n_hidden_layers = 5

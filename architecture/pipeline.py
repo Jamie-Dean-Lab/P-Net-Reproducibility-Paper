@@ -73,7 +73,7 @@ class Pipeline:
         self._summarise_data()
         # Perform training and evaluation
         test_dir = os.path.join(self.config["run_dir"], self.config["run_id"])
-        if self.config["grid_search"] == 0:
+        if len(self.config["grid_search"]) == 0:
             # Get splits
             train_df, val_df, test_df = self.data.get_specific_split(self.config["train_samples"],
                                                                         self.config["val_samples"],
@@ -83,7 +83,6 @@ class Pipeline:
             self.log.info("Number of validation samples : {}".format(len(val_df)))
             self.log.info("Number of test samples : {}".format(len(test_df)))
             self._fold_run(test_dir, train_df, val_df, test_df)
-            del train_df, val_df, test_df
         else:
             for i in range(len(self.config["grid_search"])):
                 # Set the config params based on grid search
@@ -109,7 +108,6 @@ class Pipeline:
                 self.log.info("Number of validation samples : {}".format(len(val_df)))
                 self.log.info("Number of test samples : {}".format(len(test_df)))
                 self._fold_run(gs_dir, train_df, val_df, test_df)
-                del train_df, val_df, test_df
 
     def run_crossvalidation(self, load_data=True):
         """
@@ -285,7 +283,6 @@ class Pipeline:
         for result_processor in self.config["results_processors"]:
             result_processor(results)
         self.fold_logger.handlers.clear()
-        del results, train_preds, val_preds, test_preds, train_hx, model.predictor, train_fold, val_fold, test_fold
 
 
 class TFPipeline(Pipeline):
@@ -322,9 +319,23 @@ class MLPipeline(Pipeline):
                                     history
         """
         np.random.seed(self.config["rng_seed"])
-        model = self.config["model"](**self.config["model_params"])
+        model = SKModelWrapper(self.config["model"], self.config["task"], self.config["model_params"])
         model.fit(train_df.xs, train_df.ys)
         return model, None
+    
+class SKModelWrapper:
+    def __init__(self, model, task, params):
+        self.model = model(**params)
+        self.task = task
+    def fit(self, xs, ys):
+        self.model.fit(xs, ys)
+    def predict(self, xs):
+        if self.task == "binary classification":
+            results = self.model.predict_proba(xs)
+        else:
+            results = self.model.predict(xs)
+        return results[:, 1]
+
 
 def construct_gs_params(params):
     cur_param = list(params.keys())[0]
