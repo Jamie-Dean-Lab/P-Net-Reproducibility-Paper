@@ -255,7 +255,7 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
     connections = pd.DataFrame(connections, index=data.get_features(), columns=gene_set)
     feature_gene_map = Diagonal(len(gene_set), h_activation[0], h_bias_initializer[0] is not None,
                                 h_kernel_initializer[0], h_bias_initializer[0], h_reg[0][0](**h_reg[0][1]),
-                                None, h_kernel_constraints[0], h_bias_constraints[0])
+                                None, h_kernel_constraints[0], h_bias_constraints[0], name="h0")
     feature_names["inputs"] = data.get_features()
     # Create first decision outcome layer
     out_0 = Dense(1, o_activation[0], kernel_regularizer=o_reg[0][0](**o_reg[0][1]), name="o_linear_0")
