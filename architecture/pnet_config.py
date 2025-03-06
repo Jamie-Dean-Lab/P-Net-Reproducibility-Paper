@@ -24,8 +24,8 @@ config = {
         "gp_relations" : "architecture/Reactome/ReactomePathways.gmt",
         "n_hidden_layers" : n_hidden_layers,
         "h_dropout" : [0.5] + [0.1] * n_hidden_layers,
-        "h_activation" : [tanh] * (n_hidden_layers + 1),
-        "o_activation" : [sigmoid] * (n_hidden_layers + 1),
+        "h_activation" : ["tanh"] * (n_hidden_layers + 1),
+        "o_activation" : ["sigmoid"] * (n_hidden_layers + 1),
         "h_reg" : [(L2, {"l2" : 1e-3})] * (n_hidden_layers + 1),
         "o_reg" : [(L2, {"l2" : 1e-2})] * (n_hidden_layers + 1),
         "h_kernel_initializer" : ["lecun_uniform"] * (n_hidden_layers + 1),
@@ -35,9 +35,9 @@ config = {
         "batch_normal" : False,
         "sparse" : True,
         "dropout_testing" : False,
-        "loss" : [BinaryCrossentropy(from_logits=False)] * (n_hidden_layers + 1),
+        "loss" : [{"class_name" : "BinaryCrossentropy", "config" : {"from_logits" : True}}] * (n_hidden_layers + 1),
         "loss_weights" : [2, 7, 20, 54, 148, 400],
-        "optimizer" : Adam(1e-3)
+        "optimizer" : {"class_name" : "Adam", "config" : {"learning_rate" : 1e-3}}
     },
     "fitting_params" : {
         "epochs" : 300,
@@ -48,5 +48,6 @@ config = {
         "shuffle_samples" : True,
         "class_weight" : [[0.75, 1.5]] * (n_hidden_layers + 1)
     },
-    "grid_search" : []
+    "grid_search" : [],
+    "drop_labels" : True
 }

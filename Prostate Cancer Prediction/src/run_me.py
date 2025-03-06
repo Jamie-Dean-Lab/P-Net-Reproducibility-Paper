@@ -174,9 +174,9 @@ for seed in seeds:
     pipeline = TFPipeline(dense_config)
     pipeline.run_single_split()
 
-
 # Plot results
 results = {}
+tabular = []
 for model in [x for x in os.listdir(run_dir) if x.find("train_size_variation") == -1]:
     if model.find("pnet") == -1:
         cvs = []
@@ -189,11 +189,21 @@ for model in [x for x in os.listdir(run_dir) if x.find("train_size_variation") =
         cvs = cvs.loc[cvs["split"] == "val"].sort_values("response_auc", ascending=False)
         best_cv = cvs["cv"].iat[0]
         results[model] = pd.read_csv(f"{run_dir}/{model}/{best_cv}/test_results.csv", index_col=0)
+        summary = pd.read_csv(f"{run_dir}/{model}/{best_cv}/summary_results.csv")
+        summary["model"] = model
+        summary.columns = ["split"] + summary.columns[1:].to_list()
+        tabular.append(summary)
     else:
         results["pnet"] = pd.read_csv(f"{run_dir}/{model}/test_results.csv", index_col=0)
+        summary = pd.read_csv(f"{run_dir}/{model}/summary_results.csv")
+        summary["model"] = model
+        summary.columns = ["split"] + summary.columns[1:].to_list()
+        tabular.append(summary)
 
 auprc = PlotAUPRC(results)
 auprc.plot(save=True, save_dir=wd, show=False)
+tabular = pd.concat(tabular)
+tabular.to_csv(f"{wd}/specific_split_results.csv")
 
 pnet_results = []
 for exp_dir in [x for x in os.listdir(run_dir) if x.find("pnet_train_size_variation") > -1]:

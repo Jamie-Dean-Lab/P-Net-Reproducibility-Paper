@@ -225,7 +225,7 @@ class Pipeline:
             self.data.load_data_label(os.path.join(self.config["data_dir"], label_fn), id_col)
 
         # Align views
-        self.data.align_views(self.config["view_alignment_method"], view_aligner)
+        self.data.align_views(self.config["view_alignment_method"], view_aligner, self.config["drop_labels"])
 
     def _summarise_data(self):
         self.log.info("Total number of samples {}".format(len(self.data)))
@@ -332,9 +332,11 @@ class SKModelWrapper:
     def predict(self, xs):
         if self.task == "binary classification":
             results = self.model.predict_proba(xs)
+            return results[:, 1]
         else:
             results = self.model.predict(xs)
-        return results[:, 1]
+            return results
+        
 
 
 def construct_gs_params(params):

@@ -261,7 +261,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
         self.features = None    # To hold feature names after alignment
         self.alignment_ids = None   # To hold ids for alignment between views
     
-    def align_views(self, method : str, view_aligner : dict = {}):
+    def align_views(self, method : str, view_aligner : dict = {}, drop_labels=True):
         """
         Method to call after loading all the data desired. Aligns the views by concatenating them
         into one dataframe prefixed by the view name.
@@ -270,6 +270,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
             method (str) : Flag to specify which method to use for dealing with NA values
             view_aligner (dict) : Dictionary containing function to extract identifier from each view
                                     to use as alignment between views
+            drop_labels (bool) : whether to drop samples with missing labels
         """
         # Copy individual views for computation but retain original if needed
         # Rename view features with view name prefix to ensure unique feature names
@@ -307,9 +308,6 @@ class ConcatMultiViewDataset(MultiViewDataset):
         self.ys = self.labels.to_numpy()
         
         # Deal with NAs
-        valid_samples = np.isnan(self.ys).sum(axis=1) == 0
-        self.xs = self.xs[valid_samples, :]
-        self.ys = self.ys[valid_samples, :]
         if method == "zero fill":
             self.xs[np.isnan(self.xs)] = 0.0
         elif method == "drop samples":
@@ -325,6 +323,12 @@ class ConcatMultiViewDataset(MultiViewDataset):
             self.xs = self.xs[:, valid_features]
             self.features = list(np.array(self.features)[valid_features])
             self.alignment_ids = list(np.array(self.alignment_ids)[valid_features])
+        
+        if drop_labels:
+            valid_samples = np.isnan(self.ys).sum(axis=1) == 0
+            self.xs = self.xs[valid_samples, :]
+            self.ys = self.ys[valid_samples, :]
+            self.ids = list(np.array(self.ids)[valid_samples])
     
     def get_features(self):
         """

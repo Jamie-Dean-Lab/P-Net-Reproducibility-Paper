@@ -37,5 +37,6 @@ dense_config = {
         "shuffle_samples" : True,
         "class_weight" : [[0.75, 1.5]] * (n_hidden_layers + 1)
     },
-    "grid_search" : []
+    "grid_search" : [],
+    "drop_labels" : True
 }
