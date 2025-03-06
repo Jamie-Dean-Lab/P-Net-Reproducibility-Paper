@@ -46,6 +46,7 @@ config["results_processors"] = [lambda x : save_results(x, save_supervised_resul
                                                                           "individual"),
                             plot_history]
 n_hidden_layers = 5
+
 step_decay_part = partial(
     step_decay,
     init_lr=0.001,
@@ -82,6 +83,7 @@ config["fitting_params"] = {
                                 "shuffle_samples" : True,
                                 "class_weight" : None
                             }
+
 
 # Run pnet crossvalidation
 pipeline = TFPipeline(config)

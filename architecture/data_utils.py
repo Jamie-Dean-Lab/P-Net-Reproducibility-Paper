@@ -307,6 +307,9 @@ class ConcatMultiViewDataset(MultiViewDataset):
         self.ys = self.labels.to_numpy()
         
         # Deal with NAs
+        valid_samples = np.isnan(self.ys).sum(axis=1) == 0
+        self.xs = self.xs[valid_samples, :]
+        self.ys = self.ys[valid_samples, :]
         if method == "zero fill":
             self.xs[np.isnan(self.xs)] = 0.0
         elif method == "drop samples":
@@ -322,14 +325,6 @@ class ConcatMultiViewDataset(MultiViewDataset):
             self.xs = self.xs[:, valid_features]
             self.features = list(np.array(self.features)[valid_features])
             self.alignment_ids = list(np.array(self.alignment_ids)[valid_features])
-        elif method == "drop samples and labels":
-            valid_samples = (np.isnan(self.xs).sum(axis=1) == 0) & (np.isnan(self.ys).sum(axis=1) == 0)
-            for k,v in self.data_views.items():
-                v = v.loc[valid_samples]
-            self.labels = self.labels.loc[valid_samples]
-            self.xs = self.xs[valid_samples, :]
-            self.ys = self.ys[valid_samples, :]
-            self.ids = list(np.array(self.ids)[valid_samples])
     
     def get_features(self):
         """

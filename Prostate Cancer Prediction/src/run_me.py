@@ -11,9 +11,12 @@ from architecture.data_utils import *
 from architecture.pnet_config import *
 from architecture.pipeline import *
 from architecture.evaluation import *
+from architecture.pnet_model import PNetArchitectureGenerator, get_layer_maps
 from preprocess import *
+from dense_config import *
 from pnet_auprc import PlotAUPRC
 from figure_pnet_vs_dense import ComparativeAnalysis
+from sankey import SankeyDiagram
 
 # Download data if not done so already and set up run directory
 wd = "Prostate Cancer Prediction"
@@ -40,11 +43,12 @@ config["run_dir"] = run_dir
 config["run_id"] = "pnet_specific_train_split"
 config["views"] = [("mut_important", f"P1000_final_analysis_set_cross_important_only.csv", 
                          selected_genes, 0, mut_binary, lambda x : x),
-                         ("cnv", f"P1000_data_CNA_paper.csv", selected_genes, 0, lambda x : x, lambda x : x)]
+                         ("cnv_amp", f"P1000_data_CNA_paper.csv", selected_genes, 0, cnv_amp, lambda x : x),
+                         ("cnv_del", f"P1000_data_CNA_paper.csv", selected_genes, 0, cnv_del, lambda x : x)]
 
 config["view_alignment_method"] = "drop samples"
 config["labels"] = [("response_paper.csv", 0)]
-config["train_samples"] = pd.read_csv(f"{data_dir}/prostate/splits/training_set_0.csv")["id"].to_list()
+config["train_samples"] = pd.read_csv(f"{data_dir}/prostate/splits/training_set.csv")["id"].to_list()
 config["val_samples"] = pd.read_csv(f"{data_dir}/prostate/splits/validation_set.csv")["id"].to_list()
 config["test_samples"] = pd.read_csv(f"{data_dir}/prostate/splits/test_set.csv")["id"].to_list()
 config["results_processors"] = [lambda x : save_results(x, save_supervised_result, {"auc" : roc_auc_score,
@@ -55,6 +59,7 @@ config["results_processors"] = [lambda x : save_results(x, save_supervised_resul
                             plot_history, get_deeplift_global]
 
 # Run PNet on specific training, validation, and test
+
 pipeline = TFPipeline(config)
 pipeline.run_single_split()
 
@@ -132,6 +137,7 @@ pipeline.run_single_split()
 config["results_processors"] = config["results_processors"][:-1]
 random.seed(42)
 seeds = [random.randint(0, 1000000) for _ in range(5)]
+
 for seed in seeds:
     gs_params = {"train_samples" : {f"trainsize_{s}" : s for s in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]}}
     config["val_samples"] = 0.1
@@ -142,15 +148,32 @@ for seed in seeds:
     pipeline = TFPipeline(config)
     pipeline.run_single_split()
 
-# Do the same for dense p-net
+# Do the same for dense net
+dense_config["data_dir"] = f"{data_dir}/prostate/processed"
+dense_config["run_dir"] = run_dir
+dense_config["views"] = [("mut_important", f"P1000_final_analysis_set_cross_important_only.csv", 
+                         selected_genes, 0, mut_binary, lambda x : x),
+                         ("cnv_amp", f"P1000_data_CNA_paper.csv", selected_genes, 0, cnv_amp, lambda x : x),
+                         ("cnv_del", f"P1000_data_CNA_paper.csv", selected_genes, 0, cnv_del, lambda x : x)]
+
+dense_config["view_alignment_method"] = "drop samples"
+dense_config["labels"] = [("response_paper.csv", 0)]
+dense_config["results_processors"] = [lambda x : save_results(x, save_supervised_result, {"auc" : roc_auc_score,
+                                                                          "auprc" : average_precision_score,
+                                                                          "f1" : lambda ys, preds : f1_score(ys, (preds > 0.5).astype(int)),
+                                                                          "accuracy" : lambda ys, preds : accuracy_score(ys, (preds > 0.5).astype(int))}, 
+                                                                          "individual"),
+                            plot_history]
 for seed in seeds:
     gs_params = {"train_samples" : {f"trainsize_{s}" : s for s in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]}}
-    config["grid_search"] = construct_gs_params(gs_params)
-    config["model_params"]["sparse"] = False
-    config["run_id"] = f"dense_train_size_variation_{seed}"
-    config["tt_split_seed"] = seed
-    pipeline = TFPipeline(config)
+    dense_config["val_samples"] = 0.1
+    dense_config["test_samples"] = 0.1
+    dense_config["grid_search"] = construct_gs_params(gs_params)
+    dense_config["run_id"] = f"dense_train_size_variation_{seed}"
+    dense_config["tt_split_seed"] = seed
+    pipeline = TFPipeline(dense_config)
     pipeline.run_single_split()
+
 
 # Plot results
 results = {}
@@ -180,7 +203,7 @@ for exp_dir in [x for x in os.listdir(run_dir) if x.find("pnet_train_size_variat
             config = json.loads(f.read())
         data = pd.read_csv(f"{pnet_dir}/{cv}/summary_results.csv", index_col=0)
         result = {"n_samples" : int(config["train_samples"] * 1011),
-                "auc" : data.loc["test", "response_auprc"],
+                "auc" : data.loc["test", "response_auc"],
                 "rng" : config["tt_split_seed"]}
         pnet_results.append(result)
 pnet_results = pd.DataFrame(pnet_results)
@@ -193,7 +216,7 @@ for exp_dir in [x for x in os.listdir(run_dir) if x.find("dense_train_size_varia
             config = json.loads(f.read())
         data = pd.read_csv(f"{dense_dir}/{cv}/summary_results.csv", index_col=0)
         result = {"n_samples" : int(config["train_samples"] * 1011),
-                "auc" : data.loc["test", "response_auprc"],
+                "auc" : data.loc["test", "response_auc"],
                 "rng" : config["tt_split_seed"]}
         dense_results.append(result)
 dense_results = pd.DataFrame(dense_results)
@@ -210,3 +233,38 @@ results = {"number_of_samples" : pnet_results["n_samples"], "pnet_auc" : pnet_re
 
 compare = ComparativeAnalysis(results)
 compare.plot(save=True, save_dir=wd, show=False)
+
+# Sankey plot
+layer_order = ["inputs"] + [f"h{i}" for i in range(1, 6)]
+node_values = {x.split("_")[-1].split(".")[0] : pd.read_csv(f"{wd}/runs/pnet_specific_train_split/{x}", index_col=0)
+               for x in os.listdir(f"{wd}/runs/pnet_specific_train_split") if x.find("feature_importance") > -1}
+reactome = PNetArchitectureGenerator()
+netx = reactome.get_reactome_networkx("architecture/Reactome/ReactomePathwaysRelation.txt")
+maps = reactome.get_layers(netx, n_hidden_layers, "architecture/Reactome/ReactomePathways.gmt", selected_genes)
+
+deeplift = {}
+
+for fn in [x for x in os.listdir(f"{wd}/runs/pnet_specific_train_split") if x.find("feature_importance") > -1]:
+    name = fn.split("_")[-1].replace(".csv", "")
+    deeplift[name] = pd.read_csv(f"{wd}/runs/pnet_specific_train_split/{fn}", index_col=0)
+
+maps = get_layer_maps(deeplift["h0"].index, maps, False)
+pathwaynames = pd.read_csv("architecture/Reactome/ReactomePathways.txt", sep="\t", index_col=0, header=None)
+pathwaynames.columns = ["name", "species"]
+
+layers = {}
+weights = {}
+for i in range(len(maps)):
+    if i > 0:
+        nodes = pathwaynames.loc[maps[i].index, "name"].to_numpy()
+    else:
+        nodes = maps[i].index.to_numpy()
+    layers[f"layer_{i+1}"] = nodes
+    weights[f"layer_{i+1}"] = maps[i].to_numpy() * deeplift[f"h{i}"].to_numpy()
+
+diagram = SankeyDiagram(layers, weights)
+diagram.plot([6] * 6, f"{wd}/sankey.jpg")
+
+
+
+

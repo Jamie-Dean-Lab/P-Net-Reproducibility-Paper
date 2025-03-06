@@ -9,8 +9,7 @@ from architecture.data_utils import *
 from architecture.pnet_config import *
 from architecture.pipeline import *
 from architecture.evaluation import *
-from preprocess import *
-from architecture.callbacks_custom import step_decay
+from architecture.callbacks_custom import step_decay_part
 
 
 # Download data if not done so already and set up run directory
@@ -34,9 +33,11 @@ selected_genes = list(set(pd.read_csv(f"{download_dir}/hugo_genes.txt", sep="\t"
 config["data_dir"] = download_dir
 config["run_dir"] = run_dir
 config["run_id"] = "pnet"
-config["views"] = [("mut", f"mutations.csv", selected_genes, 0, lambda x : x, lambda x : x)]
+config["views"] = [("mut", f"mutations.csv", selected_genes, 0, lambda x : x, lambda x : x),
+                   ("gexpr", f"gexpr.csv", selected_genes, 0, lambda x : np.log2(x + 1), lambda x : x),
+                   ("cna", f"cnas.csv", selected_genes, 0, lambda x : x, lambda x : x)]
 
-config["view_alignment_method"] = "drop samples"
+config["view_alignment_method"] = "zero fill"
 config["labels"] = [("response.csv", 0)]
 config["results_processors"] = [lambda x : save_results(x, save_supervised_result, {"auc" : roc_auc_score,
                                                                           "auprc" : average_precision_score,
@@ -55,7 +56,7 @@ config["model_params"] = {
                             "n_hidden_layers" : n_hidden_layers,
                             "h_dropout" : [0.6] * (n_hidden_layers + 1),
                             "h_activation" : [relu, tanh, leaky_relu, tanh, leaky_relu, tanh],
-                            "o_activation" : [relu] * (n_hidden_layers + 1),
+                            "o_activation" : [sigmoid] * (n_hidden_layers + 1),
                             "h_reg" : [(L2, {"l2" : 1})] * (n_hidden_layers + 1),
                             "o_reg" : [(L2, {"l2" : 1e-1})] * (n_hidden_layers + 1),
                             "h_kernel_initializer" : ["lecun_uniform"] * (n_hidden_layers + 1),
@@ -89,3 +90,24 @@ config["run_id"] = "dense"
 config["model_params"]["sparse"] = False
 pipeline = TFPipeline(config)
 pipeline.run_crossvalidation()
+
+# Compile results
+dense_results = [] 
+for i, fold in enumerate([x for x in os.listdir(f"{run_dir}/dense") if os.path.isdir(f"{run_dir}/dense/{x}")]):
+    result = pd.read_csv(f"{run_dir}/dense/{fold}/cv_0/summary_results.csv")
+    result.columns = ["split"] + list(result.columns[1:])
+    result["test_fold"] = i
+    dense_results.append(result)
+dense_results = pd.concat(dense_results)
+dense_results = dense_results.groupby("split")[["response_auc", "response_auprc", "response_f1", "response_accuracy"]].agg(["mean", "std"])
+dense_results.to_csv(f"{wd}/dense_results.csv")
+
+pnet_results = []
+for i, fold in enumerate([x for x in os.listdir(f"{run_dir}/pnet") if os.path.isdir(f"{run_dir}/pnet/{x}")]):
+    result = pd.read_csv(f"{run_dir}/pnet/{fold}/cv_0/summary_results.csv")
+    result.columns = ["split"] + list(result.columns[1:])
+    result["test_fold"] = i
+    pnet_results.append(result)
+pnet_results = pd.concat(pnet_results)
+pnet_results = pnet_results.groupby("split")[["response_auc", "response_auprc", "response_f1", "response_accuracy"]].agg(["mean", "std"])
+pnet_results.to_csv(f"{wd}/pnet_results.csv")

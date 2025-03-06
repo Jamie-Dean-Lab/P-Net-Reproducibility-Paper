@@ -3,6 +3,7 @@ import re
 import networkx as nx
 import pandas as pd
 import numpy as np
+import itertools
 import tensorflow as tf
 import logging
 from keras.layers import (
@@ -186,7 +187,7 @@ def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, l
     y = data.ys
     info = data.ids
     features = data.get_features()
-    genes = data.get_alignment_ids()
+    genes = sorted(list(set(data.get_alignment_ids())))
 
     logging.info(
         "x shape {} , y shape {} info {} genes {}".format(
@@ -201,7 +202,8 @@ def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, l
     reactome = PNetArchitectureGenerator()
     netx = reactome.get_reactome_networkx(pp_relations)
     maps = reactome.get_layers(netx, n_hidden_layers, gp_relations, data.get_alignment_ids())
-    _, decision_outcomes, feature_names = build_pnet(inputs, data, maps[1:], h_activation, o_activation,
+    maps = get_layer_maps(genes, maps, False)
+    _, decision_outcomes, feature_names = build_pnet(inputs, data, maps[:-1], h_activation, o_activation,
              h_reg, o_reg, h_dropout, sparse, batch_normal, h_kernel_initializer,
              h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing)
 
@@ -251,8 +253,6 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
     feature_names = {}
     # Start constructing first layer from input features to set of genes
     gene_set = np.sort(np.unique(np.array(data.get_alignment_ids())))
-    connections = (np.array(data.get_alignment_ids()).reshape(-1, 1) == gene_set.reshape(1, -1)).astype(int)
-    connections = pd.DataFrame(connections, index=data.get_features(), columns=gene_set)
     feature_gene_map = Diagonal(len(gene_set), h_activation[0], h_bias_initializer[0] is not None,
                                 h_kernel_initializer[0], h_bias_initializer[0], h_reg[0][0](**h_reg[0][1]),
                                 None, h_kernel_constraints[0], h_bias_constraints[0], name="h0")
@@ -268,7 +268,7 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
 
     # Construct P-Net hidden layer hierarchy
     inp_features = gene_set
-    for i, map in enumerate(maps[::-1]):
+    for i, map in enumerate(maps):
         out_features = np.array(sorted(map.keys()))
         logging.info("================================")
         logging.info(f'PROCEEDING TO LAYER " {i}')
@@ -279,13 +279,7 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
         layer_name = "h{}".format(i + 1)
         if sparse:
             # Construct sparse connection matrix from list of dicts
-            rows = [np.argwhere(inp_features.reshape(-1,1) == np.array(map[k]).reshape(1, -1))[:, 0] for k in out_features]
-            cols = np.concatenate([np.full_like(idxs, count) for count, idxs in enumerate(rows)])
-            rows = np.concatenate(rows)
-            connections = np.zeros((len(inp_features), len(out_features)))
-            connections[rows, cols] = 1
-            connections = pd.DataFrame(connections, index=inp_features, columns=out_features)
-            hidden_layer = SparseTF(len(out_features), connections, None, h_kernel_initializer[i+1],
+            hidden_layer = SparseTF(len(out_features), map, None, h_kernel_initializer[i+1],
                                 h_reg[i+1][0](**h_reg[i+1][1]), h_activation[i+1], h_bias_initializer[i+1] is not None,
                                 h_bias_initializer[i+1], None, h_kernel_constraints[i+1],
                                 h_bias_constraints[i+1], name=layer_name)
@@ -449,3 +443,62 @@ class PNetArchitectureGenerator:
 
         df = pd.DataFrame(data_dict_list)
         return df
+
+def get_map_from_layer(layer_dict):
+    """
+    :param layer_dict: dictionary of connections (e.g {'pathway1': ['g1', 'g2', 'g3']}
+    """
+    pathways = list(layer_dict.keys())
+
+    genes = list(itertools.chain.from_iterable(list(layer_dict.values())))
+    genes = list(np.unique(genes))
+
+    n_pathways = len(pathways)
+    n_genes = len(genes)
+
+    mat = np.zeros((n_pathways, n_genes))
+    for p, gs in list(layer_dict.items()):
+        g_inds = [genes.index(g) for g in gs]
+        p_ind = pathways.index(p)
+        mat[p_ind, g_inds] = 1
+
+    df = pd.DataFrame(mat, index=pathways, columns=genes)
+
+    return df.T
+
+
+def get_layer_maps(genes, reactome_layers, add_unk_genes):
+    """
+    :param genes: list of genes
+    :param n_levels: number of layers
+    :param direction: direction of the graph
+    :param add_unk_genes: {True, False}
+    :return: list of maps (dataframes) for each layer
+    """
+    filtering_index = genes
+    maps = []
+    for i, layer in enumerate(reactome_layers[::-1]):
+
+        mapp = get_map_from_layer(layer)
+        filter_df = pd.DataFrame(index=filtering_index)
+
+        filtered_map = filter_df.merge(
+            mapp, right_index=True, left_index=True, how="left"
+        )
+        print(filtered_map)
+        print("test end")
+        # UNK, add a node for genes without known reactome annotation
+        if add_unk_genes:
+
+            filtered_map["UNK"] = 0
+            ind = filtered_map.sum(axis=1) == 0
+            filtered_map.loc[ind, "UNK"] = 1
+
+        # Handling missing values, using pandas database to fill NaN values with 0
+        filtered_map = filtered_map.fillna(0)
+
+        # filtering_index = list(filtered_map.columns)
+        filtering_index = filtered_map.columns
+        logging.info("layer %s , # of edges  %s", i, filtered_map.sum().sum())
+        maps.append(filtered_map)  # list of maps (dataframes) for each layer
+    return maps
