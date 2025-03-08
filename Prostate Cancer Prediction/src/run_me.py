@@ -63,7 +63,7 @@ config["results_processors"] = [lambda x : save_results(x, save_supervised_resul
 
 pipeline = TFPipeline(config)
 pipeline.run_single_split()
-"""
+
 # Run gridsearch over params for the different ML pipelines
 
 # Decision Tree
@@ -135,7 +135,7 @@ pipeline = MLPipeline(ml_config)
 pipeline.run_single_split()
 
 # Create 5 different splits of data to get crossvalidated estimate of test performance on different train sizes
-"""
+
 
 config["results_processors"] = config["results_processors"][:-1]
 random.seed(42)
@@ -288,7 +288,7 @@ results = {"number_of_samples" : pnet_results["n_samples"], "pnet_auc" : pnet_re
            "statistically_significant" : np.array(pnet_pnetfc_stats)}
 
 compare = ComparativeAnalysis(results)
-compare.plot("pnet_pnetfc_comparison.jpg", dense_label="pnet fully connected", save=True, save_dir=wd, show=False)
+compare.plot("pnet_pnetfc_comparison.jpg", dense_label="P-NET fully connected", save=True, save_dir=wd, show=False)
 
 # Sankey plot
 layer_order = ["inputs"] + [f"h{i}" for i in range(1, 6)]
