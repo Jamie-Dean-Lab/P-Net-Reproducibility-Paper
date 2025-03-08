@@ -2,6 +2,7 @@ import logging
 from keras import Input, Model
 from keras.layers import Dense
 import numpy as np
+import tensorflow as tf
 
 def compile_dense(optimizer, loss, h_reg, data, n_weights, h_activation, o_activation, n_hidden_layers):
     x = data.xs
@@ -24,13 +25,13 @@ def compile_dense(optimizer, loss, h_reg, data, n_weights, h_activation, o_activ
     n = np.ceil(float(n_weights) / float(n_features))
 
     layer1 = Dense(
-        units=int(n), activation=h_activation, kernel_regularizer=h_reg, name="h0"
+        units=int(n), activation=tf.keras.activations.get(h_activation), kernel_regularizer=h_reg[0](**h_reg[1]), name="h0"
     )
     outcome = layer1(ins)
-    outcome = Dense(1, activation=o_activation, name="output")(outcome)
+    outcome = Dense(1, activation=tf.keras.activations.get(o_activation), name="output")(outcome)
     model = Model(inputs=[ins], outputs=outcome)
 
-    model.compile(optimizer=optimizer, loss=loss)
+    model.compile(optimizer=tf.keras.optimizers.get(optimizer), loss=tf.keras.losses.get(loss))
     logging.info("done compiling")
 
     logging.info(model.summary())

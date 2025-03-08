@@ -100,7 +100,7 @@ config["grid_search"] = construct_gs_params(gs_params)
 
 # Run pnet crossvalidation
 pipeline = TFPipeline(config)
-#pipeline.run_crossvalidation()
+pipeline.run_crossvalidation()
 
 # Run dense crossvalidation
 gs_params = {"model_params" : {f"reg_{l}" : {
@@ -145,7 +145,7 @@ gs_params = {"model_params" : {f"reg_{l}" : {
 config["grid_search"] = construct_gs_params(gs_params)
 config["run_id"] = "dense"
 pipeline = TFPipeline(config)
-#pipeline.run_crossvalidation()
+pipeline.run_crossvalidation()
 
 # Run Kernel Regression
 gs_params = {"model_params" : {f"degree_{d}_alpha_{a}" : {"kernel" : "poly", "degree" : d, "alpha" : a}
@@ -156,7 +156,7 @@ config["task"] = "regression"
 config["results_processors"] = config["results_processors"][:-1]
 config["grid_search"] = construct_gs_params(gs_params)
 pipeline = MLPipeline(config)
-#pipeline.run_crossvalidation()
+pipeline.run_crossvalidation()
 
 # Compile results
 def compile_results(tag, gridsearch):

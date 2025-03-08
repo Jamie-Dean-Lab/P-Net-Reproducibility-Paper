@@ -5,6 +5,7 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score, f1_score
+from scipy.stats import ttest_ind
 
 sys.path.insert(0, os.getcwd())
 from architecture.data_utils import *
@@ -62,7 +63,7 @@ config["results_processors"] = [lambda x : save_results(x, save_supervised_resul
 
 pipeline = TFPipeline(config)
 pipeline.run_single_split()
-
+"""
 # Run gridsearch over params for the different ML pipelines
 
 # Decision Tree
@@ -134,6 +135,8 @@ pipeline = MLPipeline(ml_config)
 pipeline.run_single_split()
 
 # Create 5 different splits of data to get crossvalidated estimate of test performance on different train sizes
+"""
+
 config["results_processors"] = config["results_processors"][:-1]
 random.seed(42)
 seeds = [random.randint(0, 1000000) for _ in range(5)]
@@ -145,6 +148,18 @@ for seed in seeds:
     config["grid_search"] = construct_gs_params(gs_params)
     config["run_id"] = f"pnet_train_size_variation_{seed}"
     config["tt_split_seed"] = seed
+    pipeline = TFPipeline(config)
+    pipeline.run_single_split()
+
+# Do the same for fully connected pnet
+for seed in seeds:
+    gs_params = {"train_samples" : {f"trainsize_{s}" : s for s in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]}}
+    config["val_samples"] = 0.1
+    config["test_samples"] = 0.1
+    config["grid_search"] = construct_gs_params(gs_params)
+    config["run_id"] = f"pnetfc_train_size_variation_{seed}"
+    config["tt_split_seed"] = seed
+    config["model_params"]["sparse"] = False
     pipeline = TFPipeline(config)
     pipeline.run_single_split()
 
@@ -218,6 +233,19 @@ for exp_dir in [x for x in os.listdir(run_dir) if x.find("pnet_train_size_variat
         pnet_results.append(result)
 pnet_results = pd.DataFrame(pnet_results)
 
+pnetfc_results = []
+for exp_dir in [x for x in os.listdir(run_dir) if x.find("pnetfc_train_size_variation") > -1]:
+    pnetfc_dir = f"{run_dir}/{exp_dir}"
+    for cv in [x for x in os.listdir(pnetfc_dir) if os.path.isdir(f"{pnetfc_dir}/{x}")]:
+        with open(f"{pnetfc_dir}/{cv}/config.txt") as f:
+            config = json.loads(f.read())
+        data = pd.read_csv(f"{pnetfc_dir}/{cv}/summary_results.csv", index_col=0)
+        result = {"n_samples" : int(config["train_samples"] * 1011),
+                "auc" : data.loc["test", "response_auc"],
+                "rng" : config["tt_split_seed"]}
+        pnetfc_results.append(result)
+pnetfc_results = pd.DataFrame(pnetfc_results)
+
 dense_results = []
 for exp_dir in [x for x in os.listdir(run_dir) if x.find("dense_train_size_variation") > -1]:
     dense_dir = f"{run_dir}/{exp_dir}"
@@ -231,7 +259,14 @@ for exp_dir in [x for x in os.listdir(run_dir) if x.find("dense_train_size_varia
         dense_results.append(result)
 dense_results = pd.DataFrame(dense_results)
 
+pnet_dense_stats = [ttest_ind(pnet_results.loc[pnet_results["n_samples"] == n, "auc"].to_numpy(), 
+                              dense_results.loc[dense_results["n_samples"] == n, "auc"].to_numpy()).pvalue < 0.05 
+                              for n in pnet_results["n_samples"].unique()]
+pnet_pnetfc_stats = [ttest_ind(pnet_results.loc[pnet_results["n_samples"] == n, "auc"].to_numpy(), 
+                              pnetfc_results.loc[pnetfc_results["n_samples"] == n, "auc"].to_numpy()).pvalue < 0.05 
+                              for n in pnet_results["n_samples"].unique()]
 pnet_results = pnet_results.groupby("n_samples")["auc"].agg(["mean", "std"]).reset_index()
+pnetfc_results = pnetfc_results.groupby("n_samples")["auc"].agg(["mean", "std"]).reset_index()
 dense_results = dense_results.groupby("n_samples")["auc"].agg(["mean", "std"]).reset_index()
 results = {"number_of_samples" : pnet_results["n_samples"], "pnet_auc" : pnet_results["mean"],
            "pnet_lower_bound" : pnet_results["mean"] - pnet_results["std"],
@@ -239,10 +274,21 @@ results = {"number_of_samples" : pnet_results["n_samples"], "pnet_auc" : pnet_re
            "dense_auc" : dense_results["mean"],
            "dense_lower_bound" : dense_results["mean"] - dense_results["std"],
            "dense_upper_bound" : dense_results["mean"] + dense_results["std"],
-           "statistically_significant" : np.array([0] * pnet_results.shape[0])}
+           "statistically_significant" : np.array(pnet_dense_stats)}
 
 compare = ComparativeAnalysis(results)
-compare.plot(save=True, save_dir=wd, show=False)
+compare.plot("pnet_dense_comparison.jpg", save=True, save_dir=wd, show=False)
+
+results = {"number_of_samples" : pnet_results["n_samples"], "pnet_auc" : pnet_results["mean"],
+           "pnet_lower_bound" : pnet_results["mean"] - pnet_results["std"],
+           "pnet_upper_bound" : pnet_results["mean"] + pnet_results["std"],
+           "dense_auc" : pnetfc_results["mean"],
+           "dense_lower_bound" : pnetfc_results["mean"] - pnetfc_results["std"],
+           "dense_upper_bound" : pnetfc_results["mean"] + pnetfc_results["std"],
+           "statistically_significant" : np.array(pnet_pnetfc_stats)}
+
+compare = ComparativeAnalysis(results)
+compare.plot("pnet_pnetfc_comparison.jpg", dense_label="pnet fully connected", save=True, save_dir=wd, show=False)
 
 # Sankey plot
 layer_order = ["inputs"] + [f"h{i}" for i in range(1, 6)]

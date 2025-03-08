@@ -1,6 +1,3 @@
-from keras.optimizers import Adam
-from keras.losses import BinaryCrossentropy
-from keras.activations import tanh, sigmoid
 from keras.regularizers import L2
 from keras.callbacks import LearningRateScheduler
 
@@ -35,7 +32,7 @@ config = {
         "batch_normal" : False,
         "sparse" : True,
         "dropout_testing" : False,
-        "loss" : [{"class_name" : "BinaryCrossentropy", "config" : {"from_logits" : True}}] * (n_hidden_layers + 1),
+        "loss" : [{"class_name" : "BinaryCrossentropy", "config" : {"from_logits" : False}}] * (n_hidden_layers + 1),
         "loss_weights" : [2, 7, 20, 54, 148, 400],
         "optimizer" : {"class_name" : "Adam", "config" : {"learning_rate" : 1e-3}}
     },

@@ -5,8 +5,16 @@ import gzip
 import subprocess
 
 wd = "Radiosensitivity Prediction/data"
+
+# Download list of coding genes
+temp = requests.get("https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/locus_types/gene_with_protein_product.txt")
+with open(f"{wd}/hugo_genes.txt", "wb") as f:
+    f.write(temp.read())
+
+# Download radiosensitivity data from RadioGx R package
 subprocess.run('"C:\\Program Files\\R\\R-4.4.1\\bin\\Rscript" download_R_datasets.R', shell=True)
 
+# Download methylation data for CCLE to use with gene expression data from RadioGx
 temp = requests.get("https://storage.googleapis.com/depmap-external-downloads/ccle/ccle_2019/CCLE_RRBS_TSS1kb_20181022.txt.gz?GoogleAccessId=depmap-external-downloads%40broad-achilles.iam.gserviceaccount.com&Expires=1742467134&Signature=hDW7ixGAiGBz%252FoSJoATcDK%252BnHp5NjsSO4%252FFowKpDSzyzbfttkgG9c6xMVSrcg%252FSPdb5%252FHDv8Gck6quq%252BpncS8ipan0A%252BPuPFcD4UvKRtodFHXYm0%252FdXZkWkB34Ug5gJVWkrUREI2gOqHyjHE9SAiVkD2rfTWJ02KoNrPOlpcrObp32X%252Bv4zRSqwUvzW2oGXpY6akmr%252BWhEDGIPoxS2YTgudjeJrdOFHr%252BdI1gIW%252B4oXpn%252FuygIq9Fq%252F%252B9AEXZF39etB6KkJm1sAgbEAHEPE1CLwZgUgiARa13X%252ByCA4c37uOs1UJwcl9Zjt1uLHF0NsVPT%252BKX8X2HjgkbPeYBG%252Bp%252Bg%3D%3D&userProject=broad-achilles")
 with open(f"{wd}/Cleveland/CCLE_RRBS_TSS1kb_20181022.txt.gz", "wb") as f:
     f.write(temp.content)

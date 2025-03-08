@@ -200,7 +200,7 @@ class MultiViewDataset:
             test_numeric_ids = [self.ids.index(x) for x in test_ids if x in self.ids]
             remaining = remaining - set(test_ids)
         else:
-            test_samples = list(remaining)
+            test_samples = sorted(list(remaining))
             rng.shuffle(test_samples)
             n_samples = int(len(self.ids) * test_ids)
             if n_samples > len(remaining):
@@ -213,7 +213,7 @@ class MultiViewDataset:
             val_numeric_ids = [self.ids.index(x) for x in val_ids if x in self.ids]
             remaining = remaining - set(val_ids)
         else:
-            val_samples = list(remaining)
+            val_samples = sorted(list(remaining))
             rng.shuffle(val_samples)
             n_samples = int(len(self.ids) * val_ids)
             if n_samples > len(remaining):
@@ -226,7 +226,7 @@ class MultiViewDataset:
             train_numeric_ids = [self.ids.index(x) for x in train_ids if x in self.ids]
             remaining = remaining - set(train_ids)
         else:
-            train_samples = list(remaining)
+            train_samples = sorted(list(remaining))
             rng.shuffle(train_samples)
             n_samples = int(len(self.ids) * train_ids)
             if n_samples > len(remaining):
@@ -329,6 +329,9 @@ class ConcatMultiViewDataset(MultiViewDataset):
             self.xs = self.xs[valid_samples, :]
             self.ys = self.ys[valid_samples, :]
             self.ids = list(np.array(self.ids)[valid_samples])
+            valid_labels = self.ys.sum(axis=0) > 0
+            self.ys = self.ys[:, valid_labels]
+            self.labels = self.labels.loc[:, valid_labels]
     
     def get_features(self):
         """

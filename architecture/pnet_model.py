@@ -1,12 +1,11 @@
 
-import re
+import re, os
 import networkx as nx
 import pandas as pd
 import numpy as np
 import itertools
 import tensorflow as tf
 import logging
-from keras import losses, optimizers, activations, constraints, initializers
 from keras.layers import (
     Dense,
     Dropout,
@@ -76,17 +75,18 @@ class TFModel:
         returns:
             the model object, training history
         """
-        # Set reproducibility seeds and enable determinism
-        tf.compat.v1.random.set_random_seed(seed)
-        tf.keras.utils.set_random_seed(seed)
-        tf.config.experimental.enable_op_determinism()
-
         # Clear previous runs
         if hasattr(self, "predictor"):
             del self.predictor
         if hasattr(self, "feature_names"):
             del self.feature_names
+        
+        # Set reproducibility seeds and enable determinism
         tf.keras.backend.clear_session()
+        tf.compat.v1.random.set_random_seed(seed)
+        tf.keras.utils.set_random_seed(seed)
+        tf.config.experimental.enable_op_determinism()
+        os.environ["TF_DETERMINISTIC_OPS"] = "1"
 
         # Build model
         logging.info("building pnet")
@@ -219,8 +219,8 @@ def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, l
     logging.info("Compiling...")
     model = Model(inputs=[inputs], outputs=decision_outcomes)
     model.compile(
-        optimizer=optimizers.get(optimizer),
-        loss=[losses.get(l) for l in loss],
+        optimizer=optimizer,
+        loss=[tf.keras.losses.get(l) for l in loss],
         metrics=[],
         loss_weights=loss_weights,
     )
@@ -261,13 +261,13 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
     feature_names = {}
     # Start constructing first layer from input features to set of genes
     gene_set = np.sort(np.unique(np.array(data.get_alignment_ids())))
-    feature_gene_map = Diagonal(len(gene_set), activations.get(h_activation[0]),h_bias_initializer[0] is not None,
-                                 initializers.get(h_kernel_initializer[0]),  initializers.get(h_bias_initializer[0]), 
-                                 h_reg[0][0](**h_reg[0][1]), None, constraints.get(h_kernel_constraints[0]), 
-                                 constraints.get(h_bias_constraints[0]), name="h0")
+    feature_gene_map = Diagonal(len(gene_set), tf.keras.activations.get(h_activation[0]),h_bias_initializer[0] is not None,
+                                 tf.keras.initializers.get(h_kernel_initializer[0]),  tf.keras.initializers.get(h_bias_initializer[0]), 
+                                 h_reg[0][0](**h_reg[0][1]), None, tf.keras.constraints.get(h_kernel_constraints[0]), 
+                                 tf.keras.constraints.get(h_bias_constraints[0]), name="h0")
     feature_names["inputs"] = data.get_features()
     # Create first decision outcome layer
-    out_0 = Dense(1, activations.get(o_activation[0]), kernel_regularizer=o_reg[0][0](**o_reg[0][1]), name="o_linear_0")
+    out_0 = Dense(data.ys.shape[1], tf.keras.activations.get(o_activation[0]), kernel_regularizer=o_reg[0][0](**o_reg[0][1]), name="o_linear_0")
     # Create first dropout layer
     dropout_0 = Dropout(h_dropout[0], name="dropout_0")
     # Apply layers
@@ -288,19 +288,20 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
         layer_name = "h{}".format(i + 1)
         if sparse:
             # Construct sparse connection matrix from list of dicts
-            hidden_layer = SparseTF(len(out_features), map, None, initializers.get(h_kernel_initializer[i+1]),
-                                h_reg[i+1][0](**h_reg[i+1][1]), activations.get(h_activation[i+1]), 
-                                h_bias_initializer[i+1] is not None, initializers.get(h_bias_initializer[i+1]), None, 
-                                constraints.get(h_kernel_constraints[i+1]), constraints.get(h_bias_constraints[i+1]), name=layer_name)
+            hidden_layer = SparseTF(len(out_features), map, None, tf.keras.initializers.get(h_kernel_initializer[i+1]),
+                                h_reg[i+1][0](**h_reg[i+1][1]), tf.keras.activations.get(h_activation[i+1]), 
+                                h_bias_initializer[i+1] is not None, tf.keras.initializers.get(h_bias_initializer[i+1]), None, 
+                                tf.keras.constraints.get(h_kernel_constraints[i+1]), tf.keras.constraints.get(h_bias_constraints[i+1]), name=layer_name)
         else:
-            hidden_layer = Dense(len(out_features), activations.get(h_activation[i+1]), h_bias_initializer[i+1] is not None,
-                                 initializers.get(h_kernel_initializer[i+1]), initializers.get(h_bias_initializer[i+1]), 
-                                 h_reg[i+1][0](**h_reg[i+1][1]), None, None, constraints.get(h_kernel_constraints[i+1]), 
-                                 constraints.get(h_bias_constraints[i+1]), name=layer_name)
+            hidden_layer = Dense(len(out_features), tf.keras.activations.get(h_activation[i+1]), h_bias_initializer[i+1] is not None,
+                                 tf.keras.initializers.get(h_kernel_initializer[i+1]), tf.keras.initializers.get(h_bias_initializer[i+1]), 
+                                 h_reg[i+1][0](**h_reg[i+1][1]), None, None, tf.keras.constraints.get(h_kernel_constraints[i+1]), 
+                                 tf.keras.constraints.get(h_bias_constraints[i+1]), name=layer_name)
         # Apply hidden layer
         outcome = hidden_layer(outcome)
         # Get decision
-        out_n = Dense(1, activations.get(o_activation[i+1]), kernel_regularizer=o_reg[i+1][0](**o_reg[i+1][1]), name="o_linear_{}".format(i+1))
+        out_n = Dense(data.ys.shape[1], tf.keras.activations.get(o_activation[i+1]), 
+                      kernel_regularizer=o_reg[i+1][0](**o_reg[i+1][1]), name="o_linear_{}".format(i+1))
         decision_outcome = BatchNormalization()(out_n(outcome)) if batch_normal else out_n(outcome)
         decision_outcomes.append(decision_outcome)
         # Apply dropout
@@ -510,5 +511,5 @@ def get_layer_maps(genes, reactome_layers, add_unk_genes):
         # filtering_index = list(filtered_map.columns)
         filtering_index = filtered_map.columns
         logging.info("layer %s , # of edges  %s", i, filtered_map.sum().sum())
-        maps.append(filtered_map)  # list of maps (dataframes) for each layer
+        maps.append(filtered_map.sort_index().sort_index(axis=1))  # list of maps (dataframes) for each layer
     return maps

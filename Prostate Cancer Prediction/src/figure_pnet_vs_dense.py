@@ -121,7 +121,7 @@ class ComparativeAnalysis:
 
         return ax
 
-    def plot(self, save=False, save_dir=None, show=False):
+    def plot(self, filename, dense_label=None, save=False, save_dir=None, show=False):
         self.process_results()
 
         fig, ax = plt.subplots(figsize=self.config.plot_size.value)
@@ -142,7 +142,7 @@ class ComparativeAnalysis:
                 c=self.config.dense_auc_color.value,
                 marker=self.config.marker.value,
                 markersize=self.config.marker_size.value,
-                label = self.config.dense_label.value)
+                label = self.config.dense_label.value if dense_label is None else dense_label)
         
         ax.legend(loc='upper left',
                   frameon=self.config.legend_frame.value,
@@ -184,7 +184,7 @@ class ComparativeAnalysis:
 
         if save:
             save_dir = os.getcwd() if (save_dir is None) else save_dir
-            save_file_path = os.path.join(save_dir, 'comparative_analysis.jpg')
+            save_file_path = os.path.join(save_dir, filename)
             fig.savefig(save_file_path)
 
         if show:

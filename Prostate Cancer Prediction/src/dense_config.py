@@ -20,13 +20,13 @@ dense_config = {
     "tt_split_seed" : 42,
     "model" : compile_dense,
     "model_params" : {
-        "h_activation" : tanh,
-        "o_activation" : sigmoid,
+        "h_activation" : "tanh",
+        "o_activation" : "sigmoid",
         "n_hidden_layers" : 0,
-        "h_reg" : L2(1e-3),
+        "h_reg" : (L2, {"l2" : 1e-3}),
         "n_weights" : 71009,
-        "loss" : BinaryCrossentropy(from_logits=False),
-        "optimizer" : Adam(1e-3)
+        "loss" : {"class_name" : "BinaryCrossentropy", "config" : {"from_logits" : False}},
+        "optimizer" : {"class_name" : "Adam", "config" : {"learning_rate" : 1e-3}}
     },
     "fitting_params" : {
         "epochs" : 300,

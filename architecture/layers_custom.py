@@ -1,9 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from keras.layers import Layer
-from keras import regularizers
 from keras import backend as K
-from keras import activations, initializers, constraints
 
 class Diagonal(Layer):
     def __init__(
@@ -109,13 +107,13 @@ class SparseTF(Layer):
         self.map = map
         self.nonzero_ind = nonzero_ind
         self.use_bias = use_bias
-        self.kernel_initializer = initializers.get(kernel_initializer)
-        self.kernel_regularizer = regularizers.get(W_regularizer)
-        self.bias_initializer = initializers.get(bias_initializer)
-        self.bias_regularizer = regularizers.get(bias_regularizer)
-        self.activation = activations.get(activation)
-        self.kernel_constraint = constraints.get(kernel_constraint)
-        self.bias_constraint = constraints.get(bias_constraint)
+        self.kernel_initializer = tf.keras.initializers.get(kernel_initializer)
+        self.kernel_regularizer = tf.keras.regularizers.get(W_regularizer)
+        self.bias_initializer = tf.keras.initializers.get(bias_initializer)
+        self.bias_regularizer = tf.keras.regularizers.get(bias_regularizer)
+        self.activation = tf.keras.activations.get(activation)
+        self.kernel_constraint = tf.keras.constraints.get(kernel_constraint)
+        self.bias_constraint = tf.keras.constraints.get(bias_constraint)
         super(SparseTF, self).__init__(**kwargs)
 
     def build(self, input_shape):
@@ -174,15 +172,15 @@ class SparseTF(Layer):
     def get_config(self):
         config = {
             "units": self.units,
-            "activation": activations.serialize(self.activation),
+            "activation": tf.keras.activations.serialize(self.activation),
             "use_bias": self.use_bias,
             "nonzero_ind": np.array(self.nonzero_ind),
-            "kernel_initializer": initializers.serialize(self.kernel_initializer),
-            "W_regularizer": regularizers.serialize(self.kernel_regularizer),
-            "kernel_constraint" : constraints.serialize(self.kernel_constraint),
-            "bias_initializer": initializers.serialize(self.bias_initializer),
-            "bias_regularizer": regularizers.serialize(self.bias_regularizer),
-            "bias_constraint" : constraints.serialize(self.bias_constraint)
+            "kernel_initializer": tf.keras.initializers.serialize(self.kernel_initializer),
+            "W_regularizer": tf.keras.regularizers.serialize(self.kernel_regularizer),
+            "kernel_constraint" : tf.keras.constraints.serialize(self.kernel_constraint),
+            "bias_initializer": tf.keras.initializers.serialize(self.bias_initializer),
+            "bias_regularizer": tf.keras.regularizers.serialize(self.bias_regularizer),
+            "bias_constraint" : tf.keras.constraints.serialize(self.bias_constraint)
         }
         base_config = super(SparseTF, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
