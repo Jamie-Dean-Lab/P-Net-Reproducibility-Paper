@@ -60,7 +60,6 @@ config["results_processors"] = [lambda x : save_results(x, save_supervised_resul
                             plot_history, get_deeplift_global]
 
 # Run PNet on specific training, validation, and test
-
 pipeline = TFPipeline(config)
 pipeline.run_single_split()
 
@@ -319,7 +318,7 @@ for i in range(len(maps)):
     weights[f"layer_{i+1}"] = maps[i].to_numpy() * deeplift[f"h{i}"].to_numpy()
 
 diagram = SankeyDiagram(layers, weights)
-diagram.plot([6] * 6, f"{wd}/sankey.jpg")
+diagram.plot([10, 10, 10, 10, 10, 6], f"{wd}/sankey.jpg")
 
 
 

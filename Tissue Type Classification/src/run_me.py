@@ -51,14 +51,55 @@ config["drop_labels"] = True
 
 # Run P-Net
 config["run_id"] = "pnet"
+gs_params = {"model_params" : {f"reg_{l}" : {
+                                "pp_relations" : "architecture/Reactome/ReactomePathwaysRelation.txt",
+                                "gp_relations" : "architecture/Reactome/ReactomePathways.gmt",
+                                "n_hidden_layers" : n_hidden_layers,
+                                "h_dropout" : [0.5] + [0.1] * n_hidden_layers,
+                                "h_activation" : ["tanh"] * (n_hidden_layers + 1),
+                                "o_activation" : ["sigmoid"] * (n_hidden_layers + 1),
+                                "h_reg" : [(L2, {"l2" : l})] * (n_hidden_layers + 1),
+                                "o_reg" : [(L2, {"l2" : l})] * (n_hidden_layers + 1),
+                                "h_kernel_initializer" : ["lecun_uniform"] * (n_hidden_layers + 1),
+                                "h_kernel_constraints" : [None] * (n_hidden_layers + 1),
+                                "h_bias_initializer" : ["lecun_uniform"] * (n_hidden_layers + 1),
+                                "h_bias_constraints" : [None] * (n_hidden_layers + 1),
+                                "batch_normal" : False,
+                                "sparse" : True,
+                                "dropout_testing" : False,
+                                "loss" : [{"class_name" : "BinaryCrossentropy", "config" : {"from_logits" : False}}] * (n_hidden_layers + 1),
+                                "loss_weights" : [2, 7, 20, 54, 148, 400],
+                                "optimizer" : {"class_name" : "Adam", "config" : {"learning_rate" : 1e-3}}
+                            } for l in [0.1, 0.01, 0.001, 0.0001]}}
+config["grid_search"] = construct_gs_params(gs_params)
 pipeline = TFPipeline(config)
-#pipeline.run_crossvalidation()
+pipeline.run_crossvalidation()
 
 # Run fully connected
 config["run_id"] = "dense"
-config["model_params"]["sparse"] = False
+gs_params = {"model_params" : {f"reg_{l}" : {
+                                "pp_relations" : "architecture/Reactome/ReactomePathwaysRelation.txt",
+                                "gp_relations" : "architecture/Reactome/ReactomePathways.gmt",
+                                "n_hidden_layers" : n_hidden_layers,
+                                "h_dropout" : [0.5] + [0.1] * n_hidden_layers,
+                                "h_activation" : ["tanh"] * (n_hidden_layers + 1),
+                                "o_activation" : ["sigmoid"] * (n_hidden_layers + 1),
+                                "h_reg" : [(L2, {"l2" : l})] * (n_hidden_layers + 1),
+                                "o_reg" : [(L2, {"l2" : l})] * (n_hidden_layers + 1),
+                                "h_kernel_initializer" : ["lecun_uniform"] * (n_hidden_layers + 1),
+                                "h_kernel_constraints" : [None] * (n_hidden_layers + 1),
+                                "h_bias_initializer" : ["lecun_uniform"] * (n_hidden_layers + 1),
+                                "h_bias_constraints" : [None] * (n_hidden_layers + 1),
+                                "batch_normal" : False,
+                                "sparse" : False,
+                                "dropout_testing" : False,
+                                "loss" : [{"class_name" : "BinaryCrossentropy", "config" : {"from_logits" : False}}] * (n_hidden_layers + 1),
+                                "loss_weights" : [2, 7, 20, 54, 148, 400],
+                                "optimizer" : {"class_name" : "Adam", "config" : {"learning_rate" : 1e-3}}
+                            } for l in [0.1, 0.01, 0.001, 0.0001]}}
+config["grid_search"] = construct_gs_params(gs_params)
 pipeline = TFPipeline(config)
-#pipeline.run_crossvalidation()
+pipeline.run_crossvalidation()
 
 # Run base model
 config["run_id"] = "svc"
@@ -73,7 +114,7 @@ config["results_processors"] = [lambda x : save_results(x, save_supervised_resul
 gs_params = {"model_params" : {f"c_{c}" : {"estimator" : LinearSVC, "args" : {"C" : c}} for c in [0.001, 0.01, 0.1, 1, 10]}}
 config["grid_search"] = construct_gs_params(gs_params)
 pipeline = MLPipeline(config)
-#pipeline.run_crossvalidation()
+pipeline.run_crossvalidation()
 
 # Compile results
 def compile_results(tag, gridsearch=None):
@@ -112,6 +153,6 @@ def compile_results(tag, gridsearch=None):
         results = results.groupby("split")[["auc", "auprc", "f1", "accuracy"]].agg(["mean", "std"])
         results.to_csv(f"{wd}/{tag}_results.csv")
 
-compile_results("pnet")
-compile_results("dense")
+compile_results("pnet", {"reg" : "model_params_choice"})
+compile_results("dense", {"reg" : "model_params_choice"})
 compile_results("svc", {"c" : "model_params_choice"})

@@ -22,7 +22,16 @@ class SankeyDiagram:
             important_points = number_of_important_points[i-1]
             total_importances = weights.sum(axis=1)
             sorted_label_indexes = np.argsort(total_importances)[::-1]
-            selected_labels = labels[sorted_label_indexes[:important_points]]
+            selected_labels = []
+            line_length = 33
+            for label in labels[sorted_label_indexes[:important_points]]:
+                lines = []
+                for j in range(0, len(label), line_length):
+                    if j + line_length > len(label):
+                        lines.append(label[j:])
+                    else:
+                        lines.append(label[j:j+line_length])
+                selected_labels.append("<br />".join(lines))
             selected_weights = weights[sorted_label_indexes[:important_points], :]
             residual_labels = labels[sorted_label_indexes[important_points:]]
             residual_weights = weights[sorted_label_indexes[important_points:], :]
@@ -64,6 +73,7 @@ class SankeyDiagram:
             layer = f"layer_{i}"
             next_layer = f"layer_{i+1}"
             weights = self.weights[layer]
+            weights /= weights.sum()
             current_number_of_nodes = weights.shape[0]
             next_number_of_nodes = weights.shape[1]
             current_indexes = self.diagram_indexes[layer].tolist()
@@ -74,9 +84,12 @@ class SankeyDiagram:
 
         last_layer = f"layer_{self.number_of_layers}"
         diagram_labels.append("outcome")
+        weights = self.weights[last_layer]
+        weights /= weights.sum()
         outcome_index = total_number_of_nodes
         diagram_source.extend(self.diagram_indexes[last_layer].tolist())
         diagram_target.extend([outcome_index] * len(self.diagram_indexes[last_layer]))
+        diagram_values.extend(weights.flatten().tolist())
 
         fig = go.Figure(data=[go.Sankey(
         node = dict(
@@ -91,6 +104,13 @@ class SankeyDiagram:
         target = diagram_target,
         value = diagram_values
     ))])
+        fig.update_layout(
+            title_text="P-NET Prostate Cancer Primary vs Metastatic Gene and Pathway Weights",
+            font_size=9,
+            width=1200,
+            height=600,
+            margin={"b" : 20, "r" : 20, "l" : 20, "r" : 20}
+        )
         print(diagram_source)
         print(diagram_target)
         fig.write_image(save_path)

@@ -1,12 +1,15 @@
-import os
+import os, sys
 import joblib
 import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from scipy.stats import ttest_ind
 import matplotlib.pyplot as plt
-import pnet.model.coef_weights_utils as mcw
+
 from keras.models import Sequential
+
+sys.path.insert(0, os.getcwd())
+import architecture.coef_weights_utils as mcw
 
 def collate_grid_search(results : dict, metric : str):
     """
