@@ -9,6 +9,19 @@ This is the implementation of P-NET (a Biologically Informed Neural Network). Th
 The code has been heavily refactored to allow input datasets to be more easily integrated for experiments beyond the original Prostate Cancer Classification task. Issues around reproducibility of results have also been fixed and the pipeline and configuration has been cleaned up to ensure that settings within the configuration files will influence each run where previously sometimes there was overriding of parameters hidden in the pipeline. The pipeline has also been designed to be more extensible, allowing users to write their own functions to be inserted at different stages of the pipeline for the purposes of experiments and are described below
 
 ## Installation
+Recommended to install with some kind of environment managing software like conda
+
+```
+conda create --name pnet-repro python=3.9.16
+```
+Then activate the environment
+```
+conda activate pnet-repro
+```
+Install requirements file from the root directory of the repository
+```
+pip install -r requirements.txt
+```
 
 ## Structure of the repository
 All code pertaining to P-Net and supporting pipeline can be found in the architecture folder. All other folders are experiment specific and this is the intended way to use the repository.
