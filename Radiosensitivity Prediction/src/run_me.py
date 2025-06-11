@@ -29,7 +29,7 @@ if not os.path.exists(run_dir):
 
 # Identify protein coding only genes and selected gene list based on P-Net paper
 selected_genes = list(set(pd.read_csv(f"{download_dir}/hugo_genes.txt", sep="\t")["symbol"]))
-
+"""
 # prepare config
 config["data_dir"] = data_dir
 config["run_dir"] = run_dir
@@ -157,7 +157,7 @@ config["results_processors"] = config["results_processors"][:-1]
 config["grid_search"] = construct_gs_params(gs_params)
 pipeline = MLPipeline(config)
 pipeline.run_crossvalidation()
-
+"""
 # Compile results
 def compile_results(tag, gridsearch):
     results = []
@@ -180,12 +180,19 @@ def compile_results(tag, gridsearch):
         else:
             filt = (results[k] == top[k].iat[0]) & filt
     results = results.loc[filt]
-    results = results.groupby("split")[["auc_r2", "auc_explained_variance", "auc_mse", "auc_mae"]].agg(["mean", "std"])
+    aggresults = results.groupby("split")[["auc_r2", "auc_explained_variance", "auc_mse", "auc_mae"]].agg(["mean", "std"])
     hyperparams = "_".join([top[k].iat[0] for k in gridsearch.keys()])
-    results.to_csv(f"{wd}/{tag}_{hyperparams}_results.csv")
+    aggresults.to_csv(f"{wd}/{tag}_{hyperparams}_results.csv")
+    return results.loc[results["split"] == "test"]
 
-compile_results("dense", {"reg" : "model_params_choice", "es" : "fitting_params_choice"})
-compile_results("pnet", {"reg" : "model_params_choice", "es" : "fitting_params_choice"})
-compile_results("krr", {"hyper" : "model_params_choice"})
+dense_results = compile_results("dense", {"reg" : "model_params_choice", "es" : "fitting_params_choice"})
+pnet_results = compile_results("pnet", {"reg" : "model_params_choice", "es" : "fitting_params_choice"})
+krr_results = compile_results("krr", {"hyper" : "model_params_choice"})
 
+metrics = ["auc_r2", "auc_explained_variance", "auc_mse", "auc_mae"]
+pvd = [ttest_ind(pnet_results[x], dense_results[x]).pvalue for x in metrics]
+pvk = [ttest_ind(pnet_results[x], krr_results[x]).pvalue for x in metrics]
+svd = [ttest_ind(krr_results[x], dense_results[x]).pvalue for x in metrics]
+sigresults = pd.DataFrame((pvd, pvk, svd), columns=metrics, index=["pnet_v_dense", "pnet_v_krr", "krr_v_dense"])
+sigresults.to_csv(f"{wd}/significance_tests.csv")
 
