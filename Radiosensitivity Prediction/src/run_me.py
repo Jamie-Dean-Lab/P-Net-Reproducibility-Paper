@@ -39,8 +39,8 @@ config["views"] = [("gexpr", f"cleveland_gene_expression.csv", selected_genes, 0
 config["view_alignment_method"] = "drop samples"
 config["labels"] = [("cleveland_auc_only.csv", 0)]
 config["tv_split_seed"] = 42
-config["inner_kfolds"] = 2
-config["outer_kfolds"] = 2
+config["inner_kfolds"] = 5
+config["outer_kfolds"] = 10
 config["validation_prop"] = 0.1
 config["fold_collators"] = [collate_folds]
 config["grid_search_collators"] = [lambda x : collate_grid_search(x, "auc_r2")]
@@ -102,7 +102,7 @@ config["grid_search"] = construct_gs_params(gs_params)
 
 # Run pnet crossvalidation
 pipeline = TFPipeline(config)
-#pipeline.run_crossvalidation()
+pipeline.run_crossvalidation()
 
 # Run dense crossvalidation
 gs_params = {"model_params" : {f"reg_{l}" : {
@@ -147,7 +147,7 @@ gs_params = {"model_params" : {f"reg_{l}" : {
 config["grid_search"] = construct_gs_params(gs_params)
 config["run_id"] = "dense"
 pipeline = TFPipeline(config)
-#pipeline.run_crossvalidation()
+pipeline.run_crossvalidation()
 
 # Run Kernel Regression
 gs_params = {"model_params" : {f"degree_{d}_alpha_{a}" : {"kernel" : "poly", "degree" : d, "alpha" : a}
