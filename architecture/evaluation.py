@@ -48,8 +48,13 @@ def collate_grid_search(results : dict, metric : str):
         result = val_means.merge(summaries, on=["test_fold", "model_params_choice"])
         result.to_csv(f"{run_dir}/results.csv")
     else:
+        summaries = summaries.rename({"index" : "split"}, axis=1)
         val_means = summaries.loc[summaries["split"] == "val"].groupby("model_params_choice")[metric].mean().reset_index().sort_values(metric, ascending=False)
         result = summaries.loc[summaries["model_params_choice"] == val_means["model_params_choice"].iat[0]]
+        numeric_cols = result.dtypes
+        numeric_cols = numeric_cols.index[numeric_cols == "float"].to_list()
+        result = result.groupby("split")[numeric_cols].mean()
+        result["model_params_choice"] = val_means["model_params_choice"].iat[0]
         result.to_csv(f"{run_dir}/results.csv")
 
 def collate_folds(results : dict):
