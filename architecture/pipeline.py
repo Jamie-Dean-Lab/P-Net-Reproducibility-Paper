@@ -144,7 +144,9 @@ class Pipeline:
             if len(self.config["grid_search"]) == 0:
                 self.config["grid_search"] = [self.config.copy()]
             gs_dirs = []
+            gs_params = []
             for j in range(len(self.config["grid_search"])):
+                gs_params.append(self.config["grid_search"][j])
                 # Set the config params based on grid search
                 for k,v in self.config["grid_search"][j].items():
                     # Ensure not to override own grid search
@@ -183,6 +185,8 @@ class Pipeline:
                     self.fold_logger = self._get_logger("fold_logger", gs_dir)
                     # Perform training
                     self._fold_run(gs_dir, train_fold, val_fold, test_df._copy(range(len(test_df))))
+        for gs_collator in self.config["grid_search_collators"]:
+            gs_collator({"save_dir" : self.run_dir, "params" : gs_params, "nested" : self.config["inner_kfolds"] > 1})
 
     def _get_logger(self, logger_name, log_dir):
         """

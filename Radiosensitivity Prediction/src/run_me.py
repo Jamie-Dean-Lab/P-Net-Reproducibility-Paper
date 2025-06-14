@@ -18,7 +18,7 @@ from architecture.callbacks_custom import step_decay, FixedEarlyStopping
 wd = "Radiosensitivity Prediction"
 download_dir = f"{wd}/data"
 data_dir = f"{download_dir}/Cleveland"
-run_dir = f"{wd}/runs"
+run_dir = f"{wd}/runs_2"
 
 if not os.path.exists(download_dir):
     with open(f"{wd}/src/download_data.py") as file:
@@ -29,7 +29,7 @@ if not os.path.exists(run_dir):
 
 # Identify protein coding only genes and selected gene list based on P-Net paper
 selected_genes = list(set(pd.read_csv(f"{download_dir}/hugo_genes.txt", sep="\t")["symbol"]))
-"""
+
 # prepare config
 config["data_dir"] = data_dir
 config["run_dir"] = run_dir
@@ -39,9 +39,11 @@ config["views"] = [("gexpr", f"cleveland_gene_expression.csv", selected_genes, 0
 config["view_alignment_method"] = "drop samples"
 config["labels"] = [("cleveland_auc_only.csv", 0)]
 config["tv_split_seed"] = 42
-config["inner_kfolds"] = 1
-config["outer_kfolds"] = 10
+config["inner_kfolds"] = 2
+config["outer_kfolds"] = 2
 config["validation_prop"] = 0.1
+config["fold_collators"] = [collate_folds]
+config["grid_search_collators"] = [lambda x : collate_grid_search(x, "auc_r2")]
 config["results_processors"] = [lambda x : save_results(x, save_supervised_result, {"r2" : r2_score,
                                                                                     "explained_variance" : explained_variance_score,
                                                                                     "mse" : mean_squared_error,
@@ -100,7 +102,7 @@ config["grid_search"] = construct_gs_params(gs_params)
 
 # Run pnet crossvalidation
 pipeline = TFPipeline(config)
-pipeline.run_crossvalidation()
+#pipeline.run_crossvalidation()
 
 # Run dense crossvalidation
 gs_params = {"model_params" : {f"reg_{l}" : {
@@ -145,11 +147,11 @@ gs_params = {"model_params" : {f"reg_{l}" : {
 config["grid_search"] = construct_gs_params(gs_params)
 config["run_id"] = "dense"
 pipeline = TFPipeline(config)
-pipeline.run_crossvalidation()
+#pipeline.run_crossvalidation()
 
 # Run Kernel Regression
 gs_params = {"model_params" : {f"degree_{d}_alpha_{a}" : {"kernel" : "poly", "degree" : d, "alpha" : a}
-                               for d in [1, 2, 3] for a in [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]}}
+                               for d in [1] for a in [0.5, 1]}}
 config["model"] = KernelRidge
 config["run_id"] = "krr"
 config["task"] = "regression"
@@ -157,7 +159,7 @@ config["results_processors"] = config["results_processors"][:-1]
 config["grid_search"] = construct_gs_params(gs_params)
 pipeline = MLPipeline(config)
 pipeline.run_crossvalidation()
-"""
+
 # Compile results
 def compile_results(tag, gridsearch):
     results = []
@@ -172,7 +174,8 @@ def compile_results(tag, gridsearch):
                 result[k] = run_config[v]
             results.append(result)
     results = pd.concat(results)
-    top = results.loc[results["split"] == "val"].groupby(list(gridsearch.keys()))["auc_r2"].mean().reset_index().sort_values("auc_r2", ascending=False)
+    val_means = results.loc[results["split"] == "val"].groupby(list(gridsearch.keys()) + ["test_fold"])["auc_r2"].mean().reset_index()
+    top = val_means.iloc[val_means.groupby("test_fold")["auc_r2"].idxmax(), ]
     filt = None
     for k,v in gridsearch.items():
         if filt is None:
