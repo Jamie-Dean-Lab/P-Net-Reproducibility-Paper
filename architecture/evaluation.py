@@ -11,7 +11,7 @@ from keras.models import Sequential
 sys.path.insert(0, os.getcwd())
 import architecture.coef_weights_utils as mcw
 
-def collate_grid_search(results : dict, metric : str):
+def collate_grid_search(results : dict):
     """
     Function for collating results after all settings in grid search have been computed
     Goes through all the summary results in each folder and selects the best hyperparameters based on metric
@@ -20,42 +20,15 @@ def collate_grid_search(results : dict, metric : str):
     summaries = []
     run_dir = results["save_dir"]
     gs_params = results["params"]
-    nested = results["nested"]
-    for t in [x for x in os.listdir(run_dir) if x.find("test_") > -1]:
-        for i in range(len(gs_params)):
-            cv = f"cv_{i}"
-            p = gs_params[i]
-            cur_dir = f"{run_dir}/{t}/{cv}"
-            if nested:
-                df = pd.read_csv(f"{cur_dir}/fold_summaries.csv", index_col=0)
-                df = df.groupby("split").mean()
-                for k,v in p.items():
-                    df[k] = v
-                df["test_fold"] = t
-                df = df.drop("fold", axis=1)
-                summaries.append(df)
-            else:
-                df = pd.read_csv(f"{cur_dir}/summary_results.csv", index_col=0)
-                df["test_fold"] = t
-                for k,v in p.items():
-                    df[k] = v
-                summaries.append(df)
+    gs_dirs = results["gs_dirs"]
+    test_dirs = results["test_dirs"]
+    for i, d in enumerate(gs_dirs):
+        df = pd.read_csv(f"{d}/summary_results.csv", index_col=0)
+        df["test_fold"] = test_dirs[i]
+        df["hyperparams"] = gs_params[i]
+        summaries.append(df)
     summaries = pd.concat(summaries).reset_index()
-    if nested:
-        val_means = summaries.loc[summaries["split"] == "val"].groupby(["test_fold", "model_params_choice"])[metric].mean().reset_index()
-        top = val_means.groupby("test_fold")[metric].idxmax()
-        val_means = val_means.iloc[top].drop(metric, axis=1)
-        result = val_means.merge(summaries, on=["test_fold", "model_params_choice"])
-        result.to_csv(f"{run_dir}/results.csv")
-    else:
-        summaries = summaries.rename({"index" : "split"}, axis=1)
-        val_means = summaries.loc[summaries["split"] == "val"].groupby("model_params_choice")[metric].mean().reset_index().sort_values(metric, ascending=False)
-        result = summaries.loc[summaries["model_params_choice"] == val_means["model_params_choice"].iat[0]]
-        numeric_cols = result.dtypes
-        numeric_cols = numeric_cols.index[numeric_cols == "float"].to_list()
-        result = result.groupby("split")[numeric_cols].mean()
-        result["model_params_choice"] = val_means["model_params_choice"].iat[0]
-        result.to_csv(f"{run_dir}/results.csv")
+    summaries.to_csv(f"{run_dir}/results.csv")
 
 def collate_folds(results : dict):
     """
@@ -98,6 +71,7 @@ def save_results(results : dict, processor, metrics : dict, task : str, pred_idx
         result_summary.append(processor(results, "test", run_dir, metrics, task, pred_idx))
     result_summary = pd.DataFrame(result_summary, index=idxs)
     result_summary.to_csv(f"{run_dir}/summary_results.csv")
+    return result_summary
 
 def save_supervised_result(results : dict, split : str, run_dir : str, metrics : dict, task : str,
                            pred_idx : int = 0):

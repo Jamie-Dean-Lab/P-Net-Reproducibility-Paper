@@ -18,7 +18,7 @@ from architecture.callbacks_custom import step_decay, FixedEarlyStopping
 wd = "Radiosensitivity Prediction"
 download_dir = f"{wd}/data"
 data_dir = f"{download_dir}/Cleveland"
-run_dir = f"{wd}/runs_2"
+run_dir = f"{wd}/runs"
 
 if not os.path.exists(download_dir):
     with open(f"{wd}/src/download_data.py") as file:
@@ -41,9 +41,8 @@ config["labels"] = [("cleveland_auc_only.csv", 0)]
 config["tv_split_seed"] = 42
 config["inner_kfolds"] = 5
 config["outer_kfolds"] = 10
-config["validation_prop"] = 0.1
-config["fold_collators"] = [collate_folds]
-config["grid_search_collators"] = [lambda x : collate_grid_search(x, "auc_r2")]
+config["validation_prop"] = 0
+config["val_metric"] = lambda x : r2_score(x["val_df"].ys, x["val_preds"])
 config["results_processors"] = [lambda x : save_results(x, save_supervised_result, {"r2" : r2_score,
                                                                                     "explained_variance" : explained_variance_score,
                                                                                     "mse" : mean_squared_error,
@@ -59,6 +58,17 @@ step_decay_part = partial(
     drop=0.5,
     epochs_drop=25,
 )
+
+config["fitting_params"] = {
+                                "epochs" : 200,
+                                "batch" : 50,
+                                "LRScheduler" : LearningRateScheduler(step_decay_part, verbose=0),
+                                "early_stopping" : None,
+                                "prediction_output" : "average",
+                                "shuffle_samples" : True,
+                                "class_weight" : None
+                            }
+
 gs_params = {"model_params" : {f"reg_{l}" : {
                             "pp_relations" : "architecture/Reactome/ReactomePathwaysRelation.txt",
                             "gp_relations" : "architecture/Reactome/ReactomePathways.gmt",
@@ -78,25 +88,7 @@ gs_params = {"model_params" : {f"reg_{l}" : {
                             "loss" : ["MeanSquaredError"] * (n_hidden_layers + 1),
                             "loss_weights" : [2, 7, 20, 54, 148, 400],
                             "optimizer" : {"class_name" : "Adam", "config" : {"learning_rate" : 1e-3}}
-                        } for l in [1, 0.1, 0.01, 0.001]},
-            "fitting_params" : {"es" : {
-                                "epochs" : 200,
-                                "batch" : 50,
-                                "LRScheduler" : LearningRateScheduler(step_decay_part, verbose=0),
-                                "early_stopping" : FixedEarlyStopping(patience=25, min_deltas=[1e-2]),
-                                "prediction_output" : "average",
-                                "shuffle_samples" : True,
-                                "class_weight" : None
-                            },
-                            "no_es" : {
-                                "epochs" : 200,
-                                "batch" : 50,
-                                "LRScheduler" : LearningRateScheduler(step_decay_part, verbose=0),
-                                "early_stopping" : None,
-                                "prediction_output" : "average",
-                                "shuffle_samples" : True,
-                                "class_weight" : None
-                            }}}
+                        } for l in [1, 0.1, 0.01, 0.001]}}
 
 config["grid_search"] = construct_gs_params(gs_params)
 
@@ -124,25 +116,7 @@ gs_params = {"model_params" : {f"reg_{l}" : {
                             "loss" : ["MeanSquaredError"] * (n_hidden_layers + 1),
                             "loss_weights" : [2, 7, 20, 54, 148, 400],
                             "optimizer" : {"class_name" : "Adam", "config" : {"learning_rate" : 1e-3}}
-                        } for l in [1, 0.1, 0.01, 0.001]},
-            "fitting_params" : {"es" : {
-                                "epochs" : 200,
-                                "batch" : 50,
-                                "LRScheduler" : LearningRateScheduler(step_decay_part, verbose=0),
-                                "early_stopping" : FixedEarlyStopping(patience=25, min_deltas=[1e-2]),
-                                "prediction_output" : "average",
-                                "shuffle_samples" : True,
-                                "class_weight" : None
-                            },
-                            "no_es" : {
-                                "epochs" : 200,
-                                "batch" : 50,
-                                "LRScheduler" : LearningRateScheduler(step_decay_part, verbose=0),
-                                "early_stopping" : None,
-                                "prediction_output" : "average",
-                                "shuffle_samples" : True,
-                                "class_weight" : None
-                            }}}
+                        } for l in [1, 0.1, 0.01, 0.001]}}
 
 config["grid_search"] = construct_gs_params(gs_params)
 config["run_id"] = "dense"
@@ -151,7 +125,7 @@ pipeline.run_crossvalidation()
 
 # Run Kernel Regression
 gs_params = {"model_params" : {f"degree_{d}_alpha_{a}" : {"kernel" : "poly", "degree" : d, "alpha" : a}
-                               for d in [1] for a in [0.5, 1]}}
+                               for d in [1, 2, 3] for a in [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]}}
 config["model"] = KernelRidge
 config["run_id"] = "krr"
 config["task"] = "regression"
@@ -159,7 +133,7 @@ config["results_processors"] = config["results_processors"][:-1]
 config["grid_search"] = construct_gs_params(gs_params)
 pipeline = MLPipeline(config)
 pipeline.run_crossvalidation()
-
+"""
 # Compile results
 def compile_results(tag, gridsearch):
     results = []
@@ -198,4 +172,5 @@ pvk = [ttest_ind(pnet_results[x], krr_results[x]).pvalue for x in metrics]
 svd = [ttest_ind(krr_results[x], dense_results[x]).pvalue for x in metrics]
 sigresults = pd.DataFrame((pvd, pvk, svd), columns=metrics, index=["pnet_v_dense", "pnet_v_krr", "krr_v_dense"])
 sigresults.to_csv(f"{wd}/significance_tests.csv")
+"""
 
