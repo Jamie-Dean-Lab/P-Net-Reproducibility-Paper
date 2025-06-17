@@ -48,6 +48,7 @@ config = {
     },
     "grid_search" : [],
     "val_metric" : lambda x : x,
+    "use_validation_on_test" : True,
     "results_processors" : [],
     "fold_collators" : [],
     "grid_search_collators" : [collate_grid_search],

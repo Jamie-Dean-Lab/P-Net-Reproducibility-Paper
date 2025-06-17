@@ -40,8 +40,9 @@ config["view_alignment_method"] = "drop samples"
 config["labels"] = [("cleveland_auc_only.csv", 0)]
 config["tv_split_seed"] = 42
 config["inner_kfolds"] = 5
-config["outer_kfolds"] = 10
-config["validation_prop"] = 0
+config["outer_kfolds"] = 1
+config["test_samples"] = 0.1
+config["use_validation_on_test"] = False
 config["val_metric"] = lambda x : r2_score(x["val_df"].ys, x["val_preds"])
 config["results_processors"] = [lambda x : save_results(x, save_supervised_result, {"r2" : r2_score,
                                                                                     "explained_variance" : explained_variance_score,
