@@ -39,17 +39,23 @@ config["views"] = [("gexpr", f"cleveland_gene_expression.csv", selected_genes, 0
 config["view_alignment_method"] = "drop samples"
 config["labels"] = [("cleveland_auc_only.csv", 0)]
 config["tv_split_seed"] = 42
+config["stratified"] = False
+# This block is for nested CV
 config["inner_kfolds"] = 5
-config["outer_kfolds"] = 1
-config["test_samples"] = 0.1
-config["use_validation_on_test"] = False
-config["val_metric"] = lambda x : r2_score(x["val_df"].ys, x["val_preds"])
+config["outer_kfolds"] = 10
+
+# This block is for standard kfold CV
+#config["inner_kfolds"] = 5
+#config["outer_kfolds"] = 1
+#config["test_samples"] = 0.1 # Specifies proportion of data to be used as test set. Also accepts list of integers to specify specific samples for test set
+# end of block
+config["use_validation_on_test"] = False # Specifies whether to use validation sets for final testing after CV
+config["val_metric"] = {"r2" : lambda x : r2_score(x["val_df"].ys, x["val_preds"])} # This line specifies metric to use for selecting best model from cv
 config["results_processors"] = [lambda x : save_results(x, save_supervised_result, {"r2" : r2_score,
                                                                                     "explained_variance" : explained_variance_score,
                                                                                     "mse" : mean_squared_error,
                                                                                     "mae" : mean_absolute_error}, 
-                                                                          "individual"),
-                            plot_history]
+                                                                          "individual")]
 
 n_hidden_layers = 5
 
@@ -77,8 +83,8 @@ gs_params = {"model_params" : {f"reg_{l}" : {
                             "h_dropout" : [0.5] + [0.1] * n_hidden_layers,
                             "h_activation" : ["tanh"] * (n_hidden_layers + 1),
                             "o_activation" : ["linear"] * (n_hidden_layers + 1),
-                            "h_reg" : [(L2, {"l2" : l})] * (n_hidden_layers + 1),
-                            "o_reg" : [(L2, {"l2" : l})] * (n_hidden_layers + 1),
+                            "h_reg" : [(L2, {"l2" : 10 ** l})] * (n_hidden_layers + 1),
+                            "o_reg" : [(L2, {"l2" : 10 ** l})] * (n_hidden_layers + 1),
                             "h_kernel_initializer" : ["lecun_uniform"] * (n_hidden_layers + 1),
                             "h_kernel_constraints" : [None] * (n_hidden_layers + 1),
                             "h_bias_initializer" : ["lecun_uniform"] * (n_hidden_layers + 1),
@@ -89,7 +95,7 @@ gs_params = {"model_params" : {f"reg_{l}" : {
                             "loss" : ["MeanSquaredError"] * (n_hidden_layers + 1),
                             "loss_weights" : [2, 7, 20, 54, 148, 400],
                             "optimizer" : {"class_name" : "Adam", "config" : {"learning_rate" : 1e-3}}
-                        } for l in [1, 0.1, 0.01, 0.001]}}
+                        } for l in [-1, -2, -3, -4]}}
 
 config["grid_search"] = construct_gs_params(gs_params)
 
@@ -105,8 +111,8 @@ gs_params = {"model_params" : {f"reg_{l}" : {
                             "h_dropout" : [0.5] + [0.1] * n_hidden_layers,
                             "h_activation" : ["tanh"] * (n_hidden_layers + 1),
                             "o_activation" : ["linear"] * (n_hidden_layers + 1),
-                            "h_reg" : [(L2, {"l2" : l})] * (n_hidden_layers + 1),
-                            "o_reg" : [(L2, {"l2" : l})] * (n_hidden_layers + 1),
+                            "h_reg" : [(L2, {"l2" : 10 ** l})] * (n_hidden_layers + 1),
+                            "o_reg" : [(L2, {"l2" : 10 ** l})] * (n_hidden_layers + 1),
                             "h_kernel_initializer" : ["lecun_uniform"] * (n_hidden_layers + 1),
                             "h_kernel_constraints" : [None] * (n_hidden_layers + 1),
                             "h_bias_initializer" : ["lecun_uniform"] * (n_hidden_layers + 1),
@@ -117,7 +123,7 @@ gs_params = {"model_params" : {f"reg_{l}" : {
                             "loss" : ["MeanSquaredError"] * (n_hidden_layers + 1),
                             "loss_weights" : [2, 7, 20, 54, 148, 400],
                             "optimizer" : {"class_name" : "Adam", "config" : {"learning_rate" : 1e-3}}
-                        } for l in [1, 0.1, 0.01, 0.001]}}
+                        } for l in [-1, -2, -3, -4]}}
 
 config["grid_search"] = construct_gs_params(gs_params)
 config["run_id"] = "dense"
@@ -130,48 +136,23 @@ gs_params = {"model_params" : {f"degree_{d}_alpha_{a}" : {"kernel" : "poly", "de
 config["model"] = KernelRidge
 config["run_id"] = "krr"
 config["task"] = "regression"
-config["results_processors"] = config["results_processors"][:-1]
+config["results_processors"] = config["results_processors"]
 config["grid_search"] = construct_gs_params(gs_params)
 pipeline = MLPipeline(config)
 pipeline.run_crossvalidation()
-"""
-# Compile results
-def compile_results(tag, gridsearch):
-    results = []
-    for i, fold in enumerate([x for x in os.listdir(f"{run_dir}/{tag}") if os.path.isdir(f"{run_dir}/{tag}/{x}")]):
-        for cv in [x for x in os.listdir(f"{run_dir}/{tag}/{fold}") if os.path.isdir(f"{run_dir}/{tag}/{fold}/{x}")]:
-            with open(f"{run_dir}/{tag}/{fold}/{cv}/config.txt") as f:
-                run_config = json.loads(f.read())
-            result = pd.read_csv(f"{run_dir}/{tag}/{fold}/{cv}/summary_results.csv")
-            result.columns = ["split"] + list(result.columns[1:])
-            result["test_fold"] = i
-            for k,v in gridsearch.items():
-                result[k] = run_config[v]
-            results.append(result)
-    results = pd.concat(results)
-    val_means = results.loc[results["split"] == "val"].groupby(list(gridsearch.keys()) + ["test_fold"])["auc_r2"].mean().reset_index()
-    top = val_means.iloc[val_means.groupby("test_fold")["auc_r2"].idxmax(), ]
-    filt = None
-    for k,v in gridsearch.items():
-        if filt is None:
-            filt = results[k] == top[k].iat[0]
-        else:
-            filt = (results[k] == top[k].iat[0]) & filt
-    results = results.loc[filt]
-    aggresults = results.groupby("split")[["auc_r2", "auc_explained_variance", "auc_mse", "auc_mae"]].agg(["mean", "std"])
-    hyperparams = "_".join([top[k].iat[0] for k in gridsearch.keys()])
-    aggresults.to_csv(f"{wd}/{tag}_{hyperparams}_results.csv")
-    return results.loc[results["split"] == "test"]
 
-dense_results = compile_results("dense", {"reg" : "model_params_choice", "es" : "fitting_params_choice"})
-pnet_results = compile_results("pnet", {"reg" : "model_params_choice", "es" : "fitting_params_choice"})
-krr_results = compile_results("krr", {"hyper" : "model_params_choice"})
+metrics = ["auc_r2", "auc_explained_variance" ,"auc_mse", "auc_mae"]
+results = {m : pd.read_csv(f"{run_dir}/{m}/results.csv", index_col=0) for m in os.listdir(run_dir)}
+result_table = []
+for k,v in results.items():
+    df = v.groupby("index")[metrics].agg(["mean", "std"])
+    df["model"] = k
+    result_table.append(df)
+result_table = pd.concat(result_table)
+result_table.to_csv(f"{wd}/results.csv")
 
-metrics = ["auc_r2", "auc_explained_variance", "auc_mse", "auc_mae"]
-pvd = [ttest_ind(pnet_results[x], dense_results[x]).pvalue for x in metrics]
-pvk = [ttest_ind(pnet_results[x], krr_results[x]).pvalue for x in metrics]
-svd = [ttest_ind(krr_results[x], dense_results[x]).pvalue for x in metrics]
-sigresults = pd.DataFrame((pvd, pvk, svd), columns=metrics, index=["pnet_v_dense", "pnet_v_krr", "krr_v_dense"])
+pvd = [ttest_ind(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["dense"]["index"] == "test", x]).pvalue for x in metrics]
+pvk = [ttest_ind(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["krr"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
+svd = [ttest_ind(results["krr"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
+sigresults = pd.DataFrame((pvd, pvk, svd), columns=metrics, index=["pnet_v_dense", "pnet_v_krr", "svc_v_dense"])
 sigresults.to_csv(f"{wd}/significance_tests.csv")
-"""
-

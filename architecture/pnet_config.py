@@ -47,8 +47,8 @@ config = {
         "class_weight" : [[0.75, 1.5]] * (n_hidden_layers + 1)
     },
     "grid_search" : [],
-    "val_metric" : lambda x : x,
-    "use_validation_on_test" : True,
+    "val_metric" : {},
+    "use_validation_on_test" : False,
     "results_processors" : [],
     "fold_collators" : [],
     "grid_search_collators" : [collate_grid_search],

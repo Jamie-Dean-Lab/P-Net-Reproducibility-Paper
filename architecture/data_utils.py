@@ -136,47 +136,106 @@ class MultiViewDataset:
         """
         pass
     
-    def _get_train_test_split(self, train_proportion : float, seed : int = 42):
+    def _get_train_test_split(self, train_proportion : float, stratified : bool = False, seed : int = 42):
         """
         Internal method which returns a random split of the data by indices
 
         args:
             train_proportion (float) : Numeric value between 0 and 1 specifying size of train proportion
+            stratified (bool) : whether to perform stratified train test split. Assumes categorical label one hot encoded
             seed (int) : Integer used to determine the randomness of the split
         """
         rng = np.random.default_rng(seed)
-        idxs = np.arange(len(self.ids))
-        split = int(len(idxs) * train_proportion)
-        rng.shuffle(idxs)
-        train_idxs = idxs[:split]
-        test_idxs = idxs[split:]
+        if not stratified:
+            idxs = np.arange(len(self.ids))
+            split = int(len(idxs) * train_proportion)
+            rng.shuffle(idxs)
+            train_idxs = idxs[:split]
+            test_idxs = idxs[split:]
+        else:
+            idxs = []
+            splits = []
+            if self.labels.shape[1] > 1:
+                for i in range(self.labels.shape[1]):
+                    group_idx = np.argwhere(self.labels.iloc[:, i] == 1)
+                    if len(group_idx) > 1:
+                        splits.append(int(len(group_idx) * train_proportion))
+                        idxs.append(group_idx)
+                    else:
+                        print(f"Warning : label {self.labels.columns[i]} has less than 2 instances, unable to stratify")
+            else:
+                for i in range(2):
+                    group_idx = np.argwhere(self.labels.iloc[:, 0] == i)
+                    if len(group_idx) > 1:
+                        splits.append(int(len(group_idx) * train_proportion))
+                        idxs.append(group_idx)
+                    else:
+                        print(f"Warning : label {self.labels.columns[i]} has less than 2 instances, unable to stratify")
+            train_idxs = np.concatenate([idxs[i][:splits[i]].ravel() for i in range(len(idxs))])
+            test_idxs = np.concatenate([idxs[i][splits[i]:].ravel() for i in range(len(idxs))])
+            rng.shuffle(train_idxs)
+            rng.shuffle(test_idxs)
+
         return train_idxs, test_idxs
     
-    def _get_k_splits(self, n_splits : int, seed : int = 42):
+    def _get_k_splits(self, n_splits : int, stratified : bool = False, seed : int = 42):
         """
         Internal method which returns k splits of the data as indices
 
         args:
             n_splits (int) : Positive integer specifying the number of splits
+            stratified (bool) : whether to perform stratified train test split. Assumes categorical label one hot encoded
             seed : Integer used to determine the randomness of the split
 
         returns:
             folds (list, list) : tuple of lists containing indices for train and validation
                                  folds
         """
+        if n_splits == 1:
+            return [(np.arange(len(self.ids)), [])]
         rng = np.random.default_rng(seed)
-        idxs = np.arange(len(self.ids))
-        splits = range(0, len(self.ids), len(self.ids) // n_splits)
-        rng.shuffle(idxs)
-        if n_splits > 1 :
+        if not stratified:
+            idxs = np.arange(len(self.ids))
+            splits = range(0, len(self.ids), len(self.ids) // n_splits)
+            rng.shuffle(idxs)
             folds = []
             for i in range(n_splits):
-                val_split = idxs[splits[i]:splits[i+1]] if i < n_splits - 1 else idxs[splits[i]:]
-                train_split = list(set(idxs) - set(val_split))
+                val_split = idxs[splits[i]:splits[i+1]].ravel() if i < n_splits - 1 else idxs[splits[i]:].ravel()
+                train_split = idxs[~np.isin(idxs, val_split)]
                 folds.append((train_split, val_split))
             return folds
         else:
-            return [(idxs, [])]
+            idxs = []
+            splits = []
+            if self.labels.shape[1] > 1:
+                for i in range(self.labels.shape[1]):
+                    group_idx = np.argwhere(self.labels.iloc[:, i] == 1)
+                    cv_splits = range(0, len(group_idx), len(group_idx) // n_splits)
+                    if len(group_idx) > n_splits:
+                        splits.append(cv_splits)
+                        idxs.append(group_idx)
+                    else:
+                        print(f"Warning : label {self.labels.columns[i]} has less than {n_splits} instances, unable to stratify")
+            else:
+                for i in range(2):
+                    group_idx = np.argwhere(self.labels.iloc[:, 0] == i)
+                    cv_splits = range(0, len(group_idx), len(group_idx) // n_splits)
+                    if len(group_idx) > n_splits:
+                        splits.append(cv_splits)
+                        idxs.append(group_idx)
+                    else:
+                        print(f"Warning : label {self.labels.columns[i]} has less than {n_splits} instances, unable to stratify")
+            folds = []
+            for i in range(n_splits):
+                val_split = [idxs[j][splits[j][i]:splits[j][i+1]].ravel() if i < n_splits - 1 else idxs[j][splits[j][i]:].ravel() for j in range(len(idxs))]
+                train_split = [idxs[j][~np.isin(idxs[j], val_split[j])] for j in range(len(idxs))]
+                val_split = np.concatenate(val_split)
+                train_split = np.concatenate(train_split)
+                rng.shuffle(train_split)
+                rng.shuffle(val_split)
+                folds.append((train_split, val_split))
+            return folds
+
     
     def _get_specific_split(self, train_ids, val_ids, test_ids, seed : int = 42):
         """
@@ -345,7 +404,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
         """
         return self.alignment_ids
     
-    def get_train_test_split(self, train_proportion : float, seed : int = 42):
+    def get_train_test_split(self, train_proportion : float, stratified : bool = False, seed : int = 42):
         """
         Method for obtaining a random train test split
 
@@ -356,12 +415,12 @@ class ConcatMultiViewDataset(MultiViewDataset):
         returns:
             ConcatMultiViewDataset, ConcatMultiViewDataset : Tuple with train test datasets
         """
-        train_idxs, test_idxs = self._get_train_test_split(train_proportion, seed)
+        train_idxs, test_idxs = self._get_train_test_split(train_proportion, stratified, seed)
         train_data = self._copy(train_idxs)
         test_data = self._copy(test_idxs)
         return train_data, test_data
     
-    def get_k_splits(self, n_splits : int, seed : int = 42):
+    def get_k_splits(self, n_splits : int, stratified : bool = False, seed : int = 42):
         """
         Method for obtaining k folds for doing crossvalidation as a generator
 
@@ -372,7 +431,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
         returns:
             ConcatMultiViewDataset, ConcatMultiViewDataset : Returns train and test datasets
         """
-        for train_idxs, val_idxs in self._get_k_splits(n_splits, seed):
+        for train_idxs, val_idxs in self._get_k_splits(n_splits, stratified, seed):
             train_df = self._copy(train_idxs)
             test_df = self._copy(val_idxs)
             yield (train_df, test_df)

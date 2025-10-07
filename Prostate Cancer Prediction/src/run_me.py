@@ -58,6 +58,14 @@ config["results_processors"] = [lambda x : save_results(x, save_supervised_resul
                                                                           "accuracy" : lambda ys, preds : accuracy_score(ys, (preds > 0.5).astype(int))}, 
                                                                           "individual"),
                             plot_history, get_deeplift_global]
+config["use_validation_on_test"] = True
+f1_selection = lambda x : f1_score(x["val_df"].ys, (x["val_preds"] >= 0.5).astype(int))
+auprc_selection = lambda x : average_precision_score(x["val_df"].ys, x["val_preds"])
+auc_selection = lambda x : roc_auc_score(x["val_df"].ys, x["val_preds"])
+config["val_metric"] = {"f1" : f1_selection, "auprc" : auprc_selection, "auc" : auc_selection}
+config["rng_seed"] = 20080808
+config["tt_split_seed"] = 20080808
+config["tv_split_seed"] = 20080808
 
 # Run PNet on specific training, validation, and test
 pipeline = TFPipeline(config)
@@ -79,13 +87,32 @@ ml_config["results_processors"] = ml_config["results_processors"][:-2]
 pipeline = MLPipeline(ml_config)
 pipeline.run_single_split()
 
+ml_config["run_id"] = "decision_tree_elmarakeby"
+gs_params = {"model_params" : {f"ssplit_{s}_depth_{d}" : {"min_samples_split" : s, "max_depth" : d,
+                                                         "class_weight" : {0 : 0.75, 1 : 1.5}
+                                                         } for s in [10]
+                                                         for d in [10]}}
+ml_config["val_metric"] = {"f1" : f1_selection}
+ml_config["grid_search"] = construct_gs_params(gs_params)
+pipeline = MLPipeline(ml_config)
+pipeline.run_single_split()
+
 # Linear SVC
 ml_config["model"] = SVC
 gs_params = {"model_params" : {f"c_{c}" : {"kernel" : "linear", "probability" : True,
                                            "C" : c, "class_weight" : {0 : 0.75, 1 : 1.5}}
                                            for c in [0.001, 0.01, 0.1, 1, 10, 100, 1000]}}
+ml_config["val_metric"] = {"f1" : f1_selection, "auprc" : auprc_selection, "auc" : auc_selection}
 ml_config["grid_search"] = construct_gs_params(gs_params)
 ml_config["run_id"] = "linear_svm"
+pipeline = MLPipeline(ml_config)
+pipeline.run_single_split()
+gs_params = {"model_params" : {f"c_{c}" : {"kernel" : "linear", "probability" : True,
+                                           "C" : c, "class_weight" : {0 : 0.75, 1 : 1.5}}
+                                           for c in [0.1]}}
+ml_config["val_metric"] = {"f1" : f1_selection}
+ml_config["grid_search"] = construct_gs_params(gs_params)
+ml_config["run_id"] = "linear_svm_elmarakeby"
 pipeline = MLPipeline(ml_config)
 pipeline.run_single_split()
 
@@ -97,7 +124,18 @@ gs_params = {"model_params" : {f"c_{c}_g_{g}" : {"kernel" : "rbf", "probability"
                                            for c in [0.001, 0.01, 0.1, 1, 10, 100, 1000]
                                            for g in [0.001, 0.01, 0.1, 1]}}
 ml_config["grid_search"] = construct_gs_params(gs_params)
+ml_config["val_metric"] = {"f1" : f1_selection, "auprc" : auprc_selection, "auc" : auc_selection}
 ml_config["run_id"] = "rbf_svm"
+pipeline = MLPipeline(ml_config)
+pipeline.run_single_split()
+gs_params = {"model_params" : {f"c_{c}_g_{g}" : {"kernel" : "rbf", "probability" : True,
+                                           "C" : c, "class_weight" : {0 : 0.75, 1 : 1.5},
+                                           "gamma" : g}
+                                           for c in [100]
+                                           for g in [0.001]}}
+ml_config["grid_search"] = construct_gs_params(gs_params)
+ml_config["val_metric"] = {"f1" : f1_selection}
+ml_config["run_id"] = "rbf_svm_elmarakeby"
 pipeline = MLPipeline(ml_config)
 pipeline.run_single_split()
 
@@ -107,7 +145,16 @@ gs_params = {"model_params" : {f"bootstrap_{b}_depth_{d}_estimators_{n}" :
                                {"bootstrap" : b, "max_depth" : d, "n_estimators" : n, "class_weight" : {0 : 0.75, 1 : 1.5}}
                                for b in [True, False] for d in [10, 30, 50, 70, None] for n in [10, 50, 100, 200]}}
 ml_config["grid_search"] = construct_gs_params(gs_params)
+ml_config["val_metric"] = {"f1" : f1_selection, "auprc" : auprc_selection, "auc" : auc_selection}
 ml_config["run_id"] = "random_forest"
+pipeline = MLPipeline(ml_config)
+pipeline.run_single_split()
+gs_params = {"model_params" : {f"bootstrap_{b}_depth_{d}_estimators_{n}" : 
+                               {"bootstrap" : b, "max_depth" : d, "n_estimators" : n, "class_weight" : {0 : 0.75, 1 : 1.5}}
+                               for b in [False] for d in [None] for n in [50]}}
+ml_config["grid_search"] = construct_gs_params(gs_params)
+ml_config["val_metric"] = {"f1" : f1_selection}
+ml_config["run_id"] = "random_forest_elmarakeby"
 pipeline = MLPipeline(ml_config)
 pipeline.run_single_split()
 
@@ -117,7 +164,16 @@ gs_params = {"model_params" : {f"lr_{l}_estimators_{n}" :
                                {"learning_rate" : l, "n_estimators" : n}
                                for l in [0.01, 0.05, 0.1, 0.3, 1] for n in [50, 100]}}
 ml_config["grid_search"] = construct_gs_params(gs_params)
+ml_config["val_metric"] = {"f1" : f1_selection, "auprc" : auprc_selection, "auc" : auc_selection}
 ml_config["run_id"] = "adaboost"
+pipeline = MLPipeline(ml_config)
+pipeline.run_single_split()
+gs_params = {"model_params" : {f"lr_{l}_estimators_{n}" : 
+                               {"learning_rate" : l, "n_estimators" : n}
+                               for l in [0.1] for n in [50]}}
+ml_config["grid_search"] = construct_gs_params(gs_params)
+ml_config["run_id"] = "adaboost_elmarakeby"
+ml_config["val_metric"] = {"f1" : f1_selection}
 pipeline = MLPipeline(ml_config)
 pipeline.run_single_split()
 
@@ -129,38 +185,49 @@ gs_params = {"model_params" : {f"alpha_{a}_penalty_{p}" :
                                for a in [0.0001, 0.001, .009, 0.01, .09, 1, 5, 10]
                                for p in ["l1", "l2"]}}
 ml_config["grid_search"] = construct_gs_params(gs_params)
+ml_config["val_metric"] = {"f1" : f1_selection, "auprc" : auprc_selection, "auc" : auc_selection}
 ml_config["run_id"] = "sgd_logistic_regression"
+pipeline = MLPipeline(ml_config)
+pipeline.run_single_split()
+gs_params = {"model_params" : {f"alpha_{a}_penalty_{p}" : 
+                               {"alpha" : a, "penalty" : p, "class_weight" : {0 : 0.75, 1 : 1.5},
+                                "loss" : "log_loss"}
+                               for a in [0.01]
+                               for p in ["l2"]}}
+ml_config["grid_search"] = construct_gs_params(gs_params)
+ml_config["val_metric"] = {"f1" : f1_selection}
+ml_config["run_id"] = "sgd_logistic_regression_elmarakeby"
 pipeline = MLPipeline(ml_config)
 pipeline.run_single_split()
 
 # Create 5 different splits of data to get crossvalidated estimate of test performance on different train sizes
 
-
 config["results_processors"] = config["results_processors"][:-1]
-random.seed(42)
-seeds = [random.randint(0, 1000000) for _ in range(5)]
+config["stratified"] = True
+config["inner_kfolds"] = 5
+config["val_samples"] = pd.read_csv(f"{data_dir}/prostate/splits/validation_set.csv")["id"].to_list()
+config["test_samples"] = pd.read_csv(f"{data_dir}/prostate/splits/test_set.csv")["id"].to_list()
+config["tv_split_seed"] = 20080808
+config["fold_collators"].append(collate_folds)
+train_samples = [pd.read_csv(f"{data_dir}/prostate/splits/training_set_{s}.csv")["id"].to_list() + config["val_samples"] for s in range(0, 20, 3)]
+config["use_validation_on_test"] = False
+config["val_metric"] = {}
+config["grid_search_collators"] = []
 
-for seed in seeds:
-    gs_params = {"train_samples" : {f"trainsize_{s}" : s for s in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]}}
-    config["val_samples"] = 0.1
-    config["test_samples"] = 0.1
-    config["grid_search"] = construct_gs_params(gs_params)
-    config["run_id"] = f"pnet_train_size_variation_{seed}"
-    config["tt_split_seed"] = seed
+for i, ts in enumerate(train_samples):
+    config["train_samples"] = ts
+    config["run_id"] = f"pnet_train_size_variation_{i}"
     pipeline = TFPipeline(config)
-    pipeline.run_single_split()
+    pipeline.run_crossvalidation()
 
 # Do the same for fully connected pnet
-for seed in seeds:
-    gs_params = {"train_samples" : {f"trainsize_{s}" : s for s in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]}}
-    config["val_samples"] = 0.1
-    config["test_samples"] = 0.1
-    config["grid_search"] = construct_gs_params(gs_params)
-    config["run_id"] = f"pnetfc_train_size_variation_{seed}"
-    config["tt_split_seed"] = seed
-    config["model_params"]["sparse"] = False
+config["model_params"]["sparse"] = False
+
+for i, ts in enumerate(train_samples):
+    config["train_samples"] = ts
+    config["run_id"] = f"pnetfc_train_size_variation_{i}"
     pipeline = TFPipeline(config)
-    pipeline.run_single_split()
+    pipeline.run_crossvalidation()
 
 # Do the same for dense net
 dense_config["data_dir"] = f"{data_dir}/prostate/processed"
@@ -176,34 +243,30 @@ dense_config["results_processors"] = [lambda x : save_results(x, save_supervised
                                                                           "auprc" : average_precision_score,
                                                                           "f1" : lambda ys, preds : f1_score(ys, (preds > 0.5).astype(int)),
                                                                           "accuracy" : lambda ys, preds : accuracy_score(ys, (preds > 0.5).astype(int))}, 
-                                                                          "individual"),
-                            plot_history]
-for seed in seeds:
-    gs_params = {"train_samples" : {f"trainsize_{s}" : s for s in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]}}
-    dense_config["val_samples"] = 0.1
-    dense_config["test_samples"] = 0.1
-    dense_config["grid_search"] = construct_gs_params(gs_params)
-    dense_config["run_id"] = f"dense_train_size_variation_{seed}"
-    dense_config["tt_split_seed"] = seed
+                                                                          "individual")]
+dense_config["stratified"] = True
+dense_config["inner_kfolds"] = 5
+dense_config["tv_split_seed"] = 20080808
+dense_config["fold_collators"].append(collate_folds)
+dense_config["val_samples"] = pd.read_csv(f"{data_dir}/prostate/splits/validation_set.csv")["id"].to_list()
+dense_config["test_samples"] = pd.read_csv(f"{data_dir}/prostate/splits/test_set.csv")["id"].to_list()
+dense_config["val_metric"] = {}
+dense_config["grid_search_collators"] = []
+dense_config["use_validation_on_test"] = False
+
+for i, ts in enumerate(train_samples):
+    dense_config["train_samples"] = ts
+    dense_config["run_id"] = f"dense_train_size_variation_{i}"
     pipeline = TFPipeline(dense_config)
-    pipeline.run_single_split()
+    pipeline.run_crossvalidation()
 
 # Plot results
 results = {}
 tabular = []
-for model in [x for x in os.listdir(run_dir) if x.find("train_size_variation") == -1]:
+for model in [x for x in os.listdir(run_dir) if x.find("elmarakeby") > -1 or x.find("specific_train_split") > -1]:
     if model.find("pnet") == -1:
-        cvs = []
-        for cv in [x for x in os.listdir(f"{run_dir}/{model}") if os.path.isdir(f"{run_dir}/{model}/{x}")]:
-            summary = pd.read_csv(f"{run_dir}/{model}/{cv}/summary_results.csv")
-            summary.columns = ["split"] + list(summary.columns[1:])
-            summary["cv"] = cv
-            cvs.append(summary)
-        cvs = pd.concat(cvs)
-        cvs = cvs.loc[cvs["split"] == "val"].sort_values("response_auc", ascending=False)
-        best_cv = cvs["cv"].iat[0]
-        results[model] = pd.read_csv(f"{run_dir}/{model}/{best_cv}/test_results.csv", index_col=0)
-        summary = pd.read_csv(f"{run_dir}/{model}/{best_cv}/summary_results.csv")
+        results[model] = pd.read_csv(f"{run_dir}/{model}/best_f1/test_results.csv", index_col=0)
+        summary = pd.read_csv(f"{run_dir}/{model}/best_f1/summary_results.csv")
         summary["model"] = model
         summary.columns = ["split"] + summary.columns[1:].to_list()
         tabular.append(summary)
@@ -222,51 +285,47 @@ tabular.to_csv(f"{wd}/specific_split_results.csv")
 pnet_results = []
 for exp_dir in [x for x in os.listdir(run_dir) if x.find("pnet_train_size_variation") > -1]:
     pnet_dir = f"{run_dir}/{exp_dir}"
-    for cv in [x for x in os.listdir(pnet_dir) if os.path.isdir(f"{pnet_dir}/{x}")]:
-        with open(f"{pnet_dir}/{cv}/config.txt") as f:
-            config = json.loads(f.read())
-        data = pd.read_csv(f"{pnet_dir}/{cv}/summary_results.csv", index_col=0)
-        result = {"n_samples" : int(config["train_samples"] * 1011),
-                "auc" : data.loc["test", "response_auc"],
-                "rng" : config["tt_split_seed"]}
-        pnet_results.append(result)
-pnet_results = pd.DataFrame(pnet_results)
+    data = pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_summaries.csv", index_col=0)
+    n_samples = pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_0/train_results.csv").shape[0] + pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_0/val_results.csv").shape[0]
+    data = data.loc[data["split"] == "val", ["response_auc", "fold"]]
+    data["n_samples"] = n_samples
+    pnet_results.append(data)
+pnet_results = pd.concat(pnet_results)
 
 pnetfc_results = []
 for exp_dir in [x for x in os.listdir(run_dir) if x.find("pnetfc_train_size_variation") > -1]:
-    pnetfc_dir = f"{run_dir}/{exp_dir}"
-    for cv in [x for x in os.listdir(pnetfc_dir) if os.path.isdir(f"{pnetfc_dir}/{x}")]:
-        with open(f"{pnetfc_dir}/{cv}/config.txt") as f:
-            config = json.loads(f.read())
-        data = pd.read_csv(f"{pnetfc_dir}/{cv}/summary_results.csv", index_col=0)
-        result = {"n_samples" : int(config["train_samples"] * 1011),
-                "auc" : data.loc["test", "response_auc"],
-                "rng" : config["tt_split_seed"]}
-        pnetfc_results.append(result)
-pnetfc_results = pd.DataFrame(pnetfc_results)
+    pnet_dir = f"{run_dir}/{exp_dir}"
+    data = pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_summaries.csv", index_col=0)
+    n_samples = pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_0/train_results.csv").shape[0] + pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_0/val_results.csv").shape[0]
+    data = data.loc[data["split"] == "val", ["response_auc", "fold"]]
+    data["n_samples"] = n_samples
+    pnetfc_results.append(data)
+pnetfc_results = pd.concat(pnetfc_results)
 
 dense_results = []
 for exp_dir in [x for x in os.listdir(run_dir) if x.find("dense_train_size_variation") > -1]:
-    dense_dir = f"{run_dir}/{exp_dir}"
-    for cv in [x for x in os.listdir(dense_dir) if os.path.isdir(f"{dense_dir}/{x}")]:
-        with open(f"{dense_dir}/{cv}/config.txt") as f:
-            config = json.loads(f.read())
-        data = pd.read_csv(f"{dense_dir}/{cv}/summary_results.csv", index_col=0)
-        result = {"n_samples" : int(config["train_samples"] * 1011),
-                "auc" : data.loc["test", "response_auc"],
-                "rng" : config["tt_split_seed"]}
-        dense_results.append(result)
-dense_results = pd.DataFrame(dense_results)
+    pnet_dir = f"{run_dir}/{exp_dir}"
+    data = pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_summaries.csv", index_col=0)
+    n_samples = pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_0/train_results.csv").shape[0] + pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_0/val_results.csv").shape[0]
+    data = data.loc[data["split"] == "val", ["response_auc", "fold"]]
+    data["n_samples"] = n_samples
+    dense_results.append(data)
+dense_results = pd.concat(dense_results)
 
-pnet_dense_stats = [ttest_ind(pnet_results.loc[pnet_results["n_samples"] == n, "auc"].to_numpy(), 
-                              dense_results.loc[dense_results["n_samples"] == n, "auc"].to_numpy()).pvalue < 0.05 
+pnet_dense_stats = [ttest_ind(pnet_results.loc[pnet_results["n_samples"] == n, "response_auc"].to_numpy(), 
+                              dense_results.loc[dense_results["n_samples"] == n, "response_auc"].to_numpy()).pvalue < 0.05 
                               for n in pnet_results["n_samples"].unique()]
-pnet_pnetfc_stats = [ttest_ind(pnet_results.loc[pnet_results["n_samples"] == n, "auc"].to_numpy(), 
-                              pnetfc_results.loc[pnetfc_results["n_samples"] == n, "auc"].to_numpy()).pvalue < 0.05 
+pnet_pnetfc_stats = [ttest_ind(pnet_results.loc[pnet_results["n_samples"] == n, "response_auc"].to_numpy(), 
+                              pnetfc_results.loc[pnetfc_results["n_samples"] == n, "response_auc"].to_numpy()).pvalue < 0.05 
                               for n in pnet_results["n_samples"].unique()]
-pnet_results = pnet_results.groupby("n_samples")["auc"].agg(["mean", "std"]).reset_index()
-pnetfc_results = pnetfc_results.groupby("n_samples")["auc"].agg(["mean", "std"]).reset_index()
-dense_results = dense_results.groupby("n_samples")["auc"].agg(["mean", "std"]).reset_index()
+pnet_results = pnet_results.groupby("n_samples")["response_auc"].agg(["mean", "std"]).reset_index()
+pnetfc_results = pnetfc_results.groupby("n_samples")["response_auc"].agg(["mean", "std"]).reset_index()
+dense_results = dense_results.groupby("n_samples")["response_auc"].agg(["mean", "std"]).reset_index()
+pnet_results = pnet_results.iloc[range(1, pnet_results.shape[0], 2)]
+pnetfc_results = pnetfc_results.iloc[range(1, pnetfc_results.shape[0], 2)]
+dense_results = dense_results.iloc[range(1, dense_results.shape[0], 2)]
+pnet_dense_stats = [pnet_dense_stats[i] for i in range(1, len(pnet_dense_stats), 2)]
+pnet_pnetfc_stats = [pnet_pnetfc_stats[i] for i in range(1, len(pnet_pnetfc_stats), 2)]
 results = {"number_of_samples" : pnet_results["n_samples"], "pnet_auc" : pnet_results["mean"],
            "pnet_lower_bound" : pnet_results["mean"] - pnet_results["std"],
            "pnet_upper_bound" : pnet_results["mean"] + pnet_results["std"],

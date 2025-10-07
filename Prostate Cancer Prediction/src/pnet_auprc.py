@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.metrics import auc
-from sklearn.metrics import precision_recall_curve
+from sklearn.metrics import precision_recall_curve, average_precision_score
 from enum import Enum
 
 class DataLoaderAUPRC:
@@ -99,7 +99,7 @@ class PlotAUPRC:
         increasing_indices = np.argsort(recall_list)
         sorted_recall_list = recall_list[increasing_indices]
         sorted_precision_list = precision_list[increasing_indices]
-        auprc = auc(sorted_recall_list, sorted_precision_list)
+        auprc = auc(recall_list, precision_list) #auc(sorted_recall_list, sorted_precision_list)
         return auprc
     
     # adapted from the scikit learn tutorial: https://scikit-learn.org/stable/auto_examples/model_selection/plot_precision_recall.html
@@ -169,7 +169,7 @@ class PlotAUPRC:
 
             # compute a list of (precision, recall) pairs at various thresholds
             precision_list, recall_list, _ = precision_recall_curve(y_true, pred_scores)
-            auprc = self._compute_auprc(recall_list, precision_list)
+            auprc = average_precision_score(y_true, pred_scores)
             label = f'{model_name} ({round(auprc, 2)})'
             ax.plot(recall_list, precision_list, label=label, c=self.config.plot_colors.value[i])
 

@@ -1,6 +1,7 @@
 from tqdm import tqdm
 import numpy as np
 import plotly.graph_objects as go
+import kaleido
 
 class SankeyDiagram:
 
@@ -113,4 +114,4 @@ class SankeyDiagram:
         )
         print(diagram_source)
         print(diagram_target)
-        fig.write_image(save_path)
+        fig.write_image(f"{save_path}")

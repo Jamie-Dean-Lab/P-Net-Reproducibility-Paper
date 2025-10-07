@@ -62,7 +62,7 @@ class ComparativeAnalysis:
     def compute_xticks(self):
         maximum_x_value = max(self.number_of_samples)
         minimum_x_value = min(self.number_of_samples)
-        space = int(maximum_x_value/len(self.number_of_samples))-1
+        space = int((maximum_x_value - minimum_x_value) / len(self.number_of_samples)) + 1
         x_ticks = range(minimum_x_value, maximum_x_value, space)
         return x_ticks
     
@@ -148,6 +148,9 @@ class ComparativeAnalysis:
                   frameon=self.config.legend_frame.value,
                   fontsize=self.config.legend_fontsize.value)
         
+        ax.fill_between(x_ticks, self.pnet_lower_bound, self.pnet_upper_bound, color=self.config.pnet_auc_color.value, edgecolor=None, alpha=0.15)
+        ax.fill_between(x_ticks, self.dense_lower_bound, self.dense_upper_bound, color=self.config.dense_auc_color.value, edgecolor=None, alpha=0.15)
+        """
         for i in range(len(self.number_of_samples)-1):
             x = self.number_of_samples[i]
             next_x = self.number_of_samples[i+1]
@@ -175,6 +178,7 @@ class ComparativeAnalysis:
                             alpha=0.15,
                             color=self.config.dense_auc_color.value,
                             edgecolor=None)
+        """
 
         ax = self.format_spines(ax)
         ax.set_xticks(x_ticks)
