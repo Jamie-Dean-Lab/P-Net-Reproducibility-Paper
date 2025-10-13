@@ -1,7 +1,7 @@
 import os, sys, json
 from sklearn.svm import LinearSVC
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score, f1_score
-from scipy.stats import ttest_ind
+from scipy.stats import ttest_rel
 
 sys.path.insert(0, os.getcwd())
 from architecture.data_utils import *
@@ -76,7 +76,7 @@ gs_params = {"model_params" : {f"reg_{l}" : {
                             } for l in [-3, -4, -5, -6]}}
 config["grid_search"] = construct_gs_params(gs_params)
 pipeline = TFPipeline(config)
-pipeline.run_crossvalidation()
+#pipeline.run_crossvalidation()
 
 # Run fully connected
 config["run_id"] = "dense"
@@ -102,7 +102,7 @@ gs_params = {"model_params" : {f"reg_{l}" : {
                             } for l in [-3, -4, -5, -6]}}
 config["grid_search"] = construct_gs_params(gs_params)
 pipeline = TFPipeline(config)
-pipeline.run_crossvalidation()
+#pipeline.run_crossvalidation()
 
 # Run base model
 config["run_id"] = "svc"
@@ -117,7 +117,7 @@ config["results_processors"] = [lambda x : save_results(x, save_supervised_resul
 gs_params = {"model_params" : {f"c_{c}" : {"estimator" : LinearSVC, "args" : {"C" : 10 ** c}} for c in [1, 0, -1, -2, -3]}}
 config["grid_search"] = construct_gs_params(gs_params)
 pipeline = MLPipeline(config)
-pipeline.run_crossvalidation()
+#pipeline.run_crossvalidation()
 
 # Compile results
 metrics = ["auc", "auprc" ,"f1", "accuracy"]
@@ -130,8 +130,8 @@ for k,v in results.items():
 result_table = pd.concat(result_table)
 result_table.to_csv(f"{wd}/results.csv")
 
-pvd = [ttest_ind(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["dense"]["index"] == "test", x]).pvalue for x in metrics]
-pvs = [ttest_ind(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["svc"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
-svd = [ttest_ind(results["svc"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
+pvd = [ttest_rel(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["dense"]["index"] == "test", x]).pvalue for x in metrics]
+pvs = [ttest_rel(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["svc"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
+svd = [ttest_rel(results["svc"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
 sigresults = pd.DataFrame((pvd, pvs, svd), columns=metrics, index=["pnet_v_dense", "pnet_v_svc", "svc_v_dense"])
 sigresults.to_csv(f"{wd}/significance_tests.csv")

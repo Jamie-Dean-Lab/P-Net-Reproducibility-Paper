@@ -6,6 +6,7 @@ from keras.activations import linear, relu, tanh, leaky_relu
 from keras.losses import MeanSquaredError
 from functools import partial
 from sklearn.kernel_ridge import KernelRidge
+from scipy.stats import ttest_rel
 
 sys.path.insert(0, os.getcwd())
 from architecture.data_utils import *
@@ -151,8 +152,8 @@ for k,v in results.items():
 result_table = pd.concat(result_table)
 result_table.to_csv(f"{wd}/results.csv")
 
-pvd = [ttest_ind(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["dense"]["index"] == "test", x]).pvalue for x in metrics]
-pvk = [ttest_ind(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["krr"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
-svd = [ttest_ind(results["krr"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
-sigresults = pd.DataFrame((pvd, pvk, svd), columns=metrics, index=["pnet_v_dense", "pnet_v_krr", "svc_v_dense"])
+pvd = [ttest_rel(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["dense"]["index"] == "test", x]).pvalue for x in metrics]
+pvk = [ttest_rel(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["krr"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
+svd = [ttest_rel(results["krr"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
+sigresults = pd.DataFrame((pvd, pvk, svd), columns=metrics, index=["pnet_v_dense", "pnet_v_krr", "krr_v_dense"])
 sigresults.to_csv(f"{wd}/significance_tests.csv")

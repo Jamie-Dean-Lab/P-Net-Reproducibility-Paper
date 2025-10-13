@@ -3,7 +3,6 @@ import joblib
 import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from scipy.stats import ttest_ind
 import matplotlib.pyplot as plt
 
 from keras.models import Sequential
