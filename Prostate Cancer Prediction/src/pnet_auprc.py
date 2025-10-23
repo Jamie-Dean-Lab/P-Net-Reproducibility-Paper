@@ -155,13 +155,12 @@ class PlotAUPRC:
 
         return ax
     
-    def plot(self, save=False, save_dir=None, show=False):
+    def plot(self, ax, title):
         """Plot the Area Under Precision Recall Curve."""
 
         # construct processed inputs
         self.process_results()
-
-        fig, ax = plt.subplots(figsize=self.config.plot_size.value)
+        ax.set_title(title, loc="left", fontdict={"fontsize" : 14, "fontweight": "bold"})
 
         for i, (model_name, model_results) in enumerate(self.processed_results.items()):
             y_true = model_results['y_true']
@@ -176,16 +175,6 @@ class PlotAUPRC:
         ax = self._plot_f1_isocurves(ax)
         ax = self._format_axes(ax)
         ax.legend(loc='lower left')
-
-        if save:
-            save_dir = os.getcwd() if (save_dir is None) else save_dir
-            save_file_path = os.path.join(save_dir, 'area_under_precision_recall_curve.jpg')
-            fig.savefig(save_file_path)
-        
-        if show:
-            plt.show()
-        else:
-            plt.close()
 
 
             

@@ -261,6 +261,8 @@ for i, ts in enumerate(train_samples):
     pipeline.run_crossvalidation()
 
 # Plot results
+
+fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
 results = {}
 tabular = []
 for model in [x for x in os.listdir(run_dir) if x.find("elmarakeby") > -1 or x.find("specific_train_split") > -1]:
@@ -278,7 +280,7 @@ for model in [x for x in os.listdir(run_dir) if x.find("elmarakeby") > -1 or x.f
         tabular.append(summary)
 
 auprc = PlotAUPRC(results)
-auprc.plot(save=True, save_dir=wd, show=False)
+auprc.plot(ax[0], "A")
 tabular = pd.concat(tabular)
 tabular.to_csv(f"{wd}/specific_split_results.csv")
 
@@ -335,7 +337,7 @@ results = {"number_of_samples" : pnet_results["n_samples"], "pnet_auc" : pnet_re
            "statistically_significant" : np.array(pnet_dense_stats)}
 
 compare = ComparativeAnalysis(results)
-compare.plot("pnet_dense_comparison.jpg", save=True, save_dir=wd, show=False)
+compare.plot(ax[1], "B", dense_label="Dense Single Layer")
 
 results = {"number_of_samples" : pnet_results["n_samples"], "pnet_auc" : pnet_results["mean"],
            "pnet_lower_bound" : pnet_results["mean"] - pnet_results["std"],
@@ -346,7 +348,10 @@ results = {"number_of_samples" : pnet_results["n_samples"], "pnet_auc" : pnet_re
            "statistically_significant" : np.array(pnet_pnetfc_stats)}
 
 compare = ComparativeAnalysis(results)
-compare.plot("pnet_pnetfc_comparison.jpg", dense_label="P-NET fully connected", save=True, save_dir=wd, show=False)
+compare.plot(ax[2], "C", dense_label="P-NET fully connected")
+plt.tight_layout()
+plt.savefig(f"{wd}/figure_1.jpg")
+plt.close()
 
 # Sankey plot
 layer_order = ["inputs"] + [f"h{i}" for i in range(1, 6)]
@@ -377,7 +382,7 @@ for i in range(len(maps)):
     weights[f"layer_{i+1}"] = maps[i].to_numpy() * deeplift[f"h{i}"].to_numpy()
 
 diagram = SankeyDiagram(layers, weights)
-diagram.plot([10, 10, 10, 10, 10, 6], f"{wd}/sankey.jpg")
+diagram.plot([10, 10, 10, 10, 10, 6], wd)
 
 
 

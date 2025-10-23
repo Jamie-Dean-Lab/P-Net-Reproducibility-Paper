@@ -2,6 +2,7 @@ from tqdm import tqdm
 import numpy as np
 import plotly.graph_objects as go
 import kaleido
+import pandas as pd
 
 class SankeyDiagram:
 
@@ -15,14 +16,17 @@ class SankeyDiagram:
     def _scale_network(self, number_of_important_points):
         self.labels_to_plot = {}
         self.weights_to_plot = {}
-
+        sorted_weights = []
         for i in tqdm(range(self.number_of_layers, 0, -1), total=self.number_of_layers, colour='red'):
             layer = f"layer_{i}"
             labels = self.labels[layer]
             weights = self.weights[layer]
             important_points = number_of_important_points[i-1]
-            total_importances = weights.sum(axis=1)
+            total_importances = np.abs(weights).sum(axis=1)
             sorted_label_indexes = np.argsort(total_importances)[::-1]
+            sorted_weights.append(pd.DataFrame({"Label" : labels[sorted_label_indexes], 
+                                                "Weight" : weights.sum(axis=1)[sorted_label_indexes],
+                                                "Layer" : [layer] * len(labels)}))
             selected_labels = []
             line_length = 33
             for label in labels[sorted_label_indexes[:important_points]]:
@@ -51,9 +55,12 @@ class SankeyDiagram:
                 residual_links = self.weights[layer][:, next_layer_residual_labels_indexes].sum(axis=1)
                 residual_links = residual_links.reshape(-1, 1)
                 self.weights[layer] = np.hstack([scaled_weights, residual_links])
+            
+        return pd.concat(sorted_weights)
 
     def plot(self, number_of_important_points, save_path):
-        self._scale_network(number_of_important_points)
+        sorted_weights = self._scale_network(number_of_important_points)
+        sorted_weights.to_csv(f"{save_path}/deeplift_weights.csv")
         self.diagram_indexes = {}
         diagram_labels = []
         diagram_source = []
@@ -114,4 +121,4 @@ class SankeyDiagram:
         )
         print(diagram_source)
         print(diagram_target)
-        fig.write_image(f"{save_path}")
+        fig.write_image(f"{save_path}/sankey.jpg")

@@ -121,14 +121,14 @@ class ComparativeAnalysis:
 
         return ax
 
-    def plot(self, filename, dense_label=None, save=False, save_dir=None, show=False):
+    def plot(self, ax, title, dense_label=None):
         self.process_results()
-
-        fig, ax = plt.subplots(figsize=self.config.plot_size.value)
 
         x_ticks = self.compute_xticks()
         y_ticks, y_ticks_labels = self.compute_yticks_and_ytickslabels()
         x_ticks_labels = self.compute_xtickslabels()
+
+        ax.set_title(title, loc="left", fontdict={"fontsize" : 14, "fontweight": "bold"})
 
         ax.plot(x_ticks,
                 self.pnet_auc,
@@ -185,13 +185,3 @@ class ComparativeAnalysis:
         ax.set_yticks(y_ticks)
         ax.set_xticklabels(x_ticks_labels)
         ax.set_yticklabels(y_ticks_labels)
-
-        if save:
-            save_dir = os.getcwd() if (save_dir is None) else save_dir
-            save_file_path = os.path.join(save_dir, filename)
-            fig.savefig(save_file_path)
-
-        if show:
-            plt.show()
-        else:
-            plt.close()
