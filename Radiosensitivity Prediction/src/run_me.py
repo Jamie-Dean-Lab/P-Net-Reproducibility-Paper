@@ -7,6 +7,7 @@ from keras.losses import MeanSquaredError
 from functools import partial
 from sklearn.kernel_ridge import KernelRidge
 from scipy.stats import ttest_rel
+from statsmodels.stats.multitest import multipletests
 
 sys.path.insert(0, os.getcwd())
 from architecture.data_utils import *
@@ -14,6 +15,7 @@ from architecture.pnet_config import *
 from architecture.pipeline import *
 from architecture.evaluation import *
 from architecture.callbacks_custom import step_decay, FixedEarlyStopping
+from scipy.stats import ttest_rel, t
 
 # Download data if not done so already and set up run directory
 wd = "Radiosensitivity Prediction"
@@ -152,8 +154,48 @@ for k,v in results.items():
 result_table = pd.concat(result_table)
 result_table.to_csv(f"{wd}/results.csv")
 
-pvd = [ttest_rel(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["dense"]["index"] == "test", x]).pvalue for x in metrics]
-pvk = [ttest_rel(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["krr"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
-svd = [ttest_rel(results["krr"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
-sigresults = pd.DataFrame((pvd, pvk, svd), columns=metrics, index=["pnet_v_dense", "pnet_v_krr", "krr_v_dense"])
-sigresults.to_csv(f"{wd}/significance_tests.csv")
+results_full = []
+
+comparisons = [
+    ("pnet", "dense", "pnet_vs_dense"),
+    ("pnet", "krr", "pnet_vs_krr"),
+    ("dense", "krr", "dense_vs_krr")
+]
+
+for metric in metrics:
+    for model1, model2, comp_name in comparisons:
+        scores1 = results[model1].loc[results[model1]["index"] == "test", metric].values
+        scores2 = results[model2].loc[results[model2]["index"] == "test", metric].values
+
+        # One-sided paired t-test (model2 > model1)
+        t_stat, p_raw = ttest_rel(scores2, scores1, alternative='greater')
+
+        diffs = scores2 - scores1
+        n = len(diffs)
+        df = n - 1
+        mean_diff = np.mean(diffs)
+        sem = np.std(diffs, ddof=1) / np.sqrt(n)
+        cohens_d = mean_diff / np.std(diffs, ddof=1)
+
+        # 95% CI for mean_diff
+        t_crit = t.ppf(0.975, df)
+        ci_low = mean_diff - t_crit * sem
+        ci_high = mean_diff + t_crit * sem
+
+        results_full.append({
+            'comparison': f'{comp_name}_{metric}',
+            'model1': model1, 'model2': model2, 'metric': metric,
+            't': t_stat, 'df': df, 'mean_diff': mean_diff, 'sem': sem,
+            'ci_low': ci_low, 'ci_high': ci_high, 'cohens_d': cohens_d, 'p_raw': p_raw
+        })
+
+# FDR correction across all 12 tests
+rejected, p_fdr, _, _ = multipletests([r['p_raw'] for r in results_full], alpha=0.05, method='fdr_bh')
+
+sigresults = pd.DataFrame(results_full)
+sigresults['p_fdr'] = p_fdr
+sigresults['significant'] = rejected
+
+print("Radiosensitivity full results (t(df), CI, Cohen's d, FDR p-values):")
+print(sigresults.round(4))
+sigresults.to_csv(f"{wd}/significance_tests.csv", float_format='%.4f')

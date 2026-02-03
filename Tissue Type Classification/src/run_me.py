@@ -10,6 +10,13 @@ from architecture.pipeline import *
 from architecture.evaluation import *
 from architecture.callbacks_custom import FixedEarlyStopping
 from ovr import *
+from statsmodels.stats.multitest import multipletests
+import numpy as np
+from scipy import stats
+from statsmodels.stats.multitest import multipletests
+from scipy.stats import t  # for manual CI if needed
+
+
 
 # Download data if not done so already and set up run directory
 wd = "Tissue Type Classification"
@@ -76,7 +83,7 @@ gs_params = {"model_params" : {f"reg_{l}" : {
                             } for l in [-3, -4, -5, -6]}}
 config["grid_search"] = construct_gs_params(gs_params)
 pipeline = TFPipeline(config)
-#pipeline.run_crossvalidation()
+pipeline.run_crossvalidation()
 
 # Run fully connected
 config["run_id"] = "dense"
@@ -102,7 +109,7 @@ gs_params = {"model_params" : {f"reg_{l}" : {
                             } for l in [-3, -4, -5, -6]}}
 config["grid_search"] = construct_gs_params(gs_params)
 pipeline = TFPipeline(config)
-#pipeline.run_crossvalidation()
+pipeline.run_crossvalidation()
 
 # Run base model
 config["run_id"] = "svc"
@@ -117,7 +124,7 @@ config["results_processors"] = [lambda x : save_results(x, save_supervised_resul
 gs_params = {"model_params" : {f"c_{c}" : {"estimator" : LinearSVC, "args" : {"C" : 10 ** c}} for c in [1, 0, -1, -2, -3]}}
 config["grid_search"] = construct_gs_params(gs_params)
 pipeline = MLPipeline(config)
-#pipeline.run_crossvalidation()
+pipeline.run_crossvalidation()
 
 # Compile results
 metrics = ["auc", "auprc" ,"f1", "accuracy"]
@@ -130,8 +137,61 @@ for k,v in results.items():
 result_table = pd.concat(result_table)
 result_table.to_csv(f"{wd}/results.csv")
 
-pvd = [ttest_rel(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["dense"]["index"] == "test", x]).pvalue for x in metrics]
-pvs = [ttest_rel(results["pnet"].loc[results["pnet"]["index"] == "test", x], results["svc"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
-svd = [ttest_rel(results["svc"].loc[results["pnet"]["index"] == "test", x], results["dense"].loc[results["pnet"]["index"] == "test", x]).pvalue for x in metrics]
-sigresults = pd.DataFrame((pvd, pvs, svd), columns=metrics, index=["pnet_v_dense", "pnet_v_svc", "svc_v_dense"])
-sigresults.to_csv(f"{wd}/significance_tests.csv")
+results_full = []
+
+for metric in metrics:
+    pnet_scores = results["pnet"].loc[results["pnet"]["index"] == "test", metric].values
+    dense_scores = results["dense"].loc[results["dense"]["index"] == "test", metric].values
+    t_stat, p_raw = stats.ttest_rel(dense_scores, pnet_scores, alternative='greater')
+
+    diffs = dense_scores - pnet_scores
+    n = len(diffs)
+    df = n - 1
+    mean_diff = np.mean(diffs)
+    sem = stats.sem(diffs)
+    cohens_d = mean_diff / np.std(diffs, ddof=1)
+
+    # 95% CI for mean_diff
+    t_crit = t.ppf(0.975, df)
+    ci_low = mean_diff - t_crit * sem
+    ci_high = mean_diff + t_crit * sem
+
+    results_full.append({
+        'comparison': f'dense_vs_pnet_{metric}',
+        't': t_stat, 'df': df, 'mean_diff': mean_diff, 'sem': sem,
+        'ci_low': ci_low, 'ci_high': ci_high, 'cohens_d': cohens_d, 'p_raw': p_raw
+    })
+
+# SVC > P-NET loop
+for metric in ["auprc", "f1", "accuracy"]:
+    pnet_scores = results["pnet"].loc[results["pnet"]["index"] == "test", metric].values
+    svc_scores = results["svc"].loc[results["svc"]["index"] == "test", metric].values
+    t_stat, p_raw = stats.ttest_rel(svc_scores, pnet_scores, alternative='greater')
+
+    diffs = svc_scores - pnet_scores
+    n = len(diffs)
+    df = n - 1
+    mean_diff = np.mean(diffs)
+    sem = stats.sem(diffs)
+    cohens_d = mean_diff / np.std(diffs, ddof=1)
+
+    t_crit = t.ppf(0.975, df)
+    ci_low = mean_diff - t_crit * sem
+    ci_high = mean_diff + t_crit * sem
+
+    results_full.append({
+        'comparison': f'svc_vs_pnet_{metric}',
+        't': t_stat, 'df': df, 'mean_diff': mean_diff, 'sem': sem,
+        'ci_low': ci_low, 'ci_high': ci_high, 'cohens_d': cohens_d, 'p_raw': p_raw
+    })
+
+# FDR correction
+rejected, p_fdr, _, _ = multipletests([r['p_raw'] for r in results_full], alpha=0.05, method='fdr_bh')
+
+sigresults = pd.DataFrame(results_full)
+sigresults['p_fdr'] = p_fdr
+sigresults['significant'] = rejected
+
+print(sigresults.round(4))
+sigresults.to_csv(f"{wd}/significance_tests.csv", float_format='%.4f')
+
