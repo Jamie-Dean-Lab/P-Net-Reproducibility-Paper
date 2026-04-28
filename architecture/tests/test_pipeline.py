@@ -115,8 +115,6 @@ class TestConstructGsParams(unittest.TestCase):
         result = self.fn(params)
         self.assertEqual(len(result), 8)
 
-    # ── NEW ──────────────────────────────────────────────────────────────────
-
     def test_values_carried_through_not_just_choice_key(self):
         # The actual param value must appear under the param key, not just the
         # choice label under the _choice key.
@@ -210,8 +208,6 @@ class TestSKModelWrapper(unittest.TestCase):
         result = wrapper.predict(np.random.rand(2, 3))
         self.assertIsInstance(result, np.ndarray)
 
-    # ── NEW ──────────────────────────────────────────────────────────────────
-
     def test_fit_boundary_exactly_one_column_ravels(self):
         # The branch condition is `ys.shape[1] > 1`, so shape (n, 1) must ravel.
         wrapper = self._make_wrapper()
@@ -303,8 +299,6 @@ class TestSanitiseConfig(unittest.TestCase):
     def test_empty_list_returns_empty_string(self):
         result = self.pipeline._sanitise_config([])
         self.assertEqual(result, "")
-
-    # ── NEW ──────────────────────────────────────────────────────────────────
 
     def test_bool_value_serialises_as_integer(self):
         # bool is a subclass of int, so the int branch fires and it round-trips
@@ -410,8 +404,6 @@ class TestFoldRun(unittest.TestCase):
     def test_no_val_metric_returned_when_val_fold_empty(self):
         result = self.pipeline._fold_run("/tmp/fold", self.train, [], [])
         self.assertIsNone(result)
-
-    # ── NEW ──────────────────────────────────────────────────────────────────
 
     def test_data_augmentor_called_exactly_once(self):
         self.pipeline._fold_run("/tmp/fold", self.train, self.val, [])

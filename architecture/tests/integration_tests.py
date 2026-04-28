@@ -927,7 +927,7 @@ class TestRunCrossvalidationInnerKFoldsWithGridSearch(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NEW: ConcatMultiViewDataset — NA handling strategies
+# ConcatMultiViewDataset — NA handling strategies
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestAlignViewsDropSamples(unittest.TestCase):
@@ -1011,7 +1011,7 @@ class TestAlignViewsDropFeatures(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NEW: ConcatMultiViewDataset — get_k_splits edge case: n_splits=1
+# ConcatMultiViewDataset — get_k_splits edge case: n_splits=1
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestGetKSplitsOne(unittest.TestCase):
@@ -1034,7 +1034,7 @@ class TestGetKSplitsOne(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NEW: data_augmentor — applied only to train, not val or test
+# data_augmentor — applied only to train, not val or test
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestDataAugmentorAppliedOnlyToTrain(unittest.TestCase):
@@ -1109,7 +1109,7 @@ class TestDataAugmentorNotAppliedInCrossval(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NEW: results_processors — called with correct keys and values
+# results_processors — called with correct keys and values
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestResultsProcessorReceivesCorrectKeys(unittest.TestCase):
@@ -1190,7 +1190,7 @@ class TestResultsProcessorValNoneWhenNoVal(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NEW: run_single_split — grid search with no val_metric
+# run_single_split — grid search with no val_metric
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestRunSingleSplitGridSearchNoValMetric(unittest.TestCase):
@@ -1233,7 +1233,7 @@ class TestRunSingleSplitGridSearchNoValMetric(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NEW: run_crossvalidation — grid search with no val_metric
+# run_crossvalidation — grid search with no val_metric
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestRunCrossvalidationGridSearchNoValMetric(unittest.TestCase):
@@ -1279,7 +1279,7 @@ class TestRunCrossvalidationGridSearchNoValMetric(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NEW: run_crossvalidation — stratified splitting at pipeline level
+# run_crossvalidation — stratified splitting at pipeline level
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestRunCrossvalidationStratified(unittest.TestCase):
@@ -1345,7 +1345,7 @@ class TestRunSingleSplitStratified(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NEW: run_crossvalidation — inner_kfolds=1 with val_metric
+# run_crossvalidation — inner_kfolds=1 with val_metric
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestRunCrossvalidationInnerOneFoldWithValMetric(unittest.TestCase):
@@ -1404,7 +1404,7 @@ class TestRunCrossvalidationInnerOneFoldWithValMetric(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NEW: collator scope — fold_collators and grid_search_collators not called
+#  collator scope — fold_collators and grid_search_collators not called
 #      by run_single_split
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -1455,7 +1455,7 @@ class TestGridSearchCollatorNotCalledInSingleSplit(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NEW: fold_collator payload — results list contains correct fold directories
+# fold_collator payload — results list contains correct fold directories
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestFoldCollatorPayloadContainsCorrectDirs(unittest.TestCase):
@@ -1502,7 +1502,7 @@ class TestFoldCollatorPayloadContainsCorrectDirs(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NEW: feature_selector.get_features() called after fit_transform
+# feature_selector.get_features() called after fit_transform
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestFeatureSelectorGetFeaturesCalledAfterFit(unittest.TestCase):
