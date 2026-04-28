@@ -399,7 +399,7 @@ class TestFoldRun(unittest.TestCase):
 
     def test_feature_selector_fit_transform_called_on_train(self):
         self.pipeline._fold_run("/tmp/fold", self.train, self.val, [])
-        self.pipeline.config["feature_selector"].fit_transform.assert_called_once()
+        self.pipeline.config["feature_selector"].fit_transform.assert_called_once_with(self.train)
 
     def test_no_val_metric_returned_when_val_fold_empty(self):
         result = self.pipeline._fold_run("/tmp/fold", self.train, [], [])
@@ -430,7 +430,7 @@ class TestFoldRun(unittest.TestCase):
     def test_preprocessor_fit_transform_called_on_train(self):
         self.pipeline._fold_run("/tmp/fold", self.train, self.val, [])
         pp = self.pipeline.config["feature_preprocessor"]
-        pp.fit_transform.assert_called_once()
+        pp.fit_transform.assert_called_once_with(self.train)
 
     def test_preprocessor_transform_called_on_nonempty_val(self):
         self.pipeline._fold_run("/tmp/fold", self.train, self.val, [])
