@@ -25,6 +25,7 @@ class Pipeline:
                 if type(v) == int or type(v) == float:
                     terms.append(f'"{k}" : {v}')
                 elif type(v) == str:
+                    v = v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
                     terms.append(f'"{k}" : "{v}"')
                 elif type(v) == tuple or type(v) == list:
                     terms.append(f'"{k}" : [' + self._sanitise_config(v) + "]")
@@ -41,6 +42,7 @@ class Pipeline:
                 if type(v) == int or type(v) == float:
                     terms.append(str(v))
                 elif type(v) == str:
+                    v = v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
                     terms.append(f'"{v}"')
                 elif type(v) == tuple or type(v) == list:
                     terms.append("[" + self._sanitise_config(v) + "]")
