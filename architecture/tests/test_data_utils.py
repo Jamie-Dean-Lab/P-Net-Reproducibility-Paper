@@ -329,12 +329,10 @@ class TestAlignViewsMethods(unittest.TestCase):
 
     def test_zero_fill_retains_all_samples(self):
         ds = self._build("zero fill")
-        # All 8 samples should still be present (NaNs replaced, not dropped)
         self.assertEqual(ds.xs.shape[0], 8)
 
     def test_zero_fill_retains_all_features(self):
         ds = self._build("zero fill")
-        # 2 views x 4 unique genes = 8 columns
         self.assertEqual(ds.xs.shape[1], 8)
 
     # ------------------------------------------------------------------
@@ -347,7 +345,6 @@ class TestAlignViewsMethods(unittest.TestCase):
 
     def test_drop_samples_removes_incomplete_rows(self):
         ds = self._build("drop samples")
-        # Only s3-s5 have data in both views (overlap), so 3 samples survive
         self.assertEqual(ds.xs.shape[0], 3)
 
     def test_drop_samples_ids_consistent_with_xs(self):
@@ -360,7 +357,6 @@ class TestAlignViewsMethods(unittest.TestCase):
 
     def test_drop_samples_feature_count_unchanged(self):
         ds = self._build("drop samples")
-        # Features should not be removed -- only rows
         self.assertEqual(ds.xs.shape[1], 8)
 
     # ------------------------------------------------------------------
@@ -373,12 +369,10 @@ class TestAlignViewsMethods(unittest.TestCase):
 
     def test_drop_features_retains_all_samples(self):
         ds = self._build("drop features")
-        # Rows should not be dropped -- only columns
         self.assertEqual(ds.xs.shape[0], 8)
 
     def test_drop_features_removes_incomplete_columns(self):
         ds = self._build("drop features")
-        # Every remaining column must be fully populated
         self.assertEqual(np.isnan(ds.xs).sum(axis=0).max(), 0)
 
     def test_drop_features_features_list_matches_xs(self):
@@ -394,7 +388,6 @@ class TestAlignViewsMethods(unittest.TestCase):
     # ------------------------------------------------------------------
 
     def test_drop_labels_true_removes_samples_with_nan_labels(self):
-        # partial_label_path has NaN for s0
         ds = self._build("zero fill", label_path=self.partial_label_path, drop_labels=True)
         self.assertNotIn("s0", ds.ids)
 
@@ -404,7 +397,6 @@ class TestAlignViewsMethods(unittest.TestCase):
 
     def test_drop_labels_true_removes_zero_label_columns(self):
         """Label columns that are all-zero after sample filtering are dropped."""
-        # cls_rare is 1 only for s0; after s0 is dropped (NaN label), cls_rare sums to 0
         all_ids = self.all_ids
         labels = pd.DataFrame(
             {"cls_rare":   [1, 0, 0, 0, 0, 0, 0, 0],
@@ -413,7 +405,7 @@ class TestAlignViewsMethods(unittest.TestCase):
         )
         labels = labels.astype(float)
         labels.index.name = "id"
-        labels.iloc[0] = np.nan   # s0 has no label -> gets dropped
+        labels.iloc[0] = np.nan
         lpath = os.path.join(self.tmp, "labels_rare.csv")
         _write_csv(labels, lpath)
 
@@ -437,7 +429,6 @@ class TestAlignViewsMethods(unittest.TestCase):
         self.assertTrue(np.isnan(ds.ys).any())
 
     def test_drop_labels_false_never_reduces_below_drop_true(self):
-        # With fully complete labels, drop_labels=False must keep >= as many rows
         ds_keep = self._build("zero fill", drop_labels=False)
         ds_drop = self._build("zero fill", drop_labels=True)
         self.assertGreaterEqual(ds_keep.xs.shape[0], ds_drop.xs.shape[0])
@@ -485,6 +476,21 @@ class TestConcatMultiViewDatasetSplits(unittest.TestCase):
         self.assertEqual(train.xs.shape[1], self.ds.xs.shape[1])
         self.assertEqual(test.xs.shape[1], self.ds.xs.shape[1])
 
+    def test_train_test_stratified_preserves_class_proportions(self):
+        """Stratified split should preserve class proportions within tolerance."""
+        train, test = self.ds.get_train_test_split(0.8, stratified=True)
+
+        overall_pos_rate = self.ds.ys[:, 0].mean()
+        train_pos_rate = train.ys[:, 0].mean()
+        test_pos_rate = test.ys[:, 0].mean()
+
+        self.assertAlmostEqual(train_pos_rate, overall_pos_rate, delta=0.05,
+            msg=f"Train class proportion {train_pos_rate:.2f} deviates from "
+                f"overall {overall_pos_rate:.2f}")
+        self.assertAlmostEqual(test_pos_rate, overall_pos_rate, delta=0.05,
+            msg=f"Test class proportion {test_pos_rate:.2f} deviates from "
+                f"overall {overall_pos_rate:.2f}")
+
     # --- K-fold splits ---
 
     def test_k_splits_count(self):
@@ -505,6 +511,16 @@ class TestConcatMultiViewDatasetSplits(unittest.TestCase):
     def test_k_splits_stratified(self):
         folds = list(self.ds.get_k_splits(4, stratified=True))
         self.assertEqual(len(folds), 4)
+
+    def test_k_splits_stratified_preserves_class_proportions(self):
+        """Each validation fold should have approximately the same class proportion as the full dataset."""
+        overall_pos_rate = self.ds.ys[:, 0].mean()
+
+        for i, (train, val) in enumerate(self.ds.get_k_splits(4, stratified=True)):
+            val_pos_rate = val.ys[:, 0].mean()
+            self.assertAlmostEqual(val_pos_rate, overall_pos_rate, delta=0.1,
+                msg=f"Fold {i} val class proportion {val_pos_rate:.2f} deviates from "
+                    f"overall {overall_pos_rate:.2f}")
 
     # --- Specific split ---
 
@@ -591,10 +607,7 @@ class TestLoadDataViewEdgeCases(unittest.TestCase):
         self.assertEqual(ds.data_views["v"].shape[1], 0)
 
     def test_id_col_nonzero(self):
-        """id_col parameter selects the correct column as the index.
-        All non-id columns must be numeric because load_data_view casts to float32.
-        Column at index 0 is a numeric dummy; column at index 1 is the sample id.
-        """
+        """id_col parameter selects the correct column as the index."""
         df = pd.DataFrame({
             "numeric_extra": [9.0, 8.0, 7.0],
             "sample_id":     ["s1", "s2", "s3"],
@@ -610,14 +623,13 @@ class TestLoadDataViewEdgeCases(unittest.TestCase):
         """common_ids should list IDs that already existed when the same view is reloaded."""
         ds = MultiViewDataset()
         ds.load_data_view("v", self.path)
-        out = ds.load_data_view("v", self.path)   # reload same file
+        out = ds.load_data_view("v", self.path)
         self.assertEqual(sorted(out["common_ids"]), sorted(self.ids))
 
     def test_return_old_ids_populated(self):
         """old_ids should list IDs present before but absent from the new file."""
         ds = MultiViewDataset()
         ds.load_data_view("v", self.path)
-        # New file has only s1
         path2 = _make_view_csv(self.tmp, "partial.csv", ["s1"], ["f1"])
         out = ds.load_data_view("v", path2)
         self.assertIn("s2", out["old_ids"])
@@ -626,7 +638,7 @@ class TestLoadDataViewEdgeCases(unittest.TestCase):
     def test_return_common_features_populated(self):
         """common_features lists features present in both the old and new load."""
         ds = MultiViewDataset()
-        ds.load_data_view("v", self.path)           # loads f1, f2, f3
+        ds.load_data_view("v", self.path)
         path2 = _make_view_csv(self.tmp, "overlap.csv", self.ids, ["f2", "f3", "f4"])
         out = ds.load_data_view("v", path2)
         self.assertIn("f2", out["common_features"])
@@ -635,7 +647,7 @@ class TestLoadDataViewEdgeCases(unittest.TestCase):
     def test_return_old_features_populated(self):
         """old_features lists features in the existing view that the new file lacks."""
         ds = MultiViewDataset()
-        ds.load_data_view("v", self.path)           # loads f1, f2, f3
+        ds.load_data_view("v", self.path)
         path2 = _make_view_csv(self.tmp, "new_only.csv", self.ids, ["f4"])
         out = ds.load_data_view("v", path2)
         self.assertIn("f1", out["old_features"])
@@ -678,12 +690,10 @@ class TestLoadDataLabelEdgeCases(unittest.TestCase):
 
     def test_load_second_label_file_updates_common_labels(self):
         """Reloading a label column with new values overwrites the existing values."""
-        # First load: all zeros for label_a
         df1 = pd.DataFrame({"label_a": [0.0, 0.0, 0.0]}, index=self.ids)
         df1.index.name = "id"
         path1 = os.path.join(self.tmp, "lab_zeros.csv")
         _write_csv(df1, path1)
-        # Second load: all ones for label_a
         df2 = pd.DataFrame({"label_a": [1.0, 1.0, 1.0]}, index=self.ids)
         df2.index.name = "id"
         path2 = os.path.join(self.tmp, "lab_ones.csv")
@@ -710,7 +720,6 @@ class TestLoadDataLabelEdgeCases(unittest.TestCase):
         ds = MultiViewDataset()
         ds.load_data_view("v", self.view_path)
         ds.load_data_label(label_path)
-        # Load again — all ids are now common
         out = ds.load_data_label(label_path)
         self.assertEqual(sorted(out["common_ids"]), sorted(self.ids))
 
@@ -750,7 +759,6 @@ class TestStratifiedSingleLabel(unittest.TestCase):
         n = 20
         self.ids = [f"s{i}" for i in range(n)]
         path_v = _make_view_csv(self.tmp, "v.csv", self.ids, ["g1", "g2"], seed=0)
-        # Single binary label column (values 0 or 1, not one-hot)
         labels = pd.DataFrame(
             {"binary": ([0, 1] * (n // 2))},
             index=self.ids,
@@ -774,6 +782,21 @@ class TestStratifiedSingleLabel(unittest.TestCase):
         train, test = self.ds.get_train_test_split(0.8, stratified=True)
         self.assertEqual(len(set(train.ids) & set(test.ids)), 0)
 
+    def test_train_test_stratified_single_label_preserves_class_proportions(self):
+        """Stratified split on a single binary label should preserve class proportions."""
+        train, test = self.ds.get_train_test_split(0.8, stratified=True)
+
+        overall_pos_rate = self.ds.ys[:, 0].mean()
+        train_pos_rate = train.ys[:, 0].mean()
+        test_pos_rate = test.ys[:, 0].mean()
+
+        self.assertAlmostEqual(train_pos_rate, overall_pos_rate, delta=0.05,
+            msg=f"Train class proportion {train_pos_rate:.2f} deviates from "
+                f"overall {overall_pos_rate:.2f}")
+        self.assertAlmostEqual(test_pos_rate, overall_pos_rate, delta=0.05,
+            msg=f"Test class proportion {test_pos_rate:.2f} deviates from "
+                f"overall {overall_pos_rate:.2f}")
+
     def test_k_splits_stratified_single_label_count(self):
         folds = list(self.ds.get_k_splits(4, stratified=True))
         self.assertEqual(len(folds), 4)
@@ -781,6 +804,16 @@ class TestStratifiedSingleLabel(unittest.TestCase):
     def test_k_splits_stratified_single_label_no_overlap(self):
         for train, val in self.ds.get_k_splits(4, stratified=True):
             self.assertEqual(len(set(train.ids) & set(val.ids)), 0)
+
+    def test_k_splits_stratified_single_label_preserves_class_proportions(self):
+        """Each validation fold should preserve class proportions for a single binary label."""
+        overall_pos_rate = self.ds.ys[:, 0].mean()
+
+        for i, (train, val) in enumerate(self.ds.get_k_splits(4, stratified=True)):
+            val_pos_rate = val.ys[:, 0].mean()
+            self.assertAlmostEqual(val_pos_rate, overall_pos_rate, delta=0.1,
+                msg=f"Fold {i} val class proportion {val_pos_rate:.2f} deviates from "
+                    f"overall {overall_pos_rate:.2f}")
 
 
 # ---------------------------------------------------------------------------
@@ -805,7 +838,6 @@ class TestKSplitsEdgeCases(unittest.TestCase):
         folds = list(self.ds.get_k_splits(1))
         self.assertEqual(len(folds), 1)
         train, val = folds[0]
-        # train should cover all indices; val should be empty
         self.assertEqual(len(train.ids), len(self.ds))
         self.assertEqual(len(val.ids), 0)
 
@@ -843,7 +875,6 @@ class TestSpecificSplitErrors(unittest.TestCase):
         self.assertEqual(sorted(test.ids), sorted(test_ids))
         self.assertGreater(len(train), 0)
         self.assertGreater(len(val), 0)
-        # No overlap between any pair
         self.assertEqual(len(set(train.ids) & set(test.ids)), 0)
         self.assertEqual(len(set(val.ids) & set(test.ids)), 0)
 
@@ -855,18 +886,12 @@ class TestSpecificSplitErrors(unittest.TestCase):
 class TestAlignViewsViewAligner(unittest.TestCase):
     """
     The view_aligner dict lets callers supply a function per view that maps
-    raw column names to canonical alignment IDs. This controls how columns
-    from different views are interleaved. Without it the raw column name is
-    used directly as the alignment id.
+    raw column names to canonical alignment IDs.
     """
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
         ids = [f"s{i}" for i in range(6)]
-        # Both views share the same underlying genes but columns are named differently
-        # view "expr"  : "ENSG001", "ENSG002"
-        # view "methyl": "ENSG001_me", "ENSG002_me"
-        # view_aligner for "methyl" strips the "_me" suffix to get the gene id
         self.path_expr   = _make_view_csv(self.tmp, "expr.csv",   ids, ["ENSG001", "ENSG002"], seed=0)
         self.path_methyl = _make_view_csv(self.tmp, "methyl.csv", ids, ["ENSG001_me", "ENSG002_me"], seed=1)
         labels = pd.DataFrame({"cls_0": [1, 0] * 3, "cls_1": [0, 1] * 3}, index=ids)
@@ -883,8 +908,6 @@ class TestAlignViewsViewAligner(unittest.TestCase):
             method="zero fill",
             view_aligner={"methyl": lambda col: col.replace("_me", "")},
         )
-        # Both views map to the same two gene IDs, so alignment_ids should
-        # contain ENSG001 and ENSG002 (each repeated once per view = 4 total)
         self.assertIn("ENSG001", ds.alignment_ids)
         self.assertIn("ENSG002", ds.alignment_ids)
 
@@ -898,10 +921,8 @@ class TestAlignViewsViewAligner(unittest.TestCase):
             method="zero fill",
             view_aligner={"methyl": lambda col: col.replace("_me", "")},
         )
-        # Find positions of the two ENSG001 columns (one per view)
         ensg001_positions = [i for i, aid in enumerate(ds.alignment_ids) if aid == "ENSG001"]
         ensg002_positions = [i for i, aid in enumerate(ds.alignment_ids) if aid == "ENSG002"]
-        # They must be adjacent (differ by 1) because align_views sorts by alignment_id
         self.assertEqual(max(ensg001_positions) - min(ensg001_positions), 1)
         self.assertEqual(max(ensg002_positions) - min(ensg002_positions), 1)
 
