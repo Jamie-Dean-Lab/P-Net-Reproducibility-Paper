@@ -18,7 +18,7 @@ from architecture.callbacks_custom import step_decay, FixedEarlyStopping
 from scipy.stats import ttest_rel, t
 
 # Download data if not done so already and set up run directory
-wd = "Radiosensitivity Prediction"
+wd = "radiosensitivity_prediction"
 download_dir = f"{wd}/data"
 data_dir = f"{download_dir}/Cleveland"
 run_dir = f"{wd}/runs"

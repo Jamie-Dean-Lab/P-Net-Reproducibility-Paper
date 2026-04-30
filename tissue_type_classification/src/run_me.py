@@ -19,7 +19,7 @@ from scipy.stats import t  # for manual CI if needed
 
 
 # Download data if not done so already and set up run directory
-wd = "Tissue Type Classification"
+wd = "tissue_type_classification"
 download_dir = f"{wd}/data"
 data_dir = f"{download_dir}/GTEx"
 run_dir = f"{wd}/runs"
