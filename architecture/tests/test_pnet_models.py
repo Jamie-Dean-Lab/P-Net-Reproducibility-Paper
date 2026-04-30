@@ -7,7 +7,7 @@ from evaluation import save_results, save_supervised_result, plot_history, get_d
 
 # Build models and check they are as described by P-NET's authors in the original paper.
 
-class MyTestCase(unittest.TestCase):
+class TestPnetModels(unittest.TestCase):
 
     def test_pnet_model_attributes(self):
         from architecture.pnet_config import config
