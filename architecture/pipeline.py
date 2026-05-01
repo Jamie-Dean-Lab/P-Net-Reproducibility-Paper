@@ -434,19 +434,22 @@ class SKModelWrapper:
         else:
             results = self.model.predict(xs)
             return results
-        
 
 
 def construct_gs_params(params):
+    # Already a list of expanded param dicts — pass through
+    if isinstance(params, list):
+        return params
+
     params = params.copy()
     cur_param = list(params.keys())[0]
     cur_vals = params.pop(cur_param)
     if len(params) == 0:
-        out = [{cur_param : v, f"{cur_param}_choice" : k} for k, v in cur_vals.items()]
+        out = [{cur_param: v, f"{cur_param}_choice": k} for k, v in cur_vals.items()]
         return out
     else:
         out = construct_gs_params(params)
-        return [gs_param | {cur_param : v, f"{cur_param}_choice" : k} for k, v in cur_vals.items() for gs_param in out]
+        return [gs_param | {cur_param: v, f"{cur_param}_choice": k} for k, v in cur_vals.items() for gs_param in out]
     
 class IdentityProcessor:
     def fit_transform(self, dataset):
