@@ -3,7 +3,7 @@ from sklearn.svm import LinearSVC
 
 from architecture.pipeline import MLPipeline
 from .base_config import base_config, save_processor_svc
-from ovr import OVRWrapper
+from ..ovr import OVRWrapper
 
 svc_config = {
     **copy.deepcopy(base_config),
