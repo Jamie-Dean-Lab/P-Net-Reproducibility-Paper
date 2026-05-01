@@ -376,14 +376,25 @@ class TFPipeline(Pipeline):
     """
     Trains a TensorFlow model
     """
-    def __init__(self, config : dict):
+    def __init__(self, config: dict):
         super().__init__(config)
-        self.nn_model = TFModel(self.config["run_id"], self.config["model"], self.config["model_params"],
-                                self.config["fitting_params"])
-    
+        self.nn_model = None
+
     def _train(self, train_df, val_df):
-        self.nn_model.set_params(self.config["run_id"], self.config["model"], self.config["model_params"],
-                                self.config["fitting_params"])
+        if self.nn_model is None:
+            self.nn_model = TFModel(
+                self.config["run_id"],
+                self.config["model"],
+                self.config["model_params"],
+                self.config["fitting_params"]
+            )
+        else:
+            self.nn_model.set_params(
+                self.config["run_id"],
+                self.config["model"],
+                self.config["model_params"],
+                self.config["fitting_params"]
+            )
         model, train_hx = self.nn_model.fit(train_df, val_df, self.config["rng_seed"])
         return model, train_hx
 
