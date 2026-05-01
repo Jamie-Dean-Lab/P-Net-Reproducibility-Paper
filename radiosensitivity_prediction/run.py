@@ -15,7 +15,7 @@ from architecture.train import train
 
 def run():
     if not os.path.exists(download_dir):
-        with open(f"{wd}/src/download_data.py") as file:
+        with open(f"{wd}/download_data.py") as file:
             exec(file.read())
 
     if not os.path.exists(run_dir):
