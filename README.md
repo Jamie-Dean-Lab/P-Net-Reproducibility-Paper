@@ -30,7 +30,7 @@ pip install -r requirements.txt
 All scripts should be run from the root directory rather than from the individual experiment folders. If you are running the radiosensitivity experiment scripts you will also need to have R installed with tidyverse.
 
 ## Datasets
-Pre-processed datasets for the experiments can be downloaded from 10.5281/zenodo.17340266. Unzip and put the data folder in each experiment's root folder then execute the run_me.py script.
+Pre-processed datasets for the experiments can be downloaded from 10.5281/zenodo.17340266. Unzip and put the data folder in each experiment's root folder then execute the run_all.py script.
 
 ## Structure of the repository
 All code pertaining to P-Net and supporting pipeline can be found in the architecture folder. All other folders are experiment specific and this is the intended way to use the repository.
