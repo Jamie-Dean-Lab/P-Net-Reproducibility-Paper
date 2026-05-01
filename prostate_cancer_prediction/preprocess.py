@@ -25,7 +25,7 @@ def cnv_del(x : pd.DataFrame):
         DataFrame : modified DataFrame
     """
     # Ignore amplifications aka positive CNV
-    x[x >= 0] = 0.0
+    x[x >= 0.0] = 0.0
     # remove single event due to noisiness similar to original P-Net paper
     x[x == -1.0] = 0.0
     x[x == -2.0] = 1.0

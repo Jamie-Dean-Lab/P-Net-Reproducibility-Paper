@@ -12,19 +12,19 @@ The code has been heavily refactored to allow input datasets to be more easily i
 Recommended to install with some kind of environment managing software like conda
 
 ```
-conda create --name pnet-repro python=3.9.16
+conda create --name pnet-repro python=3.10
 ```
 Then activate the environment
 ```
 conda activate pnet-repro
 ```
+Install the CUDA toolkit and cuDNN for GPU support before installing requirements
+```
+conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1
+```
 Install requirements file from the root directory of the repository
 ```
 pip install -r requirements.txt
-```
-To run P-NET with GPU support, you will likely need to install these versions of CUDA toolkit and CUDnn
-```
-conda install -c conda-forge cudatoolkit=11.0 cudnn=8.0
 ```
 
 All scripts should be run from the root directory rather than from the individual experiment folders. If you are running the radiosensitivity experiment scripts you will also need to have R installed with tidyverse.

@@ -4,7 +4,7 @@ import os
 import gzip
 import subprocess
 
-wd = "Radiosensitivity Prediction/data"
+wd = "radiosensitivity_prediction/data"
 
 # Download list of coding genes
 temp = requests.get("https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/locus_types/gene_with_protein_product.txt")

@@ -25,6 +25,7 @@ class Pipeline:
                 if type(v) == int or type(v) == float:
                     terms.append(f'"{k}" : {v}')
                 elif type(v) == str:
+                    v = v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
                     terms.append(f'"{k}" : "{v}"')
                 elif type(v) == tuple or type(v) == list:
                     terms.append(f'"{k}" : [' + self._sanitise_config(v) + "]")
@@ -41,6 +42,7 @@ class Pipeline:
                 if type(v) == int or type(v) == float:
                     terms.append(str(v))
                 elif type(v) == str:
+                    v = v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
                     terms.append(f'"{v}"')
                 elif type(v) == tuple or type(v) == list:
                     terms.append("[" + self._sanitise_config(v) + "]")
@@ -65,7 +67,7 @@ class Pipeline:
         self.run_dir = os.path.join(self.config["run_dir"], self.config["run_id"])
         self.log = self._get_logger("main_logger", self.run_dir)
         self.log.info("Beginning run {}".format(self.config["run_id"]))
-        self.log.info("Configuration file used : {}".format(self.config))
+        self.log.debug("Configuration file used : {}".format(self.config))
         self.fold_logger = self.log
         # Load in the data
         if load_data:
@@ -85,6 +87,7 @@ class Pipeline:
             self.log.info("Number of test samples : {}".format(len(test_df)))
             self._fold_run(test_dir, train_df, val_df, test_df)
         else:
+            self.config["grid_search"] = construct_gs_params(self.config["grid_search"])
             gs_dirs = []
             training_results = []
             # Perform training
@@ -150,7 +153,7 @@ class Pipeline:
         self.run_dir = os.path.join(self.config["run_dir"], self.config["run_id"])
         self.log = self._get_logger("main_logger", self.run_dir)
         self.log.info("Beginning run {}".format(self.config["run_id"]))
-        self.log.info("Configuration file used : {}".format(self.config))
+        self.log.debug("Configuration file used : {}".format(self.config))
         # Load in the data
         if load_data:
             # To save time don't reload data if same data is going to be reused
@@ -168,11 +171,18 @@ class Pipeline:
                 raise Exception("For nested crossvalidation at least 2 outer_kfolds needed")
             outer_folds = self.data.get_k_splits(self.config["outer_kfolds"], self.config["stratified"], self.config["tt_split_seed"])
 
-        training_results = {}
         # Outer loop of nested crossvalidation
         gs_dirs = []
         gs_params = []
         test_dirs = []
+
+        # If there are no grid search params then we just default to the current settings
+        if len(self.config["grid_search"]) == 0:
+            default = {"model_params": {"default": self.config["model_params"].copy()}}
+            self.config["grid_search"] = construct_gs_params(default)
+        else:
+            self.config["grid_search"] = construct_gs_params(self.config["grid_search"])
+
         for i, (train_df, test_df) in enumerate(outer_folds):
             self.log.info("Number of train samples : {}".format(len(train_df)))
             self.log.info("Number of test samples : {}".format(len(test_df)))
@@ -185,10 +195,6 @@ class Pipeline:
                 os.mkdir(test_dir)
             test_dirs.append(test_dir)
             training_results = []
-            # If there are no grid search params then we just default to the current settings
-            if len(self.config["grid_search"]) == 0:
-                default = {"model_params" : {"default" : self.config["model_params"].copy()}}
-                self.config["grid_search"] = construct_gs_params(default)
             for j in range(len(self.config["grid_search"])):
                 # Set the config params based on grid search
                 for k,v in self.config["grid_search"][j].items():
@@ -370,14 +376,25 @@ class TFPipeline(Pipeline):
     """
     Trains a TensorFlow model
     """
-    def __init__(self, config : dict):
+    def __init__(self, config: dict):
         super().__init__(config)
-        self.nn_model = TFModel(self.config["run_id"], self.config["model"], self.config["model_params"],
-                                self.config["fitting_params"])
-    
+        self.nn_model = None
+
     def _train(self, train_df, val_df):
-        self.nn_model.set_params(self.config["run_id"], self.config["model"], self.config["model_params"],
-                                self.config["fitting_params"])
+        if self.nn_model is None:
+            self.nn_model = TFModel(
+                self.config["run_id"],
+                self.config["model"],
+                self.config["model_params"],
+                self.config["fitting_params"]
+            )
+        else:
+            self.nn_model.set_params(
+                self.config["run_id"],
+                self.config["model"],
+                self.config["model_params"],
+                self.config["fitting_params"]
+            )
         model, train_hx = self.nn_model.fit(train_df, val_df, self.config["rng_seed"])
         return model, train_hx
 
@@ -421,6 +438,7 @@ class SKModelWrapper:
 
 
 def construct_gs_params(params):
+    params = params.copy()
     cur_param = list(params.keys())[0]
     cur_vals = params.pop(cur_param)
     if len(params) == 0:

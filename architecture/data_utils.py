@@ -14,7 +14,7 @@ class MultiViewDataset:
         self.data_views = {}            # Holds the actual data / different views
         self.labels = pd.DataFrame()    # Holds the targets / responses for supervised learning
 
-    def load_data_view(self, view_name : str, data_fn : str, selected_columns : list = None, id_col : int = 0, 
+    def load_data_view(self, view_name : str, data_fn : str, selected_columns : list = None, id_col : int = 0,
                        preprocess = lambda x : x):
         """
         Loads in a dataset with options to select particular columns (if data is tabular).
@@ -56,14 +56,14 @@ class MultiViewDataset:
             self.data_views[view_name].loc[df.index, df.columns] = df
         else:
             # Add new view
-            old_samples = pd.DataFrame(np.full((len(out["old_ids"]), df.shape[1]), fill_value=np.nan), 
+            old_samples = pd.DataFrame(np.full((len(out["old_ids"]), df.shape[1]), fill_value=np.nan),
                                            index=list(out["old_ids"]), columns=df.columns).astype(np.float32)
             # Combine old and new and rearrange to keep in order with self.ids
             self.data_views[view_name] = pd.concat([df, old_samples]).loc[self.ids]
             out["new_features"] = df.columns.to_list()
         self.data_views[view_name] = self.data_views[view_name][sorted(self.data_views[view_name].columns)]
         return out
-    
+
     def get_views(self):
         """
         Accessor method for getting available views
@@ -71,8 +71,8 @@ class MultiViewDataset:
         returns:
             list[str]
         """
-        return list(self.data_view.keys())
-    
+        return list(self.data_views.keys())
+
     def get_labels(self):
         """
         Accessor method for getting available labels
@@ -113,7 +113,7 @@ class MultiViewDataset:
 
         args:
             new_idxs (list[str]) : List of index values that are new compared to existing
-        
+
         returns:
             None
         """
@@ -121,7 +121,7 @@ class MultiViewDataset:
         # Amend old views
         for view, data in self.data_views.items():
             # Fill other views with empty rows for new samples
-            new_samples = pd.DataFrame(np.full((len(new_idxs), data.shape[1]), fill_value=np.nan), 
+            new_samples = pd.DataFrame(np.full((len(new_idxs), data.shape[1]), fill_value=np.nan),
                                         index=new_idxs, columns=data.columns)
             # Combine old and new and rearrange to keep in order with self.ids
             self.data_views[view] = pd.concat([data, new_samples]).loc[self.ids]
@@ -129,13 +129,13 @@ class MultiViewDataset:
         new_labels = pd.DataFrame(np.full((len(new_idxs), self.labels.shape[1]), fill_value=np.nan),
                                   index=new_idxs, columns=self.labels.columns)
         self.labels = pd.concat([self.labels, new_labels]).loc[self.ids]
-    
+
     def align_views(self):
         """
         Placeholder method to be overwritten for subclasses to specify how to align the different views
         """
         pass
-    
+
     def _get_train_test_split(self, train_proportion : float, stratified : bool = False, seed : int = 42):
         """
         Internal method which returns a random split of the data by indices
@@ -177,7 +177,7 @@ class MultiViewDataset:
             rng.shuffle(test_idxs)
 
         return train_idxs, test_idxs
-    
+
     def _get_k_splits(self, n_splits : int, stratified : bool = False, seed : int = 42):
         """
         Internal method which returns k splits of the data as indices
@@ -236,7 +236,7 @@ class MultiViewDataset:
                 folds.append((train_split, val_split))
             return folds
 
-    
+
     def _get_specific_split(self, train_ids, val_ids, test_ids, seed : int = 42):
         """
         Internal method which returns the numeric index of list of sample ids for each split.
@@ -247,7 +247,7 @@ class MultiViewDataset:
             val_ids (list or float) : list of validation sample ids or float to describe proportion of dataset
             test_ids (list or float) : list of test sample ids or float to describe proportion of dataset
             seed (int) : Integer used to determine randomness of split
-        
+
         returns:
             (list, list, list) : train, val, test numeric ids
         """
@@ -308,7 +308,7 @@ class MultiViewDataset:
         xs = {k : v.iloc[idx, :] for k,v in self.data_views.items()}
         ys = self.labels.iloc[idx, :]
         return xs, ys
-    
+
 class ConcatMultiViewDataset(MultiViewDataset):
     """
     Instantiation of MultiViewDataset that returns data as a flat concatenation of views
@@ -319,7 +319,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
         self.ys = None    # To hold the labels
         self.features = None    # To hold feature names after alignment
         self.alignment_ids = None   # To hold ids for alignment between views
-    
+
     def align_views(self, method : str, view_aligner : dict = {}, drop_labels=True):
         """
         Method to call after loading all the data desired. Aligns the views by concatenating them
@@ -365,7 +365,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
         self.xs = self.xs.to_numpy()
         # Convert labels to tensors as well for computation
         self.ys = self.labels.to_numpy()
-        
+
         # Deal with NAs
         if method == "zero fill":
             self.xs[np.isnan(self.xs)] = 0.0
@@ -382,7 +382,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
             self.xs = self.xs[:, valid_features]
             self.features = list(np.array(self.features)[valid_features])
             self.alignment_ids = list(np.array(self.alignment_ids)[valid_features])
-        
+
         if drop_labels:
             valid_samples = np.isnan(self.ys).sum(axis=1) == 0
             self.xs = self.xs[valid_samples, :]
@@ -391,19 +391,19 @@ class ConcatMultiViewDataset(MultiViewDataset):
             valid_labels = self.ys.sum(axis=0) > 0
             self.ys = self.ys[:, valid_labels]
             self.labels = self.labels.loc[:, valid_labels]
-    
+
     def get_features(self):
         """
         Accessor method for obtaining features of the dataset
         """
         return self.features
-    
+
     def get_alignment_ids(self):
         """
         Accessor method for obtaining alignment ids of the dataset
         """
         return self.alignment_ids
-    
+
     def get_train_test_split(self, train_proportion : float, stratified : bool = False, seed : int = 42):
         """
         Method for obtaining a random train test split
@@ -411,7 +411,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
         args:
             train_proportion (float) : Number between 0 and 1 to determine size of train split
             seed (int) : Integer to seed the random number generator for random split
-        
+
         returns:
             ConcatMultiViewDataset, ConcatMultiViewDataset : Tuple with train test datasets
         """
@@ -419,7 +419,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
         train_data = self._copy(train_idxs)
         test_data = self._copy(test_idxs)
         return train_data, test_data
-    
+
     def get_k_splits(self, n_splits : int, stratified : bool = False, seed : int = 42):
         """
         Method for obtaining k folds for doing crossvalidation as a generator
@@ -435,7 +435,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
             train_df = self._copy(train_idxs)
             test_df = self._copy(val_idxs)
             yield (train_df, test_df)
-    
+
     def get_specific_split(self, train_ids, val_ids, test_ids, seed: int = 42):
         """
         Method for obtaining specific splits based on input id lists
@@ -445,7 +445,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
             val_ids (list or float) : list of validation sample ids or validatoin size proportion
             test_ids (list or float) : list of test sample ids or test size proportion
             seed (int) : seed for random number generation if some splits are defined by proportions
-        
+
         returns:
             (ConcatMultiViewDataset, ConcatMultiViewDataset, ConcatMultiViewDataset) : train, val, test dataset objects
         """
@@ -459,7 +459,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
 
         args:
             idxs (list[int]) : Indices to be used when copying over data
-        
+
         returns:
             ConcatMultiViewDataset
         """
@@ -477,7 +477,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
         if self.ys is not None:
             out.ys = out.ys[idxs, :]
         return out
-    
+
     def __getitem__(self, idx):
         return self.xs[idx, :], self.ys[idx, :]
 #
