@@ -24,14 +24,6 @@ def _load_train_size_results(run_dir, prefix):
     return pd.concat(results)
 
 
-def _subsample_odd_rows(df):
-    return df.iloc[range(1, df.shape[0], 2)]
-
-
-def _subsample_odd_elements(lst):
-    return [lst[i] for i in range(1, len(lst), 2)]
-
-
 def _aggregate_train_size(df):
     return df.groupby("n_samples")["response_auc"].agg(["mean", "std"]).reset_index()
 
@@ -87,11 +79,9 @@ def plot_train_size_comparisons(run_dir, ax_dense, ax_fc):
         for n in pnet_results["n_samples"].unique()
     ]
 
-    pnet_results   = _subsample_odd_rows(_aggregate_train_size(pnet_results))
-    pnetfc_results = _subsample_odd_rows(_aggregate_train_size(pnetfc_results))
-    dense_results  = _subsample_odd_rows(_aggregate_train_size(dense_results))
-    pnet_dense_stats  = _subsample_odd_elements(pnet_dense_stats)
-    pnet_pnetfc_stats = _subsample_odd_elements(pnet_pnetfc_stats)
+    pnet_results   = _aggregate_train_size(pnet_results)
+    pnetfc_results = _aggregate_train_size(pnetfc_results)
+    dense_results  = _aggregate_train_size(dense_results)
 
     ComparativeAnalysis(_build_comparison_results(pnet_results, dense_results, pnet_dense_stats)).plot(
         ax_dense, "B", dense_label="Dense Single Layer"

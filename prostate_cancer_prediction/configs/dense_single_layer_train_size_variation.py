@@ -36,6 +36,7 @@ dense_single_layer_train_size_variation_configs = [
         **copy.deepcopy(base_config),
         "run_id":             f"dense_single_layer_train_size_variation_{i}",
         "train_samples":      ts,
+        "val_samples": [],
         "model":              compile_dense,
         "model_params":       copy.deepcopy(_dense_model_params),
         "fitting_params":     copy.deepcopy(_dense_fitting_params),

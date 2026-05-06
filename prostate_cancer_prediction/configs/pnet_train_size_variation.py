@@ -27,6 +27,7 @@ pnet_train_size_variation_configs = [
         **copy.deepcopy(_train_size_base),
         "run_id":                        f"pnet_train_size_variation_{i}",
         "train_samples":                 ts,
+        "val_samples": [],
         "model_params": {
             **copy.deepcopy(pnet_single_split_config["model_params"]),
             "sparse": True,
