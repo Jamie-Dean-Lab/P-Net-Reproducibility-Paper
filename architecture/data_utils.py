@@ -236,26 +236,16 @@ class MultiViewDataset:
                 folds.append((train_split, val_split))
             return folds
 
+    def _get_specific_split(self, train_ids, val_ids, test_ids, seed: int = 42):
+        if isinstance(train_ids, float) and isinstance(val_ids, float) and isinstance(test_ids, float):
+            if train_ids + val_ids + test_ids > 1.0:
+                raise Exception(f"Split proportions sum to more than 1: {train_ids + val_ids + test_ids}")
 
-    def _get_specific_split(self, train_ids, val_ids, test_ids, seed : int = 42):
-        """
-        Internal method which returns the numeric index of list of sample ids for each split.
-        Enforces mutual exclusivity between sets
-
-        args:
-            train_ids (list or float) : list of training sample ids or float to describe proportion of dataset
-            val_ids (list or float) : list of validation sample ids or float to describe proportion of dataset
-            test_ids (list or float) : list of test sample ids or float to describe proportion of dataset
-            seed (int) : Integer used to determine randomness of split
-
-        returns:
-            (list, list, list) : train, val, test numeric ids
-        """
-        # Keep track of samples not in a split
         remaining = set(self.ids)
         rng = np.random.default_rng(seed)
+
         # Enforce test set first
-        if type(test_ids) is list:
+        if isinstance(test_ids, list):
             test_numeric_ids = [self.ids.index(x) for x in test_ids if x in self.ids]
             remaining = remaining - set(test_ids)
         else:
@@ -265,10 +255,11 @@ class MultiViewDataset:
             if n_samples > len(remaining):
                 raise Exception(f"Test split proportion is too large : {test_ids}")
             test_samples = test_samples[:n_samples]
-            test_numeric_ids = [self.ids.index(x) for x in test_samples if x in self.ids]
+            test_numeric_ids = [self.ids.index(x) for x in test_samples]
             remaining = remaining - set(test_samples)
+
         # Enforce validation set next
-        if type(val_ids) is list:
+        if isinstance(val_ids, list):
             val_numeric_ids = [self.ids.index(x) for x in val_ids if x in self.ids]
             remaining = remaining - set(val_ids)
         else:
@@ -278,10 +269,11 @@ class MultiViewDataset:
             if n_samples > len(remaining):
                 raise Exception(f"Validation split proportion is too large : {val_ids}")
             val_samples = val_samples[:n_samples]
-            val_numeric_ids = [self.ids.index(x) for x in val_samples if x in self.ids]
+            val_numeric_ids = [self.ids.index(x) for x in val_samples]
             remaining = remaining - set(val_samples)
+
         # Enforce training set last
-        if type(train_ids) is list:
+        if isinstance(train_ids, list):
             train_numeric_ids = [self.ids.index(x) for x in train_ids if x in self.ids]
             remaining = remaining - set(train_ids)
         else:
@@ -289,13 +281,21 @@ class MultiViewDataset:
             rng.shuffle(train_samples)
             n_samples = int(len(self.ids) * train_ids)
             if n_samples > len(remaining):
-                raise Exception(f"Validation split proportion is too large : {train_ids}")
+                raise Exception(f"Train split proportion is too large : {train_ids}")
             train_samples = train_samples[:n_samples]
-            train_numeric_ids = [self.ids.index(x) for x in train_samples if x in self.ids]
+            train_numeric_ids = [self.ids.index(x) for x in train_samples]
             remaining = remaining - set(train_samples)
-        # Check mutual exclusiveness
-        if len(set(train_numeric_ids).intersection(set(val_numeric_ids)).intersection(set(test_numeric_ids))) > 0:
-            raise Exception("Training, validation, and test sets are not mutually exclusive")
+
+        # Check pairwise mutual exclusivity
+        pairs = [
+            (train_numeric_ids, val_numeric_ids, "train", "val"),
+            (train_numeric_ids, test_numeric_ids, "train", "test"),
+            (val_numeric_ids, test_numeric_ids, "val", "test"),
+        ]
+        for a_ids, b_ids, a_name, b_name in pairs:
+            if len(set(a_ids) & set(b_ids)) > 0:
+                raise Exception(f"{a_name} and {b_name} sets are not mutually exclusive")
+
         return train_numeric_ids, val_numeric_ids, test_numeric_ids
 
     def __len__(self):
@@ -480,4 +480,3 @@ class ConcatMultiViewDataset(MultiViewDataset):
 
     def __getitem__(self, idx):
         return self.xs[idx, :], self.ys[idx, :]
-#

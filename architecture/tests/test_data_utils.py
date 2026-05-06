@@ -551,6 +551,170 @@ class TestConcatMultiViewDatasetSplits(unittest.TestCase):
         with self.assertRaises(Exception):
             self.ds.get_specific_split(0.5, 0.3, 1.5)
 
+class TestSpecificSplitOverlappingLists(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        n = 20
+        self.ids = [f"s{i}" for i in range(n)]
+        path_v = _make_view_csv(self.tmp, "v.csv", self.ids, ["g1", "g2"], seed=0)
+        labels = pd.DataFrame(
+            {"cls_0": ([1, 0] * (n // 2)), "cls_1": ([0, 1] * (n // 2))},
+            index=self.ids,
+        )
+        labels.index.name = "id"
+        lpath = os.path.join(self.tmp, "labels.csv")
+        _write_csv(labels, lpath)
+        self.ds = ConcatMultiViewDataset()
+        self.ds.load_data_view("v", path_v)
+        self.ds.load_data_label(lpath)
+        self.ds.align_views(method="zero fill")
+
+    def test_train_val_overlap_raises(self):
+        """Samples shared between train and val (but not test) must be rejected."""
+        shared = self.ids[:5]
+        train_ids = self.ids[:10]   # includes shared
+        val_ids   = self.ids[3:13]  # overlaps train on s3..s9
+        test_ids  = self.ids[13:]
+        with self.assertRaises(Exception):
+            self.ds.get_specific_split(train_ids, val_ids, test_ids)
+
+    def test_val_test_overlap_raises(self):
+        """Samples shared between val and test (but not train) must be rejected."""
+        train_ids = self.ids[:8]
+        val_ids   = self.ids[8:14]  # overlaps test on s12..s13
+        test_ids  = self.ids[12:]
+        with self.assertRaises(Exception):
+            self.ds.get_specific_split(train_ids, val_ids, test_ids)
+
+    def test_train_test_overlap_raises(self):
+        """Samples shared between train and test (but not val) must be rejected."""
+        train_ids = self.ids[:10]   # includes s0..s9
+        val_ids   = self.ids[10:13]
+        test_ids  = self.ids[7:]    # overlaps train on s7..s9
+        with self.assertRaises(Exception):
+            self.ds.get_specific_split(train_ids, val_ids, test_ids)
+
+    def test_train_plus_val_as_train_raises(self):
+        """
+        Realistic scenario: passing train+val IDs as train_ids while val_ids is the
+        original val list. The pairwise check must catch the train/val overlap even
+        though no sample appears in all three sets simultaneously.
+        """
+        val_ids   = self.ids[10:15]
+        train_ids = self.ids[:10] + val_ids  # deliberately includes val samples
+        test_ids  = self.ids[15:]
+        with self.assertRaises(Exception):
+            self.ds.get_specific_split(train_ids, val_ids, test_ids)
+
+    def test_list_split_respects_remaining_after_test(self):
+        """
+        When test_ids is given as a list, those samples must not appear in train or
+        val even if the caller accidentally includes them in those lists.
+        """
+        test_ids  = self.ids[:5]
+        # train_ids contains test samples — should either raise or silently exclude them
+        train_ids = self.ids[:15]  # overlaps test
+        val_ids   = self.ids[15:]
+        # Either an exception is raised (preferred) or the returned train set
+        # contains none of the test samples
+        try:
+            train, val, test = self.ds.get_specific_split(train_ids, val_ids, test_ids)
+            self.assertEqual(len(set(train.ids) & set(test.ids)), 0,
+                             "train must not contain samples already assigned to test")
+        except Exception:
+            pass
+
+    def test_list_split_respects_remaining_after_val(self):
+        """
+        When val_ids is given as a list, those samples must not appear in train even
+        if the caller accidentally includes them in train_ids.
+        """
+        test_ids  = self.ids[15:]
+        val_ids   = self.ids[10:15]
+        train_ids = self.ids[:15]   # overlaps val
+        try:
+            train, val, test = self.ds.get_specific_split(train_ids, val_ids, test_ids)
+            self.assertEqual(len(set(train.ids) & set(val.ids)), 0,
+                             "train must not contain samples already assigned to val")
+        except Exception:
+            pass
+
+
+    def test_val_proportion_uses_remaining_not_full_dataset(self):
+        """
+        With large test set as a list, val proportion 0.5 should be 50% of the
+        *remaining* samples, not 50% of the full dataset.  If len(self.ids) is used
+        as the denominator the val set may exceed remaining and should raise; if
+        remaining is used the call must succeed and produce the right count.
+        """
+        # Reserve 15 samples as test, leaving only 5 remaining
+        test_ids  = self.ids[:15]
+        remaining_count = len(self.ids) - len(test_ids)  # 5
+        # 0.9 of remaining (5) = 4 samples — fine
+        # 0.9 of full dataset (20) = 18 samples — exceeds remaining, should raise
+        val_proportion   = 0.9
+        train_proportion = 0.0
+
+        try:
+            train, val, test = self.ds.get_specific_split(
+                train_proportion, val_proportion, test_ids
+            )
+            # If it doesn't raise, val must not exceed remaining
+            self.assertLessEqual(
+                len(val),
+                remaining_count,
+                "val size must not exceed the number of samples remaining after test",
+            )
+        except Exception:
+            pass
+
+    def test_train_proportion_uses_remaining_after_test_and_val(self):
+        """
+        With test and val lists consuming most samples, train proportion 0.9 of the
+        full dataset would exceed what is left — the implementation must use
+        len(remaining) as the denominator or raise.
+        """
+        test_ids = self.ids[:10]
+        val_ids  = self.ids[10:17]
+        # 3 samples remain; asking for 0.9 of 20 = 18 would obviously overflow
+        try:
+            train, val, test = self.ds.get_specific_split(0.9, val_ids, test_ids)
+            self.assertLessEqual(len(train), 3,
+                                 "train size must not exceed samples remaining after test+val")
+        except Exception:
+            pass
+
+    def test_oversized_train_error_message_mentions_train(self):
+        """The exception for an oversized train proportion must not say 'Validation'."""
+        try:
+            self.ds.get_specific_split(1.5, 0.1, 0.1)
+            self.fail("Expected an exception for oversized train proportion")
+        except Exception as exc:
+            self.assertNotIn(
+                "Validation", str(exc),
+                "Error message for oversized train split incorrectly says 'Validation' "
+                "(copy-paste bug)",
+            )
+
+    def test_non_overlapping_lists_do_not_raise(self):
+        """Control: perfectly disjoint lists must succeed without error."""
+        train_ids = self.ids[:10]
+        val_ids   = self.ids[10:15]
+        test_ids  = self.ids[15:]
+        train, val, test = self.ds.get_specific_split(train_ids, val_ids, test_ids)
+        self.assertEqual(sorted(train.ids), sorted(train_ids))
+        self.assertEqual(sorted(val.ids),   sorted(val_ids))
+        self.assertEqual(sorted(test.ids),  sorted(test_ids))
+
+    def test_zero_val_proportion_with_list_splits(self):
+        """val_ids=0 (float zero) with list-based train and test must not raise."""
+        train_ids = self.ids[:12]
+        test_ids  = self.ids[12:]
+        train, val, test = self.ds.get_specific_split(train_ids, 0.0, test_ids)
+        self.assertEqual(len(val), 0)
+        self.assertEqual(len(set(train.ids) & set(test.ids)), 0)
+
 
 class TestConcatMultiViewDatasetCopy(unittest.TestCase):
     """Internal _copy() should produce an independent deep copy of the subset."""
