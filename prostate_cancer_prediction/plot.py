@@ -2,12 +2,116 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib import ticker
 from scipy.stats import ttest_ind
 from architecture.pnet_model import PNetArchitectureGenerator, get_layer_maps
 from prostate_cancer_prediction.figure_pnet_vs_dense import ComparativeAnalysis
 
 from prostate_cancer_prediction.pnet_auprc import PlotAUPRC
 from prostate_cancer_prediction.sankey import SankeyDiagram
+
+
+def plot_stratified_5_fold_CV(run_dir, figures_dir):
+    model_names = [
+        "pnet_stratified_5_fold_CV",
+        "decision_tree_stratified_5_fold_CV",
+        "adaboost_stratified_5_fold_CV",
+        "linear_svm_stratified_5_fold_CV",
+        "random_forest_stratified_5_fold_CV",
+        "rbf_svm_stratified_5_fold_CV",
+        "sgd_logistic_regression_stratified_5_fold_CV"
+    ]
+
+    models_display = {
+        "pnet": "P-NET",
+        "decision_tree": "Decision Tree",
+        "adaboost": "Ada. Boosting",
+        "linear_svm": "Linear SVM",
+        "random_forest": "Random Forest",
+        "rbf_svm": "RBF SVM",
+        "sgd_logistic_regression": "Logistic Regression"
+    }
+
+    metric_display = {
+        'auc': 'Area Under Curve (AUC)',
+        'auprc': 'AUPRC',
+        'f1': 'F1',
+        'accuracy': 'Accuracy',
+        'precision': 'Precision',
+        'recall': 'Recall'
+    }
+
+    # Match the original paper's colour order exactly
+    paper_model_order = ['Decision Tree', 'Logistic Regression', 'Random Forest', 'Ada. Boosting', 'Linear SVM', 'RBF SVM', 'P-NET']
+    current_palette = sns.color_palette(None, len(paper_model_order))
+    my_pal = {m: current_palette[i] for i, m in enumerate(paper_model_order)}
+
+    fontsize = 8
+    fontproperties = {'family': 'Arial', 'weight': 'normal', 'size': 9}
+
+    col_names = ["split", "auc", "auprc", "f1", "accuracy", "precision", "recall", "fold"]
+    metric_cols = ["auc", "auprc", "f1", "accuracy", "precision", "recall"]
+
+    all_data = []
+    for model_name in model_names:
+        path = f"{run_dir}/{model_name}/test_0/cv_0/fold_summaries.csv"
+        if not os.path.exists(path):
+            print(f"Warning: {path} not found, skipping")
+            continue
+        data = pd.read_csv(path, index_col=0, header=0, names=col_names, skiprows=1)
+        data[metric_cols] = data[metric_cols].astype(float)
+        val_data = data[data["split"] == "val"][metric_cols].copy()
+        short_name = model_name.replace("_stratified_5_fold_CV", "")
+        val_data.columns = pd.MultiIndex.from_tuples(
+            [(short_name, col) for col in metric_cols]
+        )
+        all_data.append(val_data)
+
+    combined = pd.concat(all_data, axis=1)
+    combined.columns = combined.columns.swaplevel(0, 1)
+
+    flierprops = dict(marker='o', markersize=1, alpha=0.7)
+
+    for metric in metric_cols:
+        fig, ax = plt.subplots(figsize=(8, 5))
+        dd = combined[metric].copy()
+        dd.columns = [models_display[c] for c in dd.columns]
+
+        avg = dd['P-NET'].median()
+        order = list(dd.median().sort_values().index)
+
+        sns.set_style("whitegrid")
+        dd = dd.melt()
+
+        sns.boxplot(
+            ax=ax,
+            x="variable",
+            y="value",
+            data=dd,
+            whis=1.5,
+            order=order,
+            palette=my_pal,
+            linewidth=1,
+            flierprops=flierprops
+        )
+
+        ax.axhline(avg, ls='--', linewidth=1)
+        ax.set_ylim([0.4, 1.05])
+        ax.set_ylabel(metric_display[metric], fontproperties)
+        ax.set_xlabel('')
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=30, horizontalalignment='right', fontsize=fontsize)
+        ax.get_xaxis().set_minor_locator(ticker.AutoMinorLocator())
+        ax.tick_params(axis='both', which='major', labelsize=fontsize)
+        ax.minorticks_off()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(figures_dir, f"stratified_5_fold_CV_{metric}.png"), dpi=300)
+        plt.close()
 
 
 def _load_train_size_results(run_dir, prefix):
@@ -41,7 +145,7 @@ def _build_comparison_results(pnet_df, other_df, stats):
     }
 
 
-def plot_single_split_auprc(run_dir, wd, ax):
+def plot_single_split_auprc(run_dir, wd, ax, figures_dir):
     results = {}
     tabular = []
     for model in [x for x in os.listdir(run_dir) if x.find("elmarakeby") > -1 or x.find("specific_train_split") > -1]:
@@ -58,9 +162,12 @@ def plot_single_split_auprc(run_dir, wd, ax):
     PlotAUPRC(results).plot(ax, "A")
     pd.concat(tabular).to_csv(f"{wd}/specific_split_results.csv")
 
+    fig = ax.get_figure()
+    fig.savefig(os.path.join(figures_dir, "single_split_auprc.png"), dpi=300)
 
-def plot_train_size_comparisons(run_dir, ax_dense, ax_fc):
-    pnet_results  = _load_train_size_results(run_dir, "pnet_train_size_variation")
+
+def plot_train_size_comparisons(run_dir, ax_dense, ax_fc, figures_dir):
+    pnet_results   = _load_train_size_results(run_dir, "pnet_train_size_variation")
     pnetfc_results = _load_train_size_results(run_dir, "pnetfc_train_size_variation")
     dense_results  = _load_train_size_results(run_dir, "dense_train_size_variation")
 
@@ -90,8 +197,11 @@ def plot_train_size_comparisons(run_dir, ax_dense, ax_fc):
         ax_fc, "C", dense_label="P-NET fully connected"
     )
 
+    fig = ax_dense.get_figure()
+    fig.savefig(os.path.join(figures_dir, "train_size_comparisons.png"), dpi=300)
 
-def plot_sankey(wd, run_dir, selected_genes, n_hidden_layers):
+
+def plot_sankey(wd, run_dir, selected_genes, n_hidden_layers, figures_dir):
     pnet_run_dir = f"{run_dir}/pnet_specific_train_split"
 
     deeplift = {
@@ -114,14 +224,20 @@ def plot_sankey(wd, run_dir, selected_genes, n_hidden_layers):
         layers[f"layer_{i+1}"] = nodes
         weights[f"layer_{i+1}"] = maps[i].to_numpy() * deeplift[f"h{i}"].to_numpy()
 
-    SankeyDiagram(layers, weights).plot([10, 10, 10, 10, 10, 6], wd)
+    SankeyDiagram(layers, weights).plot([10, 10, 10, 10, 10, 6], figures_dir)
 
 
 def plot(wd, run_dir, selected_genes, n_hidden_layers):
-    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
-    plot_single_split_auprc(run_dir, wd, ax[0])
-    plot_train_size_comparisons(run_dir, ax[1], ax[2])
-    plt.tight_layout()
-    plt.savefig(f"{wd}/figure_1.jpg")
-    plt.close()
-    plot_sankey(wd, run_dir, selected_genes, n_hidden_layers)
+    figures_dir = os.path.join(wd, "figures")
+    if not os.path.exists(figures_dir):
+        os.makedirs(figures_dir)
+
+    # fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
+    # plot_single_split_auprc(run_dir, wd, ax[0], figures_dir)
+    # plot_train_size_comparisons(run_dir, ax[1], ax[2], figures_dir)
+    # plt.tight_layout()
+    # plt.savefig(f"{wd}/figure_1.jpg")
+    # plt.close()
+    # plot_sankey(wd, run_dir, selected_genes, n_hidden_layers, figures_dir)
+
+    plot_stratified_5_fold_CV(run_dir, figures_dir)

@@ -522,6 +522,36 @@ class TestConcatMultiViewDatasetSplits(unittest.TestCase):
                 msg=f"Fold {i} val class proportion {val_pos_rate:.2f} deviates from "
                     f"overall {overall_pos_rate:.2f}")
 
+    def test_k_splits_cover_all_samples_non_divisible(self):
+        """All samples appear in a validation set exactly once when n is not divisible by n_splits."""
+        # setUp uses n=20; add one extra sample to make it non-divisible by 3
+        tmp = tempfile.mkdtemp()
+        n = 21
+        ids = [f"s{i}" for i in range(n)]
+        path_v = _make_view_csv(tmp, "v.csv", ids, ["g1", "g2"], seed=0)
+        labels = pd.DataFrame(
+            {"cls_0": ([1, 0] * 10 + [1]), "cls_1": ([0, 1] * 10 + [0])},
+            index=ids,
+        )
+        labels.index.name = "id"
+        lpath = os.path.join(tmp, "labels.csv")
+        _write_csv(labels, lpath)
+        ds = ConcatMultiViewDataset()
+        ds.load_data_view("v", path_v)
+        ds.load_data_label(lpath)
+        ds.align_views(method="zero fill")
+
+        seen = []
+        for _, val in ds.get_k_splits(3):
+            seen.extend(val.ids)
+        # Every sample appears in exactly one validation fold
+        self.assertEqual(sorted(seen), sorted(ids))
+
+    def test_k_splits_train_val_cover_full_dataset(self):
+        """train + val for each fold should together contain all samples."""
+        for train, val in self.ds.get_k_splits(3):
+            self.assertEqual(sorted(train.ids + val.ids), sorted(self.ds.ids))
+
     # --- Specific split ---
 
     def test_specific_split_by_ids(self):

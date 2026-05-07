@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, accuracy_score
+from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, accuracy_score, precision_score, recall_score
 
 from architecture.data_utils import ConcatMultiViewDataset
 from architecture.pipeline import IdentityProcessor
@@ -32,10 +32,12 @@ auprc_selection = lambda x: average_precision_score(x["val_df"].ys, x["val_preds
 auc_selection  = lambda x: roc_auc_score(x["val_df"].ys, x["val_preds"])
 
 save_processor = lambda x: save_results(x, save_supervised_result, {
-    "auc":      roc_auc_score,
-    "auprc":    average_precision_score,
-    "f1":       lambda ys, preds: f1_score(ys, (preds > 0.5).astype(int)),
-    "accuracy": lambda ys, preds: accuracy_score(ys, (preds > 0.5).astype(int)),
+    "auc":       roc_auc_score,
+    "auprc":     average_precision_score,
+    "f1":        lambda ys, preds: f1_score(ys, (preds > 0.5).astype(int)),
+    "accuracy":  lambda ys, preds: accuracy_score(ys, (preds > 0.5).astype(int)),
+    "precision": lambda ys, preds: precision_score(ys, (preds > 0.5).astype(int)),
+    "recall":    lambda ys, preds: recall_score(ys, (preds > 0.5).astype(int)),
 }, "individual")
 
 base_config = {
