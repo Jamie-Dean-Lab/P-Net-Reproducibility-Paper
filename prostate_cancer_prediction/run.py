@@ -33,6 +33,8 @@ from prostate_cancer_prediction.configs.sgd_logistic_regression_single_split_elm
 from prostate_cancer_prediction.configs.sgd_logistic_regression_stratified_5_fold_CV import \
     sgd_logistic_regression_stratified_5_fold_CV_config
 
+from prostate_cancer_prediction.configs.pnet_network_order_variation import pnet_network_order_variation_configs
+
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
@@ -53,7 +55,7 @@ def run():
         # Single split
         # pnet_single_split_config,
         # decision_tree_single_split_config,
-         #decision_tree_single_split_elmarakeby_config,
+        # decision_tree_single_split_elmarakeby_config,
         # linear_svm_single_split_config,
         # linear_svm_single_split_elmarakeby_config,
         # rbf_svm_single_split_config,
@@ -78,6 +80,9 @@ def run():
         # random_forest_stratified_5_fold_CV_config,
         # rbf_svm_stratified_5_fold_CV_config,
         # sgd_logistic_regression_stratified_5_fold_CV_config
+
+        # P-Net different dataset split and order
+        * pnet_network_order_variation_configs
 
     ]
 

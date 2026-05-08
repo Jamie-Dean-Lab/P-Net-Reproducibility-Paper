@@ -36,6 +36,7 @@ _model_params_base = {
     "loss":                   [{"class_name": "CategoricalCrossentropy", "config": {"from_logits": False}}] * (n_hidden_layers + 1),
     "loss_weights":           [2, 7, 20, 54, 148, 400],
     "optimizer":              {"class_name": "Adam", "config": {"learning_rate": 1e-3}},
+    "map_seed" :              42
 }
 
 pnet_config = {

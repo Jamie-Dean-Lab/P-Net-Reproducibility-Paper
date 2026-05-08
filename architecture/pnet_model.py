@@ -174,7 +174,7 @@ class TFModel:
 
 def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, loss_weights, data, 
                  h_activation, o_activation, h_reg, o_reg, h_dropout, sparse, batch_normal, h_kernel_initializer,
-                 h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing):
+                 h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing, map_seed):
     """
     Compiles P-Net model specifying the optimizer, loss function, and loss weights on top of building
     the P-Net architecture
@@ -199,6 +199,7 @@ def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, l
         h_bias_initializer (list[keras initializer]) : Initialization method to use for each hidden layer's bias
         h_bias_constraints (list[keras constraints]) : Constraint to be used for each hidden layer's bias
         dropout_testing (bool) : Whether to apply dropout outside of training
+        map_seed (int) : rng seed for sparse network orders
 
     """
 
@@ -225,7 +226,7 @@ def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, l
     maps = get_layer_maps(genes, maps, False)
     _, decision_outcomes, feature_names = build_pnet(inputs, data, maps[:-1], h_activation, o_activation,
              h_reg, o_reg, h_dropout, sparse, batch_normal, h_kernel_initializer,
-             h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing)
+             h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing, map_seed)
 
     # Compile P-Net with the opimizer and loss function
     logging.info("Compiling...")
@@ -244,7 +245,7 @@ def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, l
 
 def build_pnet(inputs, data, maps, h_activation, o_activation,
              h_reg, o_reg, h_dropout, sparse, batch_normal, h_kernel_initializer,
-             h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing):
+             h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing, map_seed):
     """
     Function which builds the P-Net model using Keras library
 
@@ -264,6 +265,7 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
         h_bias_initializer (list[keras initializer]) : Initialization method to use for each hidden layer's bias
         h_bias_constraints (list[keras constraints]) : Constraint to be used for each hidden layer's bias
         dropout_testing (bool) : Whether to apply dropout outside of training
+        map_seed (int) : rng seed for sparse network orders
     
     returns:
         outcome, decision_outcomes, feature_names : output of the hidden layers, output of the decision layers, feature labels 
@@ -272,7 +274,7 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
     # Keep track of number of features and number of genes
     feature_names = {}
     # Start constructing first layer from input features to set of genes
-    gene_set = np.sort(np.unique(np.array(data.get_alignment_ids())))
+    gene_set = np.array(data.get_alignment_ids())[range(0, len(data.get_alignment_ids()), len(data.data_views))]
     feature_gene_map = Diagonal(len(gene_set), tf.keras.activations.get(h_activation[0]),h_bias_initializer[0] is not None,
                                  tf.keras.initializers.get(h_kernel_initializer[0]),  tf.keras.initializers.get(h_bias_initializer[0]), 
                                  h_reg[0][0](**h_reg[0][1]), None, tf.keras.constraints.get(h_kernel_constraints[0]), 
@@ -289,8 +291,11 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
 
     # Construct P-Net hidden layer hierarchy
     inp_features = gene_set
+    rng = np.random.default_rng(seed=map_seed)
     for i, map in enumerate(maps):
-        out_features = np.array(sorted(map.keys()))
+        out_features = map.columns.to_list()
+        rng.shuffle(out_features)
+        map = map.loc[inp_features, out_features]
         logging.info("================================")
         logging.info(f'PROCEEDING TO LAYER " {i}')
         logging.info("================================")

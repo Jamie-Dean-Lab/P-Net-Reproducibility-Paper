@@ -5,7 +5,7 @@ from keras.callbacks import LearningRateScheduler
 from architecture.pipeline import TFPipeline
 from architecture.callbacks_custom import step_decay_part
 from architecture.evaluation import collate_folds
-from dense_model import compile_dense
+from architecture.dense_model import compile_dense
 from .base_config import (base_config, val_samples, save_processor)
 from .pnet_train_size_variation import train_size_samples
 

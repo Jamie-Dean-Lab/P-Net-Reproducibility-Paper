@@ -6,10 +6,16 @@ from architecture.pipeline import IdentityProcessor
 from architecture.evaluation import save_results, save_supervised_result, collate_grid_search
 from prostate_cancer_prediction.preprocess import mut_binary, cnv_amp, cnv_del
 
+import os
+
 wd = "prostate_cancer_prediction"
 download_dir = f"{wd}/data"
 data_dir = f"{download_dir}/_database"
 run_dir = f"{wd}/runs"
+
+if not os.path.exists(download_dir):
+    with open(f"{wd}/download_data.py") as file:
+        exec(file.read())
 
 selected_genes = set(pd.read_csv(f"{data_dir}/genes/tcga_prostate_expressed_genes_and_cancer_genes.csv")["genes"])
 hugo_genes = set(pd.read_csv(f"{data_dir}/genes/HUGO_genes/protein-coding_gene_with_coordinate_minimal.txt",
@@ -59,6 +65,7 @@ base_config = {
     "rng_seed":              20080808,
     "tt_split_seed":         20080808,
     "tv_split_seed":         20080808,
+    "shuffle_seed":          42,
     "grid_search":           [],
     "fold_collators":        [],
     "grid_search_collators": [collate_grid_search],

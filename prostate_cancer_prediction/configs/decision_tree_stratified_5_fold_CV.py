@@ -2,8 +2,8 @@ import copy
 
 from sklearn.tree import DecisionTreeClassifier
 
-from evaluation import collate_folds
-from pipeline import MLPipeline
+from architecture.evaluation import collate_folds
+from architecture.pipeline import MLPipeline
 from .base_config import (save_processor, train_samples,
                           val_samples, base_config)
 

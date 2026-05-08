@@ -320,7 +320,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
         self.features = None    # To hold feature names after alignment
         self.alignment_ids = None   # To hold ids for alignment between views
 
-    def align_views(self, method : str, view_aligner : dict = {}, drop_labels=True):
+    def align_views(self, method : str, view_aligner : dict = {}, drop_labels=True, shuffle_seed : int = 42):
         """
         Method to call after loading all the data desired. Aligns the views by concatenating them
         into one dataframe prefixed by the view name.
@@ -356,7 +356,15 @@ class ConcatMultiViewDataset(MultiViewDataset):
             self.alignment_ids += list(views[k].columns)
             views[k].columns = [f"{k}_{c}" for c in views[k].columns]
         self.xs = pd.concat(views, axis=1)
+        # Sort to provide determinism
         column_order = np.argsort(self.alignment_ids)
+        # Shuffle input genes
+        n_views = len(self.data_views)
+        rng = np.random.default_rng(seed=shuffle_seed)
+        shuffle_order = np.arange(0, len(self.alignment_ids) / n_views)
+        rng.shuffle(shuffle_order)
+        column_order = np.concatenate([[column_order[(int(i) * n_views):(int((i+1)) * n_views)]] for i in shuffle_order]).flatten()
+        # Realign according to shuffle order
         self.xs = self.xs.iloc[:, column_order]
         self.alignment_ids = list(np.array(self.alignment_ids)[column_order])
         # Save columns as features for reference if neded

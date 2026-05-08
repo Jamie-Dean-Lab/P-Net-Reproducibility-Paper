@@ -7,10 +7,16 @@ from architecture.pipeline import IdentityProcessor
 from architecture.evaluation import save_results, save_supervised_result, collate_grid_search
 from architecture.callbacks_custom import step_decay
 
+import os
+
 wd = "radiosensitivity_prediction"
 download_dir = f"{wd}/data"
 data_dir = f"{download_dir}/Cleveland"
 run_dir = f"{wd}/runs"
+
+if not os.path.exists(download_dir):
+    with open(f"{wd}/download_data.py") as file:
+        exec(file.read())
 
 selected_genes = list(set(pd.read_csv(f"{download_dir}/hugo_genes.txt", sep="\t")["symbol"]))
 
@@ -43,6 +49,7 @@ base_config = {
     "tv_split_seed":         42,
     "rng_seed":              42,
     "tt_split_seed":         42,
+    "shuffle_seed" :         42,
     "stratified":            False,
     "inner_kfolds":          5,
     "outer_kfolds":          10,
