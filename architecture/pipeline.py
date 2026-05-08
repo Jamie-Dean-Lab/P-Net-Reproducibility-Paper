@@ -72,7 +72,7 @@ class Pipeline:
         # Load in the data
         if load_data:
             # To save time don't reload data if same data is going to be reused
-            self._load_data()
+            self._load_data(self.config["shuffle_seed"])
         self._summarise_data()
         # Perform training and evaluation
         test_dir = os.path.join(self.config["run_dir"], self.config["run_id"])
@@ -157,7 +157,7 @@ class Pipeline:
         # Load in the data
         if load_data:
             # To save time don't reload data if same data is going to be reused
-            self._load_data()
+            self._load_data(self.config["shuffle_seed"])
         self._summarise_data()
         if "test_samples" in self.config.keys():
             train_df, _, test_df = self.data.get_specific_split(self.config["train_samples"],
@@ -290,7 +290,7 @@ class Pipeline:
         log.addHandler(consoleHandler)
         return log
 
-    def _load_data(self):
+    def _load_data(self, shuffle_seed):
         """
         Loads in the data specified in config file
         """
@@ -309,7 +309,7 @@ class Pipeline:
             self.data.load_data_label(os.path.join(self.config["data_dir"], label_fn), id_col)
 
         # Align views
-        self.data.align_views(self.config["view_alignment_method"], view_aligner, self.config["drop_labels"])
+        self.data.align_views(self.config["view_alignment_method"], view_aligner, self.config["drop_labels"], shuffle_seed)
 
     def _summarise_data(self):
         self.log.info("Total number of samples {}".format(len(self.data)))
