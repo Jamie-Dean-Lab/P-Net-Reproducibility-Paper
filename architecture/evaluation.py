@@ -18,18 +18,17 @@ import architecture.coef_weights_utils as mcw
 
 def collate_grid_search(results: dict):
     """
-    Function for collating results after all settings in grid search have been computed.
-    Goes through all the summary results in each folder and selects the best hyperparameters
-    based on metric for each test fold or across the whole dataset.
+    Collates summary results from the best hyperparameter directories across all
+    test folds into a single results.csv file for the run.
     """
     summaries = []
     run_dir = results["save_dir"]
     gs_params = results["params"]
     gs_dirs = results["gs_dirs"]
-    test_dirs = results["test_dirs"]
     for i, d in enumerate(gs_dirs):
         df = pd.read_csv(f"{d}/summary_results.csv", index_col=0)
-        df["test_fold"] = test_dirs[i]
+        df["test_fold"] = os.path.basename(os.path.dirname(d))
+        df["metric"] = os.path.basename(d).replace("best_", "")
         df["hyperparams"] = str(gs_params[i])
         summaries.append(df)
     summaries = pd.concat(summaries).reset_index()
@@ -38,7 +37,7 @@ def collate_grid_search(results: dict):
 
 def collate_folds(results: dict):
     """
-    Function to perform any post processing across folds after the runs have finished.
+    Function to perform any post-processing across folds after the runs have finished.
     """
     summaries = []
     for i, result in enumerate(results["results"]):
