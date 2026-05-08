@@ -9,6 +9,7 @@ from architecture.pnet_model import PNetArchitectureGenerator, get_layer_maps
 from prostate_cancer_prediction.figure_pnet_vs_dense import ComparativeAnalysis
 
 from prostate_cancer_prediction.pnet_auprc import PlotAUPRC
+from prostate_cancer_prediction.pnet_roc import PlotROC
 from prostate_cancer_prediction.sankey import SankeyDiagram
 
 
@@ -145,25 +146,44 @@ def _build_comparison_results(pnet_df, other_df, stats):
     }
 
 
-def plot_single_split_auprc(run_dir, wd, ax, figures_dir):
+def plot_single_split_curves(run_dir, wd, figures_dir, concat_val=False):
     results = {}
     tabular = []
     for model in [x for x in os.listdir(run_dir) if x.find("elmarakeby") > -1 or x.find("specific_train_split") > -1]:
         if model.find("pnet") == -1:
-            results[model] = pd.read_csv(f"{run_dir}/{model}/best_f1/test_results.csv", index_col=0)
-            summary = pd.read_csv(f"{run_dir}/{model}/best_f1/summary_results.csv")
+            base = f"{run_dir}/{model}/best_f1"
+            test_df = pd.read_csv(f"{base}/test_results.csv", index_col=0)
+            if concat_val:
+                '''
+                Believe this is incorrect since the validation set should not be used for both hyperparameter selection
+                and model evaluation (data leakage). However, including it here to be able to reproduce results from original 
+                study.
+                '''
+                val_df = pd.read_csv(f"{base}/val_results.csv", index_col=0)
+                results[model] = pd.concat([test_df, val_df])
+            else:
+                results[model] = test_df
+            summary = pd.read_csv(f"{base}/summary_results.csv")
         else:
-            results["pnet"] = pd.read_csv(f"{run_dir}/{model}/test_results.csv", index_col=0)
+            test_df = pd.read_csv(f"{run_dir}/{model}/test_results.csv", index_col=0)
+            if concat_val:
+                val_df = pd.read_csv(f"{run_dir}/{model}/val_results.csv", index_col=0)
+                results["pnet"] = pd.concat([test_df, val_df])
+            else:
+                results["pnet"] = test_df
             summary = pd.read_csv(f"{run_dir}/{model}/summary_results.csv")
         summary["model"] = model
         summary.columns = ["split"] + summary.columns[1:].to_list()
         tabular.append(summary)
 
-    PlotAUPRC(results).plot(ax, "A")
-    pd.concat(tabular).to_csv(f"{wd}/specific_split_results.csv")
+    for curve, plotter, fname in [("A", PlotAUPRC, "single_split_auprc.png"),
+                                   ("A", PlotROC,   "single_split_roc.png")]:
+        fig, ax = plt.subplots()
+        plotter(results).plot(ax, curve)
+        fig.savefig(os.path.join(figures_dir, fname), dpi=300)
+        plt.close(fig)
 
-    fig = ax.get_figure()
-    fig.savefig(os.path.join(figures_dir, "single_split_auprc.png"), dpi=300)
+    pd.concat(tabular).to_csv(f"{wd}/specific_split_results.csv")
 
 
 def plot_train_size_comparisons(run_dir, ax_dense, ax_fc, figures_dir):
@@ -232,12 +252,12 @@ def plot(wd, run_dir, selected_genes, n_hidden_layers):
     if not os.path.exists(figures_dir):
         os.makedirs(figures_dir)
 
-    # fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
-    # plot_single_split_auprc(run_dir, wd, ax[0], figures_dir)
+    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
+    plot_single_split_curves(run_dir, wd, figures_dir)
     # plot_train_size_comparisons(run_dir, ax[1], ax[2], figures_dir)
     # plt.tight_layout()
     # plt.savefig(f"{wd}/figure_1.jpg")
     # plt.close()
     # plot_sankey(wd, run_dir, selected_genes, n_hidden_layers, figures_dir)
-
-    plot_stratified_5_fold_CV(run_dir, figures_dir)
+    #
+    # plot_stratified_5_fold_CV(run_dir, figures_dir)
