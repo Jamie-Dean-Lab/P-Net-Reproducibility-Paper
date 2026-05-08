@@ -27,8 +27,8 @@ def collate_grid_search(results: dict):
     gs_dirs = results["gs_dirs"]
     for i, d in enumerate(gs_dirs):
         df = pd.read_csv(f"{d}/summary_results.csv", index_col=0)
-        df["test_fold"] = os.path.basename(os.path.dirname(d))  # extracts e.g. "test_0"
-        df["metric"] = os.path.basename(d).replace("best_", "")  # extracts e.g. "f1"
+        df["test_fold"] = os.path.basename(os.path.dirname(d))
+        df["metric"] = os.path.basename(d).replace("best_", "")
         df["hyperparams"] = str(gs_params[i])
         summaries.append(df)
     summaries = pd.concat(summaries).reset_index()
