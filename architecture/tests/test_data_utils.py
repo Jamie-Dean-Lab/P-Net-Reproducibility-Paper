@@ -270,6 +270,74 @@ class TestConcatMultiViewDatasetAlignViews(unittest.TestCase):
         self.assertIsInstance(x, np.ndarray)
         self.assertIsInstance(y, np.ndarray)
 
+    def test_shuffle_keeps_views_paired_per_gene(self):
+        """
+        After align_views, each gene's views must appear as a contiguous block.
+        alignment_ids has n_views entries per gene, so for every consecutive
+        pair of entries the gene name should be identical.
+        """
+        ds = self._build()
+        n_views = 2
+        aids = ds.alignment_ids
+        # Walk through alignment_ids in blocks of n_views
+        for i in range(0, len(aids), n_views):
+            block = aids[i:i + n_views]
+            self.assertEqual(
+                len(set(block)), 1,
+                msg=f"Views for gene block at index {i} are not paired: {block}"
+            )
+
+    def test_different_seeds_give_different_order(self):
+        """
+        Two datasets built with different shuffle seeds should produce
+        different column orderings (extremely unlikely to collide by chance).
+        """
+        ds1 = ConcatMultiViewDataset()
+        ds1.load_data_view("v1", self.path_v1)
+        ds1.load_data_view("v2", self.path_v2)
+        ds1.load_data_label(self.label_path)
+        ds1.align_views(method="zero fill", shuffle_seed=42)
+
+        ds2 = ConcatMultiViewDataset()
+        ds2.load_data_view("v1", self.path_v1)
+        ds2.load_data_view("v2", self.path_v2)
+        ds2.load_data_label(self.label_path)
+        ds2.align_views(method="zero fill", shuffle_seed=99)
+
+        self.assertNotEqual(
+            ds1.alignment_ids, ds2.alignment_ids,
+            msg="Different seeds should produce different gene orderings"
+        )
+
+    def test_same_seed_gives_same_order(self):
+        """
+        Two datasets built with the same seed must be identical in column order.
+        """
+        ds1 = ConcatMultiViewDataset()
+        ds1.load_data_view("v1", self.path_v1)
+        ds1.load_data_view("v2", self.path_v2)
+        ds1.load_data_label(self.label_path)
+        ds1.align_views(method="zero fill", shuffle_seed=7)
+
+        ds2 = ConcatMultiViewDataset()
+        ds2.load_data_view("v1", self.path_v1)
+        ds2.load_data_view("v2", self.path_v2)
+        ds2.load_data_label(self.label_path)
+        ds2.align_views(method="zero fill", shuffle_seed=7)
+
+        self.assertEqual(ds1.alignment_ids, ds2.alignment_ids)
+        np.testing.assert_array_equal(ds1.xs, ds2.xs)
+
+    def test_all_genes_present_after_shuffle(self):
+        """
+        Shuffling must not drop or duplicate any gene — the set of unique
+        alignment_ids should equal the full union of genes across both views.
+        """
+        ds = self._build()
+        expected_genes = {"g1", "g2", "g3", "g4"}
+        actual_genes = set(ds.alignment_ids)
+        self.assertEqual(actual_genes, expected_genes)
+
 
 class TestAlignViewsMethods(unittest.TestCase):
     """

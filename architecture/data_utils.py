@@ -320,7 +320,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
         self.features = None    # To hold feature names after alignment
         self.alignment_ids = None   # To hold ids for alignment between views
 
-    def align_views(self, method : str, view_aligner : dict = {}, drop_labels=True, shuffle_seed : int = 42):
+    def align_views(self, method: str, view_aligner: dict = {}, drop_labels=True, shuffle_seed: int = 42):
         """
         Method to call after loading all the data desired. Aligns the views by concatenating them
         into one dataframe prefixed by the view name.
@@ -338,9 +338,8 @@ class ConcatMultiViewDataset(MultiViewDataset):
         for k, v in self.data_views.items():
             views[k] = v.copy(deep=True)
             if k in view_aligner.keys():
-                self.alignment_ids += [view_aligner[k](c) for c in v.columns]
-            else:
-                self.alignment_ids += v.columns.to_list()
+                views[k].columns = [view_aligner[k](c) for c in v.columns]
+            self.alignment_ids += views[k].columns.to_list()
         # pad each view with missing set of genes / alignment ids
         # To enable putting different views of the same gene contiguously in the dataframe
         # To facilitate the Diagonal layer from the original pnet paper because
@@ -350,7 +349,8 @@ class ConcatMultiViewDataset(MultiViewDataset):
         self.alignment_ids = []
         for k, v in views.items():
             missing_columns = column_set - set(v.columns)
-            zero_fill = pd.DataFrame(np.zeros((v.shape[0], len(missing_columns))), columns=list(missing_columns), index=v.index)
+            zero_fill = pd.DataFrame(np.zeros((v.shape[0], len(missing_columns))), columns=list(missing_columns),
+                                     index=v.index)
             views[k] = pd.concat((v, zero_fill), axis=1)
             views[k] = views[k].loc[:, sorted(views[k].columns)]
             self.alignment_ids += list(views[k].columns)
@@ -363,7 +363,8 @@ class ConcatMultiViewDataset(MultiViewDataset):
         rng = np.random.default_rng(seed=shuffle_seed)
         shuffle_order = np.arange(0, len(self.alignment_ids) / n_views)
         rng.shuffle(shuffle_order)
-        column_order = np.concatenate([[column_order[(int(i) * n_views):(int((i+1)) * n_views)]] for i in shuffle_order]).flatten()
+        column_order = np.concatenate(
+            [[column_order[(int(i) * n_views):(int((i + 1)) * n_views)]] for i in shuffle_order]).flatten()
         # Realign according to shuffle order
         self.xs = self.xs.iloc[:, column_order]
         self.alignment_ids = list(np.array(self.alignment_ids)[column_order])
@@ -379,7 +380,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
             self.xs[np.isnan(self.xs)] = 0.0
         elif method == "drop samples":
             valid_samples = np.isnan(self.xs).sum(axis=1) == 0
-            for k,v in self.data_views.items():
+            for k, v in self.data_views.items():
                 v = v.loc[valid_samples]
             self.labels = self.labels.loc[valid_samples]
             self.xs = self.xs[valid_samples, :]

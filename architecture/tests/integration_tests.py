@@ -110,6 +110,7 @@ def make_pipeline(tmp_dir, ds, config_overrides=None):
         "inner_kfolds":           1,
         "outer_kfolds":           2,
         "model_params":           {},
+        "shuffle_seed":           42
     }
     if config_overrides:
         base_config.update(config_overrides)
@@ -119,7 +120,7 @@ def make_pipeline(tmp_dir, ds, config_overrides=None):
     p.data = ds
 
     # Stub _load_data so it doesn't try to read CSV files
-    p._load_data = MagicMock(side_effect=lambda: None)
+    p._load_data = MagicMock(side_effect=lambda *args, **kwargs: None)
 
     # Replace _get_logger with a silent file logger. Still creates directories
     # so we can test directory-creation side-effects.
@@ -758,17 +759,19 @@ class TestRunCrossvalidationUseValidationOnTest(unittest.TestCase):
         gs = [
             {"model_params": {"C": 0.1}, "model_params_choice": "small"},
         ]
-        with tempfile.TemporaryDirectory() as tmp:
-            p = make_pipeline(tmp, ds, {
-                "inner_kfolds":           1,
-                "outer_kfolds":           2,
-                "grid_search":            gs,
-                "val_metric":             {"auc": MagicMock(return_value=0.8)},
-                "use_validation_on_test": use_val_on_test,
-                "validation_prop":        0.2,
-            })
-            p.run_crossvalidation(load_data=False)
-        return p.config, p._train.call_args_list
+        tmp = tempfile.TemporaryDirectory()
+        p = make_pipeline(tmp.name, ds, {
+            "inner_kfolds": 1,
+            "outer_kfolds": 2,
+            "grid_search": gs,
+            "val_metric": {"auc": MagicMock(return_value=0.8)},
+            "use_validation_on_test": use_val_on_test,
+            "validation_prop": 0.2,
+        })
+        p.run_crossvalidation(load_data=False)
+        calls = p._train.call_args_list
+        tmp.cleanup()
+        return p.config, calls
 
     def test_use_val_true_final_refit_has_nonempty_val(self):
         _, calls = self._run(use_val_on_test=True)

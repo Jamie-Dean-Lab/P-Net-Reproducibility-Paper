@@ -198,7 +198,7 @@ class TestPnetModels(unittest.TestCase):
         pipeline = TFPipeline(config)
 
         pipeline.log = pipeline._get_logger("main_logger", config["run_dir"])
-        pipeline._load_data()
+        pipeline._load_data(shuffle_seed=42)
 
         train_df, val_df, test_df = pipeline.data.get_specific_split(config["train_samples"],
                                                                      config["val_samples"],
