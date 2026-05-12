@@ -12,6 +12,7 @@ from .base_config import (base_config, data_dir, f1_selection, auprc_selection,
 n_hidden_layers = 5
 
 _model_params_base = {
+    "pathway_dataset":        "reactome",
     "pp_relations":           "architecture/Reactome/ReactomePathwaysRelation.txt",
     "gp_relations":           "architecture/Reactome/ReactomePathways.gmt",
     "n_hidden_layers":        n_hidden_layers,
@@ -28,6 +29,7 @@ _model_params_base = {
     "loss":                   ["MeanSquaredError"] * (n_hidden_layers + 1),
     "loss_weights":           [2, 7, 20, 54, 148, 400],
     "optimizer":              {"class_name": "Adam", "config": {"learning_rate": 1e-3}},
+    "map_seed":               42
 }
 
 pnet_nested_CV_config = {

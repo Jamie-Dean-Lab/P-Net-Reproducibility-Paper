@@ -254,11 +254,11 @@ def _build_comparison_results(pnet_df, other_df, stats):
         "statistically_significant": np.array(stats),
     }
 
-
+#TODO list of directories to plot rather than regex
 def plot_single_split_curves(run_dir, wd, figures_dir, concat_val=False):
     results = {}
     tabular = []
-    for model in [x for x in os.listdir(run_dir) if x.find("elmarakeby") > -1 or x.find("specific_train_split") > -1]:
+    for model in [x for x in os.listdir(run_dir) if x.find("elmarakeby") > -1 or x.find("pnet_GO_single_split") > -1]:
         if model.find("pnet") == -1:
             base = f"{run_dir}/{model}/best_f1"
             test_df = pd.read_csv(f"{base}/test_results.csv", index_col=0)
@@ -361,10 +361,10 @@ def plot(wd, run_dir, selected_genes, n_hidden_layers):
     if not os.path.exists(figures_dir):
         os.makedirs(figures_dir)
 
-    plot_nested_CV(run_dir, figures_dir)
+    #plot_nested_CV(run_dir, figures_dir)
 
     #fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
-    #plot_single_split_curves(run_dir, wd, figures_dir)
+    plot_single_split_curves(run_dir, wd, figures_dir)
     # plot_train_size_comparisons(run_dir, ax[1], ax[2], figures_dir)
     # plt.tight_layout()
     # plt.savefig(f"{wd}/figure_1.jpg")

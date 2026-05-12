@@ -1,4 +1,3 @@
-
 import re, os
 import networkx as nx
 import pandas as pd
@@ -13,13 +12,16 @@ from keras.layers import (
 )
 from keras import Input, Model
 
+from GO.preprocess import build_GO_pnet_files
 from architecture.layers_custom import *
 from architecture.callbacks_custom import TQDMCallback
+
 
 class TFModel:
     """
     Class wrapper around a TensorFlow Model
     """
+
     def __init__(self, run_id, model, model_params, fitting_params):
         """
         Constructor for the Model class
@@ -46,7 +48,7 @@ class TFModel:
         self.run_id = run_id
         self.fitting_params = fitting_params
         self.model_params = model_params
-    
+
     def get_callbacks(self):
         """
         Adds callbacks to facilitate adaptive learning rate, early stopping, and monitoring fitting progress
@@ -80,7 +82,7 @@ class TFModel:
             del self.predictor
         if hasattr(self, "feature_names"):
             del self.feature_names
-        
+
         # Set reproducibility seeds and enable determinism
         tf.keras.backend.clear_session()
         tf.compat.v1.random.set_random_seed(seed)
@@ -109,7 +111,8 @@ class TFModel:
                 validation_data=(val_df.xs, [val_df.ys] * (self.model_params["n_hidden_layers"] + 1)),
                 epochs=self.fitting_params["epochs"],
                 batch_size=self.fitting_params["batch"],
-                class_weight=self.fitting_params["class_weight"] if "class_weight" in self.fitting_params.keys() else None,
+                class_weight=self.fitting_params[
+                    "class_weight"] if "class_weight" in self.fitting_params.keys() else None,
                 verbose=0,
                 callbacks=callbacks,
                 shuffle=self.fitting_params["shuffle_samples"]
@@ -120,14 +123,15 @@ class TFModel:
                 [train_df.ys] * (self.model_params["n_hidden_layers"] + 1),
                 epochs=self.fitting_params["epochs"],
                 batch_size=self.fitting_params["batch"],
-                class_weight=self.fitting_params["class_weight"] if "class_weight" in self.fitting_params.keys() else None,
+                class_weight=self.fitting_params[
+                    "class_weight"] if "class_weight" in self.fitting_params.keys() else None,
                 verbose=0,
                 callbacks=callbacks,
                 shuffle=self.fitting_params["shuffle_samples"]
             )
-        
+
         return self, history
-    
+
     def get_prediction_score(self, X):
         prediction_scores = self.predictor.predict(X)
         if type(prediction_scores) == list:
@@ -139,10 +143,10 @@ class TFModel:
                     prediction_scores = prediction_scores[-1]
 
         return np.array(prediction_scores)
-    
+
     def predict(self, X):
         return self.get_prediction_score(X)
-    
+
     def predict_proba(self, X_test):
         prediction_scores = self.get_prediction_score(X_test)
         if type(X_test) is list:
@@ -153,7 +157,7 @@ class TFModel:
         ret[:, 0] = 1.0 - prediction_scores.ravel()
         ret[:, 1] = prediction_scores.ravel()
         return ret
-    
+
     def save_model(self, filename):
         model_json = self.predictor.to_json()
         json_file_name = filename.replace(".h5", ".json")
@@ -172,9 +176,11 @@ class TFModel:
 
         return self
 
-def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, loss_weights, data, 
+
+def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, loss_weights, data,
                  h_activation, o_activation, h_reg, o_reg, h_dropout, sparse, batch_normal, h_kernel_initializer,
-                 h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing, map_seed):
+                 h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing, map_seed,
+                 pathway_dataset):
     """
     Compiles P-Net model specifying the optimizer, loss function, and loss weights on top of building
     the P-Net architecture
@@ -200,6 +206,7 @@ def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, l
         h_bias_constraints (list[keras constraints]) : Constraint to be used for each hidden layer's bias
         dropout_testing (bool) : Whether to apply dropout outside of training
         map_seed (int) : rng seed for sparse network orders
+        pathway_dataset (str) : Which dataset to use to enforce sparsity constraints
 
     """
 
@@ -219,14 +226,19 @@ def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, l
     # Specify input dimension for P-Net
     inputs = Input(shape=(x.shape[1],), dtype="float32", name="inputs")
 
+    if pathway_dataset == 'go':
+        build_GO_pnet_files()
+
     # Build P-Net structure
     reactome = PNetArchitectureGenerator()
-    netx = reactome.get_reactome_networkx(pp_relations)
+    netx = reactome.get_reactome_networkx(pp_relations, pathway_dataset)
     maps = reactome.get_layers(netx, n_hidden_layers, gp_relations, data.get_alignment_ids())
     maps = get_layer_maps(genes, maps, False)
     _, decision_outcomes, feature_names = build_pnet(inputs, data, maps[:-1], h_activation, o_activation,
-             h_reg, o_reg, h_dropout, sparse, batch_normal, h_kernel_initializer,
-             h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing, map_seed)
+                                                     h_reg, o_reg, h_dropout, sparse, batch_normal,
+                                                     h_kernel_initializer,
+                                                     h_kernel_constraints, h_bias_initializer, h_bias_constraints,
+                                                     dropout_testing, map_seed)
 
     # Compile P-Net with the opimizer and loss function
     logging.info("Compiling...")
@@ -243,9 +255,10 @@ def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, l
 
     return model, feature_names
 
+
 def build_pnet(inputs, data, maps, h_activation, o_activation,
-             h_reg, o_reg, h_dropout, sparse, batch_normal, h_kernel_initializer,
-             h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing, map_seed):
+               h_reg, o_reg, h_dropout, sparse, batch_normal, h_kernel_initializer,
+               h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing, map_seed):
     """
     Function which builds the P-Net model using Keras library
 
@@ -275,13 +288,16 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
     feature_names = {}
     # Start constructing first layer from input features to set of genes
     gene_set = np.array(data.get_alignment_ids())[range(0, len(data.get_alignment_ids()), len(data.data_views))]
-    feature_gene_map = Diagonal(len(gene_set), tf.keras.activations.get(h_activation[0]),h_bias_initializer[0] is not None,
-                                 tf.keras.initializers.get(h_kernel_initializer[0]),  tf.keras.initializers.get(h_bias_initializer[0]), 
-                                 h_reg[0][0](**h_reg[0][1]), None, tf.keras.constraints.get(h_kernel_constraints[0]), 
-                                 tf.keras.constraints.get(h_bias_constraints[0]), name="h0")
+    feature_gene_map = Diagonal(len(gene_set), tf.keras.activations.get(h_activation[0]),
+                                h_bias_initializer[0] is not None,
+                                tf.keras.initializers.get(h_kernel_initializer[0]),
+                                tf.keras.initializers.get(h_bias_initializer[0]),
+                                h_reg[0][0](**h_reg[0][1]), None, tf.keras.constraints.get(h_kernel_constraints[0]),
+                                tf.keras.constraints.get(h_bias_constraints[0]), name="h0")
     feature_names["inputs"] = data.get_features()
     # Create first decision outcome layer
-    out_0 = Dense(data.ys.shape[1], tf.keras.activations.get(o_activation[0]), kernel_regularizer=o_reg[0][0](**o_reg[0][1]), name="o_linear_0")
+    out_0 = Dense(data.ys.shape[1], tf.keras.activations.get(o_activation[0]),
+                  kernel_regularizer=o_reg[0][0](**o_reg[0][1]), name="o_linear_0")
     # Create first dropout layer
     dropout_0 = Dropout(h_dropout[0], name="dropout_0")
     # Apply layers
@@ -301,52 +317,68 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
         logging.info("================================")
         logging.info("Print the information on the PNET layers")
         logging.info("no. inputs, no. outputs {} {} ".format(len(inp_features), len(out_features)))
-        logging.info("layer {}, dropout  {} w_reg {}".format(i, h_dropout[i+1], h_reg[i+1]))
+        logging.info("layer {}, dropout  {} w_reg {}".format(i, h_dropout[i + 1], h_reg[i + 1]))
         layer_name = "h{}".format(i + 1)
         if sparse:
             # Construct sparse connection matrix from list of dicts
-            hidden_layer = SparseTF(len(out_features), map, None, tf.keras.initializers.get(h_kernel_initializer[i+1]),
-                                h_reg[i+1][0](**h_reg[i+1][1]), tf.keras.activations.get(h_activation[i+1]), 
-                                h_bias_initializer[i+1] is not None, tf.keras.initializers.get(h_bias_initializer[i+1]), None, 
-                                tf.keras.constraints.get(h_kernel_constraints[i+1]), tf.keras.constraints.get(h_bias_constraints[i+1]), name=layer_name)
+            hidden_layer = SparseTF(len(out_features), map, None,
+                                    tf.keras.initializers.get(h_kernel_initializer[i + 1]),
+                                    h_reg[i + 1][0](**h_reg[i + 1][1]), tf.keras.activations.get(h_activation[i + 1]),
+                                    h_bias_initializer[i + 1] is not None,
+                                    tf.keras.initializers.get(h_bias_initializer[i + 1]), None,
+                                    tf.keras.constraints.get(h_kernel_constraints[i + 1]),
+                                    tf.keras.constraints.get(h_bias_constraints[i + 1]), name=layer_name)
         else:
-            hidden_layer = Dense(len(out_features), tf.keras.activations.get(h_activation[i+1]), h_bias_initializer[i+1] is not None,
-                                 tf.keras.initializers.get(h_kernel_initializer[i+1]), tf.keras.initializers.get(h_bias_initializer[i+1]), 
-                                 h_reg[i+1][0](**h_reg[i+1][1]), None, None, tf.keras.constraints.get(h_kernel_constraints[i+1]), 
-                                 tf.keras.constraints.get(h_bias_constraints[i+1]), name=layer_name)
+            hidden_layer = Dense(len(out_features), tf.keras.activations.get(h_activation[i + 1]),
+                                 h_bias_initializer[i + 1] is not None,
+                                 tf.keras.initializers.get(h_kernel_initializer[i + 1]),
+                                 tf.keras.initializers.get(h_bias_initializer[i + 1]),
+                                 h_reg[i + 1][0](**h_reg[i + 1][1]), None, None,
+                                 tf.keras.constraints.get(h_kernel_constraints[i + 1]),
+                                 tf.keras.constraints.get(h_bias_constraints[i + 1]), name=layer_name)
         # Apply hidden layer
         outcome = hidden_layer(outcome)
         # Get decision
-        out_n = Dense(data.ys.shape[1], tf.keras.activations.get(o_activation[i+1]), 
-                      kernel_regularizer=o_reg[i+1][0](**o_reg[i+1][1]), name="o_linear_{}".format(i+1))
+        out_n = Dense(data.ys.shape[1], tf.keras.activations.get(o_activation[i + 1]),
+                      kernel_regularizer=o_reg[i + 1][0](**o_reg[i + 1][1]), name="o_linear_{}".format(i + 1))
         decision_outcome = BatchNormalization()(out_n(outcome)) if batch_normal else out_n(outcome)
         decision_outcomes.append(decision_outcome)
         # Apply dropout
-        dropout_n = Dropout(h_dropout[i+1])
+        dropout_n = Dropout(h_dropout[i + 1])
         outcome = dropout_n(outcome, training=dropout_testing)
         # Save feature names
         feature_names["h{}".format(i)] = inp_features
         inp_features = out_features
 
     # Save last layer of feature names
-    feature_names["h{}".format(i+1)] = inp_features
+    feature_names["h{}".format(i + 1)] = inp_features
 
     return outcome, decision_outcomes, feature_names
+
 
 class PNetArchitectureGenerator:
     """
     Wrapper class to contain the code for constructing PNET reactome tree from the original
     PNET paper.
     """
-    def get_reactome_networkx(self, pp_relations : str):
-        hierarchy = pd.read_csv(pp_relations, sep="\t")
+
+    def get_reactome_networkx(self, pp_relations: str, pathway_dataset: str):
+        hierarchy = pd.read_csv(pp_relations, sep="\t", header=None)
         hierarchy.columns = ["child", "parent"]
-        # filter hierarchy to have human pathways only
-        human_hierarchy = hierarchy[hierarchy["child"].str.contains("HSA")]
+
+        if pathway_dataset == 'reactome':
+            human_hierarchy = hierarchy[hierarchy["child"].str.startswith("R-HSA-")]
+            source, target = "child", "parent"
+        elif pathway_dataset == 'go':
+            human_hierarchy = hierarchy[hierarchy["child"].str.startswith("GO:")]
+            source, target = "parent", "child"
+        else:
+            raise ValueError(f"Unknown pathway_dataset: {pathway_dataset}")
+
         net = nx.from_pandas_edgelist(
-            human_hierarchy, "child", "parent", create_using=nx.DiGraph()
+            human_hierarchy, source, target, create_using=nx.DiGraph()
         )
-        net.name = "reactome"
+        net.name = pathway_dataset
 
         # add root node
         roots = [n for n, d in net.in_degree() if d == 0]
@@ -355,7 +387,7 @@ class PNetArchitectureGenerator:
         net.add_edges_from(edges)
 
         return net
-    
+
     def get_terminals(self, net):
         terminal_nodes = [n for n, d in net.out_degree() if d == 0]
         return terminal_nodes
@@ -363,7 +395,7 @@ class PNetArchitectureGenerator:
     def get_roots(self):
         roots = self.get_nodes_at_level(distance=1)
         return roots
-    
+
     def get_nodes_at_level(self, net, distance):
         # get all nodes within distance around the query node
         nodes = set(nx.ego_graph(net, "root", radius=distance))
@@ -373,7 +405,7 @@ class PNetArchitectureGenerator:
             nodes -= set(nx.ego_graph(net, "root", radius=distance - 1))
 
         return list(nodes)
-    
+
     def add_edges(self, G, node, n_levels):
         edges = []
         source = node
@@ -385,21 +417,19 @@ class PNetArchitectureGenerator:
 
         G.add_edges_from(edges)
         return G
-    
-    def complete_network(self, G, n_leveles=4):
-        sub_graph = nx.ego_graph(G, "root", radius=n_leveles)
+
+    def complete_network(self, G, n_levels):
+        sub_graph = nx.ego_graph(G, "root", radius=n_levels)
         terminal_nodes = [n for n, d in sub_graph.out_degree() if d == 0]
-        distances = [
-            len(nx.shortest_path(G, source="root", target=node)) for node in terminal_nodes
-        ]
+
         for node in terminal_nodes:
             distance = len(nx.shortest_path(sub_graph, source="root", target=node))
-            if distance <= n_leveles:
-                diff = n_leveles - distance + 1
+            if distance <= n_levels:
+                diff = n_levels - distance + 1
                 sub_graph = self.add_edges(sub_graph, node, diff)
 
         return sub_graph
-    
+
     def info(self, net):
         return nx.info(net)
 
@@ -411,14 +441,14 @@ class PNetArchitectureGenerator:
         return G
 
     def get_completed_network(self, net, n_levels):
-        G = self.complete_network(net, n_leveles=n_levels)
+        G = self.complete_network(net, n_levels=n_levels)
         return G
 
     def get_completed_tree(self, net, n_levels):
         G = self.get_tree(net)
-        G = self.complete_network(G, n_leveles=n_levels)
+        G = self.complete_network(G, n_levels=n_levels)
         return G
-    
+
     def get_layers_from_net(self, net, n_levels):
         layers = []
         for i in range(n_levels):
@@ -455,7 +485,7 @@ class PNetArchitectureGenerator:
 
         layers.append(dict)
         return layers
-    
+
     def load_gmt(self, filename, genes_col=1, pathway_col=0):
         data_dict_list = []
         with open(filename) as gmt:
@@ -471,6 +501,7 @@ class PNetArchitectureGenerator:
 
         df = pd.DataFrame(data_dict_list)
         return df
+
 
 def get_map_from_layer(layer_dict):
     """
@@ -513,11 +544,8 @@ def get_layer_maps(genes, reactome_layers, add_unk_genes):
         filtered_map = filter_df.merge(
             mapp, right_index=True, left_index=True, how="left"
         )
-        print(filtered_map)
-        print("test end")
         # UNK, add a node for genes without known reactome annotation
         if add_unk_genes:
-
             filtered_map["UNK"] = 0
             ind = filtered_map.sum(axis=1) == 0
             filtered_map.loc[ind, "UNK"] = 1
