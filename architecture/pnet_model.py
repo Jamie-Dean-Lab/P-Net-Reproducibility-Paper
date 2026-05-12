@@ -230,9 +230,9 @@ def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, l
         build_GO_pnet_files()
 
     # Build P-Net structure
-    reactome = PNetArchitectureGenerator()
-    netx = reactome.get_reactome_networkx(pp_relations, pathway_dataset)
-    maps = reactome.get_layers(netx, n_hidden_layers, gp_relations, data.get_alignment_ids())
+    generator = PNetArchitectureGenerator()
+    netx = generator.get_networkx(pp_relations, pathway_dataset)
+    maps = generator.get_layers(netx, n_hidden_layers, gp_relations, data.get_alignment_ids())
     maps = get_layer_maps(genes, maps, False)
     _, decision_outcomes, feature_names = build_pnet(inputs, data, maps[:-1], h_activation, o_activation,
                                                      h_reg, o_reg, h_dropout, sparse, batch_normal,
@@ -362,7 +362,7 @@ class PNetArchitectureGenerator:
     PNET paper.
     """
 
-    def get_reactome_networkx(self, pp_relations: str, pathway_dataset: str):
+    def get_networkx(self, pp_relations: str, pathway_dataset: str):
         hierarchy = pd.read_csv(pp_relations, sep="\t", header=None)
         hierarchy.columns = ["child", "parent"]
 

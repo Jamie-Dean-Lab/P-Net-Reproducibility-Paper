@@ -339,7 +339,7 @@ def plot_sankey(wd, run_dir, selected_genes, n_hidden_layers, figures_dir):
     }
 
     reactome = PNetArchitectureGenerator()
-    netx = reactome.get_reactome_networkx("architecture/Reactome/ReactomePathwaysRelation.txt")
+    netx = reactome.get_networkx("architecture/Reactome/ReactomePathwaysRelation.txt", "reactome")
     maps = reactome.get_layers(netx, n_hidden_layers, "architecture/Reactome/ReactomePathways.gmt", selected_genes)
     maps = get_layer_maps(deeplift["h0"].index, maps, False)
 
