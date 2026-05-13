@@ -348,12 +348,33 @@ def plot_sankey(wd, run_dir, selected_genes, n_hidden_layers, figures_dir):
 
     layers = {}
     weights = {}
+
+    # build input layer from deeplift['inputs']
+    inputs_df = deeplift["inputs"].copy()
+    inputs_df.index.name = "feature"
+    inputs_df = inputs_df.reset_index()
+    inputs_df["input_type"] = inputs_df["feature"].str.extract(r"^(mut_important|cnv_amp|cnv_del)")
+    inputs_df["gene"] = inputs_df["feature"].str.replace(r"^(mut_important|cnv_amp|cnv_del)_", "", regex=True)
+
+    input_types = ["mut_important", "cnv_amp", "cnv_del"]
+    input_labels = np.array(["Mutation", "Amplification", "Deletion"])
+
+    gene_order = deeplift["h0"].index.tolist()
+
+    pivot = inputs_df.pivot(index="input_type", columns="gene", values="feature_importance")
+    pivot = pivot.reindex(index=input_types, columns=gene_order).fillna(0)
+    input_weight_matrix = pivot.to_numpy()
+
+    layers["layer_0"] = input_labels
+    weights["layer_0"] = input_weight_matrix
+
+    # remaining layers from maps and deeplift
     for i in range(len(maps)):
         nodes = pathwaynames.loc[maps[i].index, "name"].to_numpy() if i > 0 else maps[i].index.to_numpy()
         layers[f"layer_{i+1}"] = nodes
         weights[f"layer_{i+1}"] = maps[i].to_numpy() * deeplift[f"h{i}"].to_numpy()
 
-    SankeyDiagram(layers, weights).plot([10, 10, 10, 10, 10, 6], figures_dir)
+    SankeyDiagram(layers, weights).plot([3, 10, 10, 10, 10, 10, 6], figures_dir)
 
 
 def plot(wd, run_dir, selected_genes, n_hidden_layers):
@@ -363,12 +384,12 @@ def plot(wd, run_dir, selected_genes, n_hidden_layers):
 
     #plot_nested_CV(run_dir, figures_dir)
 
-    #fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
-    plot_single_split_curves(run_dir, wd, figures_dir)
-    # plot_train_size_comparisons(run_dir, ax[1], ax[2], figures_dir)
+    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
+    #plot_single_split_curves(run_dir, wd, figures_dir)
+    #plot_train_size_comparisons(run_dir, ax[1], ax[2], figures_dir)
     # plt.tight_layout()
     # plt.savefig(f"{wd}/figure_1.jpg")
     # plt.close()
-    # plot_sankey(wd, run_dir, selected_genes, n_hidden_layers, figures_dir)
+    plot_sankey(wd, run_dir, selected_genes, n_hidden_layers, figures_dir)
     #
     # plot_stratified_5_fold_CV(run_dir, figures_dir)
