@@ -232,7 +232,7 @@ class SankeyDiagram:
         )])
 
         fig.update_layout(
-            font_size=14,
+            font=dict(size=14, color="black"),
             width=FIGURE_WIDTH,
             height=FIGURE_HEIGHT,
             margin={"b": 20, "l": 20, "r": 20, "t": 60},  # increase top margin to make room
