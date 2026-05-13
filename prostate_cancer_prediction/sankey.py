@@ -235,7 +235,28 @@ class SankeyDiagram:
             font_size=14,
             width=FIGURE_WIDTH,
             height=FIGURE_HEIGHT,
-            margin={"b": 20, "l": 20, "r": 20, "t": 40}
+            margin={"b": 20, "l": 20, "r": 20, "t": 60},  # increase top margin to make room
+            annotations=[
+                dict(
+                    x=x_pos,
+                    y=1.04,  # just above the plot area
+                    xref="paper",
+                    yref="paper",
+                    text=label,
+                    showarrow=False,
+                    font=dict(size=15, color="black"),
+                    xanchor="center",
+                )
+                for label, x_pos in [
+                    ("Inputs", 0.01),
+                    ("H1", 0.1),
+                    ("H2", 0.16),
+                    ("H3", 0.32),
+                    ("H4", 0.48),
+                    ("H5", 0.64),
+                    ("H6", 0.8)
+                ]
+            ]
         )
 
         fig.write_image(f"{save_path}/sankey.jpg")
