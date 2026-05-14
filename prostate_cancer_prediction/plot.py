@@ -391,6 +391,28 @@ def plot_train_size_comparisons(run_dir, ax_dense, ax_fc, figures_dir):
 
 
 def plot_sankey(wd, run_dir, selected_genes, n_hidden_layers, figures_dir):
+    """
+        Generates a Sankey diagram visualising the P-Net model's feature importance flow
+        from input genomic features through gene and pathway layers to the outcome node.
+
+        The function reproduces the visualisation from Elmarakeby et al. (2021). It loads
+        pre-computed DeepLIFT importance scores and trained model link weights, selects the
+        top N most important nodes per layer (genes by coef_combined, pathways by coef),
+        and builds a layered edge graph connecting inputs (mutation, amplification, deletion)
+        -> genes -> pathway hierarchy (6 layers) -> outcome.
+
+        Non-selected nodes are collapsed into 'residual' nodes per layer rather than dropped,
+        preserving total flow. Edge weights for the pathway layers (1+) are adjusted via
+        adjust_values() which reweights each edge as the minimum of source-normalised and
+        target-normalised importance, ensuring edges only appear thick when both endpoints
+        are important. The first layer (input -> gene) edges are NOT passed through
+        adjust_values(), matching the original codebase which constructs these edges
+        separately and concatenates them after adjustment.
+
+        Node y-positions are computed from flow values (max of incoming/outgoing), with
+        residual nodes forced to the bottom of each layer. Output is saved as PDF, PNG,
+        and interactive HTML.
+        """
     pnet_run_dir = f"{run_dir}/pnet_single_split"
 
     deeplift = {
