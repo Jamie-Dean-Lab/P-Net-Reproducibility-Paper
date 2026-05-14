@@ -17,6 +17,7 @@ from prostate_cancer_prediction.configs.linear_svm_single_split import linear_sv
 from prostate_cancer_prediction.configs.linear_svm_single_split_elmarakeby import \
     linear_svm_single_split_elmarakeby_config
 from prostate_cancer_prediction.configs.linear_svm_stratified_5_fold_CV import linear_svm_stratified_5_fold_CV_config
+from prostate_cancer_prediction.configs.pnet_GO_single_split import pnet_GO_single_split_config
 from prostate_cancer_prediction.configs.pnet_nested_CV import pnet_nested_CV_config
 from prostate_cancer_prediction.configs.pnet_single_split import pnet_single_split_config
 from prostate_cancer_prediction.configs.pnet_stratified_5_fold_CV import pnet_stratified_5_fold_CV_config
@@ -61,7 +62,7 @@ def run():
 
     configs = [
         # Single split
-        # pnet_single_split_config,
+        #pnet_single_split_config,
         # decision_tree_single_split_config,
         # decision_tree_single_split_elmarakeby_config,
         # linear_svm_single_split_config,
@@ -90,13 +91,13 @@ def run():
         # sgd_logistic_regression_stratified_5_fold_CV_config
 
         # Stratified nested CV
-        adaboost_nested_CV_config,
-        decision_tree_nested_CV_config,
-        linear_svm_nested_CV_config,
-        pnet_nested_CV_config,
-        random_forest_nested_CV_config,
-        rbf_svm_nested_CV_config,
-        sgd_logistic_regression_nested_CV_config
+        # adaboost_nested_CV_config,
+        # decision_tree_nested_CV_config,
+        # linear_svm_nested_CV_config,
+        # pnet_nested_CV_config,
+        # random_forest_nested_CV_config,
+        # rbf_svm_nested_CV_config,
+        # sgd_logistic_regression_nested_CV_config
 
 
     ]

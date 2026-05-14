@@ -538,3 +538,56 @@ def get_deconstruction_weights(model):
         # for w in weights:
         #     print w.shape
     pass
+
+import logging
+logger = logging.getLogger(__name__)
+def adjust_deeplift_for_degree(coef_df, maps, layer_idx):
+    curr = maps[layer_idx].copy()
+    curr[curr != 0] = 1.0
+    fan_in = curr.abs().sum(axis=0)
+
+    if layer_idx + 1 < len(maps):
+        next_map = maps[layer_idx + 1].copy()
+        next_map[next_map != 0] = 1.0
+        fan_out = next_map.abs().sum(axis=1)
+        degree = fan_in.add(fan_out, fill_value=0)
+    else:
+        degree = fan_in
+
+    df = coef_df.copy()
+    df.columns = ["coef"]
+    df["coef_graph"] = degree.reindex(df.index).fillna(0)
+
+    n_missing = df["coef_graph"].eq(0).sum()
+    mean = df["coef_graph"].mean()
+    std = df["coef_graph"].std()
+    threshold = mean + 5 * std
+    ind = df["coef_graph"] > threshold
+    n_hubs = ind.sum()
+
+    logger.info(f"  Layer {layer_idx}: {len(df)} nodes, degree mean={mean:.2f} std={std:.2f} threshold={threshold:.2f}")
+    logger.info(f"  Layer {layer_idx}: {n_hubs} hub nodes penalised, {n_missing} nodes with zero degree (index mismatch)")
+
+    if n_missing > 0:
+        logger.warning(f"  Layer {layer_idx}: {n_missing} nodes had no degree — check index alignment between deeplift and maps")
+
+    divide = df["coef_graph"].copy()
+    divide[~ind] = 1.0
+    df["coef_combined"] = df["coef"] / divide
+
+    z = df["coef_combined"]
+    df["coef_combined_zscore"] = (z - z.mean()) / z.std(ddof=0)
+
+    z1 = (df["coef_graph"] - df["coef_graph"].mean()) / df["coef_graph"].std(ddof=0)
+    z2 = (df["coef"] - df["coef"].mean()) / df["coef"].std(ddof=0)
+    z = z2 - z1
+    df["coef_combined2"] = (z - z.mean()) / z.std(ddof=0)
+
+    df["feature_importance_adjusted"] = df["coef_combined_zscore"]
+
+    if n_hubs > 0:
+        top_hubs = df[ind].sort_values("coef_graph", ascending=False).head(5)
+        for node, row in top_hubs.iterrows():
+            logger.info(f"  Hub: {node} degree={row['coef_graph']:.0f} raw={row['coef']:.4f} adjusted={row['feature_importance_adjusted']:.4f}")
+
+    return df

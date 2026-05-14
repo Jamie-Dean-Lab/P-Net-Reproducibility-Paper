@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 
 from keras.models import Sequential
 
+from pnet_model import get_layer_maps, PNetArchitectureGenerator
+
 # Anchor sys.path to the project root relative to this file's location
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_HERE)
@@ -258,12 +260,168 @@ def get_layers(model, level=1):
     return layers
 
 
-def get_deeplift_global(results):
+# def get_deeplift_global(results):
+#     global_coefs, sample_coefs = get_coef_importance(
+#         results["model"].predictor, results["train_df"].xs, results["train_df"].ys, -1, "deepexplain_deeplift"
+#     )
+#     features = results["model"].feature_names
+#     features["inputs"] = [x[1] for x in features["inputs"]]
+#     for k, v in global_coefs.items():
+#         df = pd.DataFrame(v, index=features[k], columns=["feature_importance"])
+#         df.to_csv(results["save_dir"] + f"/feature_importance_{k}.csv")
+
+
+
+import logging
+logger = logging.getLogger(__name__)
+
+def adjust_deeplift_for_degree(coef_df, maps, layer_idx):
+    curr = maps[layer_idx].copy()
+    curr[curr != 0] = 1.0
+
+    if layer_idx == 0:
+        fan_out = curr.abs().sum(axis=1)
+        degree = fan_out
+    else:
+        prev_map = maps[layer_idx - 1].copy()
+        prev_map[prev_map != 0] = 1.0
+        fan_in = prev_map.abs().sum(axis=0)
+        fan_out = curr.abs().sum(axis=1)
+        degree = fan_in.add(fan_out, fill_value=0)
+
+    df = coef_df.copy()
+    df.columns = ["coef"]
+    df["coef_graph"] = degree.reindex(df.index).fillna(0)
+
+    # diagnostics for layer 0
+    if layer_idx == 0:
+        zero_degree_genes = df[df["coef_graph"] == 0].index.tolist()
+        nonzero_in_map = (maps[0].loc[maps[0].index.isin(zero_degree_genes)] != 0).sum(axis=1)
+        print(f"  Non-zero connections for zero-degree genes: {nonzero_in_map.sum()}")
+        print(f"  Zero-degree genes in maps[0]: {(~maps[0].index.isin(zero_degree_genes)).sum()} connected, {maps[0].index.isin(zero_degree_genes).sum()} unconnected")
+
+    n_missing = df["coef_graph"].eq(0).sum()
+    mean = df["coef_graph"].mean()
+    std = df["coef_graph"].std()
+    threshold = mean + 5 * std
+    ind = df["coef_graph"] > threshold
+    n_hubs = ind.sum()
+
+    print(f"  Nodes: {len(df)}, degree mean={mean:.2f}, std={std:.2f}, threshold={threshold:.2f}")
+    print(f"  Hub nodes penalised: {n_hubs}, zero degree (index mismatch): {n_missing}")
+
+    divide = df["coef_graph"].copy()
+    divide[~ind] = 1.0
+    df["coef_combined"] = df["coef"] / divide
+
+    z = df["coef_combined"]
+    df["coef_combined_zscore"] = (z - z.mean()) / z.std(ddof=0)
+
+    z1 = (df["coef_graph"] - df["coef_graph"].mean()) / df["coef_graph"].std(ddof=0)
+    z2 = (df["coef"] - df["coef"].mean()) / df["coef"].std(ddof=0)
+    z = z2 - z1
+    df["coef_combined2"] = (z - z.mean()) / z.std(ddof=0)
+    df["feature_importance_adjusted"] = df["coef_combined_zscore"]
+
+    if n_hubs > 0:
+        top_hubs = df[ind].sort_values("coef_graph", ascending=False).head(5)
+        print(f"  Top hubs:\n{top_hubs[['coef_graph', 'coef', 'feature_importance_adjusted']]}")
+
+    return df
+
+
+def get_layer_weights(layer):
+    from scipy.sparse import csr_matrix
+    layer_type = type(layer).__name__
+
+    if layer_type in ('Diagonal', 'SparseTF'):
+        w = layer.get_weights()[0]  # flat non-zero values
+        row_ind = layer.nonzero_ind[:, 0]
+        col_ind = layer.nonzero_ind[:, 1]
+        w_sparse = csr_matrix((w, (row_ind, col_ind)), shape=layer.kernel_shape)
+        return np.array(w_sparse.todense())
+    else:
+        # standard Dense
+        return layer.get_weights()[0]
+
+
+def get_link_weights_df_(model, features, layer_names):
+    link_weights_df = {}
+    for i, layer_name in enumerate(layer_names[1:]):
+        try:
+            layer = model.get_layer(layer_name)
+        except ValueError:
+            print(f"  Layer {layer_name} not found in model, skipping")
+            continue
+
+        previous_layer_name = layer_names[i]
+        rows = features[previous_layer_name]
+        cols = features[layer_name]
+
+        print(f"  Extracting {previous_layer_name} -> {layer_name}: "
+              f"type={type(layer).__name__}, expected shape=({len(rows)}, {len(cols)})")
+
+        w = get_layer_weights(layer)
+        print(f"  Got weight matrix shape: {w.shape}")
+
+        w_df = pd.DataFrame(w, index=rows, columns=cols)
+        link_weights_df[layer_name] = w_df
+
+    return link_weights_df
+
+
+def get_deeplift_global(results, selected_genes, n_hidden_layers):
+    print("Computing DeepLIFT global importance scores")
+
     global_coefs, sample_coefs = get_coef_importance(
         results["model"].predictor, results["train_df"].xs, results["train_df"].ys, -1, "deepexplain_deeplift"
     )
+    print(f"sample_coefs keys: {list(sample_coefs.keys())}")
+    for k, v in sample_coefs.items():
+        print(f"  sample_coefs['{k}'] type={type(v)}, shape={v.shape if hasattr(v, 'shape') else len(v)}")
+
     features = results["model"].feature_names
     features["inputs"] = [x[1] for x in features["inputs"]]
+
+    reactome = PNetArchitectureGenerator()
+    netx = reactome.get_networkx("architecture/Reactome/ReactomePathwaysRelation.txt", "reactome")
+    maps = reactome.get_layers(netx, n_hidden_layers, "architecture/Reactome/ReactomePathways.gmt", selected_genes)
+    maps = get_layer_maps(pd.Index(features["h0"]), maps, False)
+    print(f"Built {len(maps)} layer maps from Reactome")
+
+    # verify index alignment
+    for i, m in enumerate(maps):
+        k = f"h{i}"
+        if k in global_coefs:
+            map_idx = set(m.index)
+            dlift_idx = set(features[k])
+            overlap = map_idx & dlift_idx
+            print(f"Layer {k}: maps={len(map_idx)}, deeplift={len(dlift_idx)}, overlap={len(overlap)}, "
+                  f"missing from maps={len(dlift_idx - map_idx)}, missing from deeplift={len(map_idx - dlift_idx)}")
+
+    # extract link weights from trained model
+    print("\n--- Extracting link weights ---")
+    layer_names = ['inputs', 'h0', 'h1', 'h2', 'h3', 'h4', 'h5']
+    link_weights = get_link_weights_df_(results["model"].predictor, features, layer_names)
+    for i, (layer_name, df) in enumerate(link_weights.items()):
+        save_path = results["save_dir"] + f"/link_weights_{i}.csv"
+        df.to_csv(save_path)
+        print(f"  Saved link weights {layer_name} shape={df.shape} to {save_path}")
+
+    # save deeplift importance scores
     for k, v in global_coefs.items():
-        df = pd.DataFrame(v, index=features[k], columns=["feature_importance"])
-        df.to_csv(results["save_dir"] + f"/feature_importance_{k}.csv")
+        df = pd.DataFrame(np.abs(v), index=features[k], columns=["feature_importance"])
+
+        if k.startswith("h"):
+            layer_idx = int(k[1:])
+            df = adjust_deeplift_for_degree(df, maps, layer_idx)
+            print(f"Layer {k}: feature_importance_adjusted range="
+                  f"[{df['feature_importance_adjusted'].min():.4f}, {df['feature_importance_adjusted'].max():.4f}]")
+        else:
+            print(f"Skipping adjustment for {k} (inputs layer)")
+
+        save_path = results["save_dir"] + f"/feature_importance_{k}.csv"
+        df.to_csv(save_path)
+        print(f"Saved {k} importance to {save_path}")
+
+    print("DeepLIFT global importance complete")
