@@ -5,9 +5,9 @@ from keras.callbacks import LearningRateScheduler
 from architecture.pipeline import TFPipeline
 from architecture.pnet_model import compile_pnet
 from architecture.callbacks_custom import step_decay_part
-from architecture.evaluation import plot_history, get_deeplift_global
+from architecture.evaluation import plot_history
 from .base_config import (base_config, f1_selection, auprc_selection,
-                          auc_selection, save_processor, selected_genes)
+                          auc_selection, save_processor)
 
 n_hidden_layers = 5
 

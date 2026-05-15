@@ -355,9 +355,7 @@ def get_link_weights_df_(model, features, layer_names):
 
 
 def get_deeplift_global(results, selected_genes, n_hidden_layers,
-                        pathway_dataset="reactome",
-                        pp_relations="architecture/Reactome/ReactomePathwaysRelation.txt",
-                        gp_relations="architecture/Reactome/ReactomePathways.gmt"):
+                        pathway_dataset, pp_relations, gp_relations):
     print("Computing DeepLIFT global importance scores")
 
     global_coefs, sample_coefs = get_coef_importance(

@@ -1,4 +1,6 @@
 import copy
+from functools import partial
+
 from keras.regularizers import L2
 from keras.callbacks import LearningRateScheduler
 
@@ -11,32 +13,34 @@ from .base_config import (base_config, data_dir, f1_selection, auprc_selection,
 
 n_hidden_layers = 5
 
+_model_params = {
+    "pathway_dataset":        "reactome",
+    "pp_relations":           "architecture/Reactome/ReactomePathwaysRelation.txt",
+    "gp_relations":           "architecture/Reactome/ReactomePathways.gmt",
+    "n_hidden_layers":        n_hidden_layers,
+    "h_dropout":              [0.5] + [0.1] * n_hidden_layers,
+    "h_activation":           ["tanh"] * (n_hidden_layers + 1),
+    "o_activation":           ["sigmoid"] * (n_hidden_layers + 1),
+    "h_reg":                  [(L2, {"l2": 1e-3})] * (n_hidden_layers + 1),
+    "o_reg":                  [(L2, {"l2": 1e-2})] * (n_hidden_layers + 1),
+    "h_kernel_initializer":   ["lecun_uniform"] * (n_hidden_layers + 1),
+    "h_kernel_constraints":   [None] * (n_hidden_layers + 1),
+    "h_bias_initializer":     ["lecun_uniform"] * (n_hidden_layers + 1),
+    "h_bias_constraints":     [None] * (n_hidden_layers + 1),
+    "batch_normal":           False,
+    "sparse":                 True,
+    "dropout_testing":        False,
+    "loss":                   [{"class_name": "BinaryCrossentropy", "config": {"from_logits": False}}] * (n_hidden_layers + 1),
+    "loss_weights":           [2, 7, 20, 54, 148, 400],
+    "optimizer":              {"class_name": "Adam", "config": {"learning_rate": 1e-3}},
+    "map_seed":               42
+}
+
 pnet_single_split_elmarakeby_config = {
     **copy.deepcopy(base_config),
     "run_id":                 "pnet_single_split_elmarakeby",
     "model":                  compile_pnet,
-    "model_params": {
-        "pathway_dataset":        "reactome",
-        "pp_relations":           "architecture/Reactome/ReactomePathwaysRelation.txt",
-        "gp_relations":           "architecture/Reactome/ReactomePathways.gmt",
-        "n_hidden_layers":        n_hidden_layers,
-        "h_dropout":              [0.5] + [0.1] * n_hidden_layers,
-        "h_activation":           ["tanh"] * (n_hidden_layers + 1),
-        "o_activation":           ["sigmoid"] * (n_hidden_layers + 1),
-        "h_reg":                  [(L2, {"l2": 1e-3})] * (n_hidden_layers + 1),
-        "o_reg":                  [(L2, {"l2": 1e-2})] * (n_hidden_layers + 1),
-        "h_kernel_initializer":   ["lecun_uniform"] * (n_hidden_layers + 1),
-        "h_kernel_constraints":   [None] * (n_hidden_layers + 1),
-        "h_bias_initializer":     ["lecun_uniform"] * (n_hidden_layers + 1),
-        "h_bias_constraints":     [None] * (n_hidden_layers + 1),
-        "batch_normal":           False,
-        "sparse":                 True,
-        "dropout_testing":        False,
-        "loss":                   [{"class_name": "BinaryCrossentropy", "config": {"from_logits": False}}] * (n_hidden_layers + 1),
-        "loss_weights":           [2, 7, 20, 54, 148, 400],
-        "optimizer":              {"class_name": "Adam", "config": {"learning_rate": 1e-3}},
-        "map_seed":               42
-    },
+    "model_params":           _model_params,
     "fitting_params": {
         "epochs":             300,
         "batch":              50,
@@ -46,7 +50,16 @@ pnet_single_split_elmarakeby_config = {
         "shuffle_samples":    True,
         "class_weight":       [[0.75, 1.5]] * (n_hidden_layers + 1),
     },
-    "results_processors":     [save_processor, plot_history, lambda results: get_deeplift_global(results, selected_genes, n_hidden_layers)],
+    "results_processors":     [
+        save_processor,
+        plot_history,
+        partial(get_deeplift_global,
+                selected_genes=selected_genes,
+                n_hidden_layers=n_hidden_layers,
+                pathway_dataset=_model_params["pathway_dataset"],
+                pp_relations=_model_params["pp_relations"],
+                gp_relations=_model_params["gp_relations"])
+    ],
     "use_validation_on_test": True,
     "val_metric":             {"f1": f1_selection, "auprc": auprc_selection, "auc": auc_selection},
     "pipeline_class":         TFPipeline,
