@@ -10,6 +10,7 @@ def build_GO_pnet_files():
     cx_path = os.path.join(script_dir, 'DrugCell Hierarchy.cx')
     hierarchy_out = os.path.join(script_dir, 'go_hierarchy.tsv')
     gmt_out = os.path.join(script_dir, 'go_gene_sets.gmt')
+    id_map_out = os.path.join(script_dir, 'go_id_name_map.tsv')
 
     if os.path.exists(hierarchy_out) and os.path.exists(gmt_out):
         return
@@ -34,6 +35,17 @@ def build_GO_pnet_files():
     gene_nodes = {k: v for k, v in node_names.items() if k not in node_namespace}
     print(f"GO term nodes: {len(go_nodes)}")
     print(f"Gene nodes: {len(gene_nodes)}")
+
+    # Build GO ID -> name map
+    rows = sorted(
+        [(go_code, node_fullname.get(node_id, ''), node_namespace.get(node_id, ''))
+         for node_id, go_code in go_nodes.items()],
+        key=lambda x: x[0]
+    )
+    with open(id_map_out, 'w') as f:
+        for go_code, fullname, namespace in rows:
+            f.write(f"{go_code}\t{fullname}\t{namespace}\n")
+    print(f"Wrote ID map: {id_map_out} ({len(rows)} GO terms)")
 
     # Parse edges
     edge_attrs = {}
@@ -135,3 +147,6 @@ def build_GO_pnet_files():
     terminal_nodes = all_children - all_parents
     annotated_terminals = terminal_nodes & annotated_terms
     print(f"Terminal GO terms with gene annotations: {len(annotated_terminals)}/{len(terminal_nodes)}")
+
+if __name__ == '__main__':
+    build_GO_pnet_files()

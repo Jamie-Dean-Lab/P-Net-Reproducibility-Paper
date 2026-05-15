@@ -99,6 +99,8 @@ def run():
         # rbf_svm_nested_CV_config,
         # sgd_logistic_regression_nested_CV_config
 
+        #pnet_GO_single_split_config
+
 
     ]
 

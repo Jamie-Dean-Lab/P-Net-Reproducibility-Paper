@@ -259,22 +259,6 @@ def get_layers(model, level=1):
             layers.append(l)
     return layers
 
-
-# def get_deeplift_global(results):
-#     global_coefs, sample_coefs = get_coef_importance(
-#         results["model"].predictor, results["train_df"].xs, results["train_df"].ys, -1, "deepexplain_deeplift"
-#     )
-#     features = results["model"].feature_names
-#     features["inputs"] = [x[1] for x in features["inputs"]]
-#     for k, v in global_coefs.items():
-#         df = pd.DataFrame(v, index=features[k], columns=["feature_importance"])
-#         df.to_csv(results["save_dir"] + f"/feature_importance_{k}.csv")
-
-
-
-import logging
-logger = logging.getLogger(__name__)
-
 def adjust_deeplift_for_degree(coef_df, maps, layer_idx):
     curr = maps[layer_idx].copy()
     curr[curr != 0] = 1.0
@@ -370,7 +354,10 @@ def get_link_weights_df_(model, features, layer_names):
     return link_weights_df
 
 
-def get_deeplift_global(results, selected_genes, n_hidden_layers):
+def get_deeplift_global(results, selected_genes, n_hidden_layers,
+                        pathway_dataset="reactome",
+                        pp_relations="architecture/Reactome/ReactomePathwaysRelation.txt",
+                        gp_relations="architecture/Reactome/ReactomePathways.gmt"):
     print("Computing DeepLIFT global importance scores")
 
     global_coefs, sample_coefs = get_coef_importance(
@@ -384,8 +371,8 @@ def get_deeplift_global(results, selected_genes, n_hidden_layers):
     features["inputs"] = [x[1] for x in features["inputs"]]
 
     reactome = PNetArchitectureGenerator()
-    netx = reactome.get_networkx("architecture/Reactome/ReactomePathwaysRelation.txt", "reactome")
-    maps = reactome.get_layers(netx, n_hidden_layers, "architecture/Reactome/ReactomePathways.gmt", selected_genes)
+    netx = reactome.get_networkx(pp_relations, pathway_dataset)
+    maps = reactome.get_layers(netx, n_hidden_layers, gp_relations, selected_genes)
     maps = get_layer_maps(pd.Index(features["h0"]), maps, False)
     print(f"Built {len(maps)} layer maps from Reactome")
 
