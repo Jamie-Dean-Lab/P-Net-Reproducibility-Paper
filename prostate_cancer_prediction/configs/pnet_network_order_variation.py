@@ -4,6 +4,7 @@ from architecture.pipeline import TFPipeline
 from architecture.evaluation import plot_history, collate_folds
 from .base_config import (base_config, data_dir, val_samples, save_processor)
 from .pnet_single_split import pnet_single_split_config
+from .pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config
 
 shuffle_seeds = [203928, 84954, 603492, 1023924, 72832934]
 
@@ -20,13 +21,13 @@ _train_size_base = {
 
 pnet_network_order_variation_configs = [
     {
-        **copy.deepcopy(pnet_single_split_config),
+        **copy.deepcopy(pnet_single_split_elmarakeby_config),
         **copy.deepcopy(_train_size_base),
         "run_id":                        f"pnet_network_order_variation_{i}",
         "shuffle_seed" : seed,
         "val_samples": [],
         "model_params": {
-            **copy.deepcopy(pnet_single_split_config["model_params"]),
+            **copy.deepcopy(pnet_single_split_elmarakeby_config["model_params"]),
             "sparse": True,
             "map_seed" : seed
         },

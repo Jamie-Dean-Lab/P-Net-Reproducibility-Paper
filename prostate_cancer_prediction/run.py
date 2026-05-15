@@ -20,6 +20,7 @@ from prostate_cancer_prediction.configs.linear_svm_stratified_5_fold_CV import l
 from prostate_cancer_prediction.configs.pnet_GO_single_split import pnet_GO_single_split_config
 from prostate_cancer_prediction.configs.pnet_nested_CV import pnet_nested_CV_config
 from prostate_cancer_prediction.configs.pnet_single_split import pnet_single_split_config
+from prostate_cancer_prediction.configs.pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config
 from prostate_cancer_prediction.configs.pnet_stratified_5_fold_CV import pnet_stratified_5_fold_CV_config
 from prostate_cancer_prediction.configs.pnet_train_size_variation import pnet_train_size_variation_configs
 from prostate_cancer_prediction.configs.pnetfc_train_size_variation import pnetfc_train_size_variation_configs
@@ -62,7 +63,8 @@ def run():
 
     configs = [
         # Single split
-        #pnet_single_split_config,
+        pnet_single_split_config,
+        #pnet_single_split_elmarakeby_config
         # decision_tree_single_split_config,
         # decision_tree_single_split_elmarakeby_config,
         # linear_svm_single_split_config,
