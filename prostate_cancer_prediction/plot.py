@@ -4,9 +4,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib import ticker
-from scipy.stats import ttest_ind
 from architecture.pnet_model import PNetArchitectureGenerator, get_layer_maps
-from prostate_cancer_prediction.figure_pnet_vs_dense import ComparativeAnalysis
+from prostate_cancer_prediction.plot_train_size_variations import plot_train_size_comparisons
 
 from prostate_cancer_prediction.pnet_auprc import PlotAUPRC
 from prostate_cancer_prediction.pnet_roc import PlotROC
@@ -224,35 +223,6 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="f1"):
         plt.savefig(os.path.join(figures_dir, f"nested_CV_{metric}.png"), dpi=300)
         plt.close()
 
-def _load_train_size_results(run_dir, prefix):
-    results = []
-    for exp_dir in [x for x in os.listdir(run_dir) if x.find(prefix) > -1]:
-        data = pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_summaries.csv", index_col=0)
-        n_samples = (
-            pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_0/train_results.csv").shape[0]
-            + pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_0/val_results.csv").shape[0]
-        )
-        data = data.loc[data["split"] == "val", ["response_auc", "fold"]]
-        data["n_samples"] = n_samples
-        results.append(data)
-    return pd.concat(results)
-
-
-def _aggregate_train_size(df):
-    return df.groupby("n_samples")["response_auc"].agg(["mean", "std"]).reset_index()
-
-
-def _build_comparison_results(pnet_df, other_df, stats):
-    return {
-        "number_of_samples":    pnet_df["n_samples"],
-        "pnet_auc":             pnet_df["mean"],
-        "pnet_lower_bound":     pnet_df["mean"] - pnet_df["std"],
-        "pnet_upper_bound":     pnet_df["mean"] + pnet_df["std"],
-        "dense_auc":            other_df["mean"],
-        "dense_lower_bound":    other_df["mean"] - other_df["std"],
-        "dense_upper_bound":    other_df["mean"] + other_df["std"],
-        "statistically_significant": np.array(stats),
-    }
 
 #TODO list of directories to plot rather than regex
 def plot_single_split_curves(run_dir, wd, figures_dir, concat_val=False):
@@ -295,39 +265,7 @@ def plot_single_split_curves(run_dir, wd, figures_dir, concat_val=False):
     pd.concat(tabular).to_csv(f"{wd}/specific_split_results.csv")
 
 
-def plot_train_size_comparisons(run_dir, ax_dense, ax_fc, figures_dir):
-    pnet_results   = _load_train_size_results(run_dir, "pnet_train_size_variation")
-    pnetfc_results = _load_train_size_results(run_dir, "pnetfc_train_size_variation")
-    dense_results  = _load_train_size_results(run_dir, "dense_train_size_variation")
 
-    pnet_dense_stats = [
-        ttest_ind(
-            pnet_results.loc[pnet_results["n_samples"] == n, "response_auc"].to_numpy(),
-            dense_results.loc[dense_results["n_samples"] == n, "response_auc"].to_numpy(),
-        ).pvalue < 0.05
-        for n in pnet_results["n_samples"].unique()
-    ]
-    pnet_pnetfc_stats = [
-        ttest_ind(
-            pnet_results.loc[pnet_results["n_samples"] == n, "response_auc"].to_numpy(),
-            pnetfc_results.loc[pnetfc_results["n_samples"] == n, "response_auc"].to_numpy(),
-        ).pvalue < 0.05
-        for n in pnet_results["n_samples"].unique()
-    ]
-
-    pnet_results   = _aggregate_train_size(pnet_results)
-    pnetfc_results = _aggregate_train_size(pnetfc_results)
-    dense_results  = _aggregate_train_size(dense_results)
-
-    ComparativeAnalysis(_build_comparison_results(pnet_results, dense_results, pnet_dense_stats)).plot(
-        ax_dense, "B", dense_label="Dense Single Layer"
-    )
-    ComparativeAnalysis(_build_comparison_results(pnet_results, pnetfc_results, pnet_pnetfc_stats)).plot(
-        ax_fc, "C", dense_label="P-NET fully connected"
-    )
-
-    fig = ax_dense.get_figure()
-    fig.savefig(os.path.join(figures_dir, "train_size_comparisons.png"), dpi=300)
 
 
 def plot_sankey(wd, run_dir, selected_genes, n_hidden_layers, figures_dir):
@@ -386,10 +324,10 @@ def plot(wd, run_dir, selected_genes, n_hidden_layers):
 
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
     #plot_single_split_curves(run_dir, wd, figures_dir)
-    #plot_train_size_comparisons(run_dir, ax[1], ax[2], figures_dir)
+    plot_train_size_comparisons(run_dir, figures_dir)
     # plt.tight_layout()
     # plt.savefig(f"{wd}/figure_1.jpg")
     # plt.close()
-    plot_sankey(wd, run_dir, selected_genes, n_hidden_layers, figures_dir)
+    #plot_sankey(wd, run_dir, selected_genes, n_hidden_layers, figures_dir)
     #
     # plot_stratified_5_fold_CV(run_dir, figures_dir)
