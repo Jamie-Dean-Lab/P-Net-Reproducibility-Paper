@@ -85,22 +85,6 @@ class PlotAUPRC:
             processed_model_res['y_true'] = np.array(model_results['response'])
             processed_model_res['pred_scores'] = np.array(model_results['response_pred'])
             self.processed_results[model_name] = processed_model_res
-
-    @staticmethod
-    def _compute_auprc(recall_list, precision_list):
-        """
-        Given a list of computed recalls and precisions (at different thresholds),
-        compute the AUPRC.
-        
-        Note: when using sklrean for computing precision and recall,
-        the two lists are already ordered. To allow custom functions for computing the metrics,
-        this function orders the precision and recall lists before computing the AUPRC.
-        """
-        increasing_indices = np.argsort(recall_list)
-        sorted_recall_list = recall_list[increasing_indices]
-        sorted_precision_list = precision_list[increasing_indices]
-        auprc = auc(recall_list, precision_list) #auc(sorted_recall_list, sorted_precision_list)
-        return auprc
     
     # adapted from the scikit learn tutorial: https://scikit-learn.org/stable/auto_examples/model_selection/plot_precision_recall.html
     @staticmethod

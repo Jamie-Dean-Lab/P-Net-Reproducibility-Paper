@@ -247,8 +247,8 @@ def plot(wd, run_dir, selected_genes, n_hidden_layers):
                              # "adaboost_single_split",
                              # "sgd_logistic_regression_single_split"]
 
-    plot_single_split_curves(run_dir, wd, figures_dir, models_elmarakeby, tag="elmarakeby", concat_val=True)
-    plot_single_split_curves(run_dir, wd, figures_dir, models, concat_val=False)
+    plot_single_split_curves(run_dir, figures_dir, models_elmarakeby, tag="elmarakeby", concat_val=True)
+    plot_single_split_curves(run_dir, figures_dir, models, concat_val=False)
 
     #plot_nested_CV(run_dir, figures_dir)
 

@@ -7,7 +7,7 @@ from prostate_cancer_prediction.plotting.pnet_auprc import PlotAUPRC
 from prostate_cancer_prediction.plotting.pnet_roc import PlotROC
 
 
-def plot_single_split_curves(run_dir, wd, figures_dir, models, tag="", concat_val=False):
+def plot_single_split_curves(run_dir, figures_dir, models, tag="", concat_val=False):
     results = {}
     tabular = []
     for model in models:
@@ -25,7 +25,7 @@ def plot_single_split_curves(run_dir, wd, figures_dir, models, tag="", concat_va
 
     suffix = f"_{tag}" if tag else ""
     for curve, plotter, fname in [("A", PlotAUPRC, f"single_split_auprc{suffix}.png"),
-                                   ("A", PlotROC,   f"single_split_roc{suffix}.png")]:
+                                  ("A", PlotROC, f"single_split_roc{suffix}.png")]:
         fig, ax = plt.subplots()
         plotter(results).plot(ax, curve)
         fig.savefig(os.path.join(figures_dir, fname), dpi=300)
