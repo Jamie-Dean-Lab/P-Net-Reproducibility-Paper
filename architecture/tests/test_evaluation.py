@@ -9,28 +9,31 @@ import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------------------
-# Minimal stubs for optional heavy dependencies so imports succeed
+# Minimal stubs — only what evaluation.py imports directly
 # ---------------------------------------------------------------------------
 
+# keras.models.Sequential
 keras_stub = types.ModuleType("keras")
 keras_models_stub = types.ModuleType("keras.models")
 
 class _FakeSequential:
-    """Lightweight stand-in for keras.models.Sequential"""
     def __init__(self):
         self.layers = []
 
 keras_models_stub.Sequential = _FakeSequential
 keras_stub.models = keras_models_stub
-sys.modules.setdefault("keras", keras_stub)
-sys.modules.setdefault("keras.models", keras_models_stub)
+sys.modules["keras"] = keras_stub
+sys.modules["keras.models"] = keras_models_stub
 
-arch_stub = types.ModuleType("architecture")
+# pnet_model — stub just the two names evaluation.py imports
+pnet_stub = types.ModuleType("pnet_model")
+pnet_stub.get_layer_maps = MagicMock()
+pnet_stub.PNetArchitectureGenerator = MagicMock()
+sys.modules["pnet_model"] = pnet_stub
+
+# architecture.coef_weights_utils — stub just the functions evaluation.py calls
 mcw_stub = types.ModuleType("architecture.coef_weights_utils")
-
-# Pre-populate all mcw functions that evaluation.py calls,
-# so patch.object can find and replace them at test time.
-_mcw_functions = [
+for _fn in [
     "get_gradient_weights",
     "get_weights_gradient_outcome",
     "get_gradient_weights_with_repeated_output",
@@ -39,28 +42,31 @@ _mcw_functions = [
     "get_deep_explain_scores",
     "get_shap_scores",
     "get_skf_weights",
-]
-for _fn in _mcw_functions:
+]:
     setattr(mcw_stub, _fn, MagicMock(return_value=np.ones(5)))
 
+arch_stub = types.ModuleType("architecture")
 arch_stub.coef_weights_utils = mcw_stub
-sys.modules.setdefault("architecture", arch_stub)
-sys.modules.setdefault("architecture.coef_weights_utils", mcw_stub)
+sys.modules["architecture"] = arch_stub
+sys.modules["architecture.coef_weights_utils"] = mcw_stub
 
-sys.modules.setdefault("joblib", types.ModuleType("joblib"))
+# joblib
+sys.modules["joblib"] = types.ModuleType("joblib")
+
+# sklearn.metrics
 sklearn_stub = types.ModuleType("sklearn")
 sklearn_metrics_stub = types.ModuleType("sklearn.metrics")
 sklearn_metrics_stub.mean_squared_error = MagicMock(return_value=0.0)
 sklearn_metrics_stub.mean_absolute_error = MagicMock(return_value=0.0)
 sklearn_stub.metrics = sklearn_metrics_stub
-sys.modules.setdefault("sklearn", sklearn_stub)
-sys.modules.setdefault("sklearn.metrics", sklearn_metrics_stub)
+sys.modules["sklearn"] = sklearn_stub
+sys.modules["sklearn.metrics"] = sklearn_metrics_stub
 
 import matplotlib
 matplotlib.use("Agg")
 
 # ---------------------------------------------------------------------------
-# Import module under test from parent directory
+# Import module under test
 # ---------------------------------------------------------------------------
 import importlib.util
 from pathlib import Path
