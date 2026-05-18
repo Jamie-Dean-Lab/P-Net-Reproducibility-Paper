@@ -10,7 +10,7 @@ from .base_config import base_config, save_processor
 n_hidden_layers = 5
 
 _fitting_params = {
-    "epochs": 200,
+    "epochs": 300,
     "batch": 50,
     "LRScheduler": LearningRateScheduler(step_decay_part, verbose=0),
     "early_stopping": None,
