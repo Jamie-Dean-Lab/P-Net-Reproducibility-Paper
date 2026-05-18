@@ -55,12 +55,11 @@ pnet_nested_CV_config = {
     "inner_kfolds":            5,
     "outer_kfolds":            10,
     "grid_search": {
-        "model_params": {
-            f"reg_{l}": {**_model_params_base,
-                         "h_reg": [(L2, {"l2": 10 ** l})] * (n_hidden_layers + 1),
-                         "o_reg": [(L2, {"l2": 10 ** l})] * (n_hidden_layers + 1)}
-            for l in [-1, -2, -3, -4]
-        }
+        f"h_reg_{h}_o_reg_{o}": {**_model_params_base,
+                                 "h_reg": [(L2, {"l2": h})] * (n_hidden_layers + 1),
+                                 "o_reg": [(L2, {"l2": o})] * (n_hidden_layers + 1)}
+        for h in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
+        for o in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
     },
 }
 del pnet_nested_CV_config["train_samples"]
