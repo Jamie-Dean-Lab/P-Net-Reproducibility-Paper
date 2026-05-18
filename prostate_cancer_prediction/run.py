@@ -70,6 +70,7 @@ def run():
         # random_forest_single_split_config,
         # adaboost_single_split_config,
         # sgd_logistic_regression_single_split_config,
+        # pnet_GO_single_split_config
 
         # Single split, using hyperparams from original paper.
         # pnet_single_split_elmarakeby_config,
@@ -102,8 +103,6 @@ def run():
         # random_forest_nested_CV_config,
         # rbf_svm_nested_CV_config,
         # sgd_logistic_regression_nested_CV_config
-
-        #pnet_GO_single_split_config
 
 
     ]
