@@ -102,7 +102,8 @@ def run():
         # pnet_nested_CV_config,
         # random_forest_nested_CV_config,
         # rbf_svm_nested_CV_config,
-        # sgd_logistic_regression_nested_CV_config
+        # sgd_logistic_regression_nested_CV_config,
+        # pnet_GO_nested_CV_config
 
 
     ]
