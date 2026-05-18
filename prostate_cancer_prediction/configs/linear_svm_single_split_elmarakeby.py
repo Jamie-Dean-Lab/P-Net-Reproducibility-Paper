@@ -12,7 +12,7 @@ linear_svm_single_split_elmarakeby_config = {
     "pipeline_class":         MLPipeline,
     "results_processors":     [save_processor],
     "use_validation_on_test": True,
-    "val_metric":             {"f1": f1_selection},
+    "val_metric":             {"auc": auc_selection},
     "grid_search":            {"model_params": {
         f"c_{c}": {"kernel": "linear", "probability": True, "C": c, "class_weight": {0: 0.75, 1: 1.5}}
         for c in [0.1]

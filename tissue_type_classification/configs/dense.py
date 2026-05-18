@@ -3,8 +3,8 @@ from keras.regularizers import L2
 
 from architecture.pipeline import TFPipeline
 from architecture.pnet_model import compile_pnet
-from base_config import base_config, save_processor
-from pnet import _model_params_base, _fitting_params, n_hidden_layers
+from .base_config import base_config, save_processor
+from .pnet import _model_params_base, _fitting_params, n_hidden_layers
 
 dense_config = {
     **copy.deepcopy(base_config),

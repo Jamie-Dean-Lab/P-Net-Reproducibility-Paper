@@ -1,15 +1,13 @@
 import os
-import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib import ticker
 
 from prostate_cancer_prediction.plotting.plot_sankey import plot_sankey
-from prostate_cancer_prediction.plotting.plot_train_size_variations import plot_train_size_comparisons
+from prostate_cancer_prediction.plotting.plot_single_split import plot_single_split_curves
 
-from prostate_cancer_prediction.pnet_auprc import PlotAUPRC
-from prostate_cancer_prediction.pnet_roc import PlotROC
-import plotly.graph_objects as go
+from prostate_cancer_prediction.plotting.pnet_auprc import PlotAUPRC
+from prostate_cancer_prediction.plotting.pnet_roc import PlotROC
 import matplotlib.pyplot as plt
 
 
@@ -225,123 +223,44 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="f1"):
         plt.close()
 
 
-#TODO list of directories to plot rather than regex
-def plot_single_split_curves(run_dir, wd, figures_dir, concat_val=False):
-    results = {}
-    tabular = []
-    for model in [x for x in os.listdir(run_dir) if x.find("elmarakeby") > -1 or x.find("pnet_GO_single_split") > -1]:
-        if model.find("pnet") == -1:
-            base = f"{run_dir}/{model}/best_f1"
-            test_df = pd.read_csv(f"{base}/test_results.csv", index_col=0)
-            if concat_val:
-                '''
-                Believe this is incorrect since the validation set should not be used for both hyperparameter selection
-                and model evaluation (data leakage). However, including it here to be able to reproduce results from original 
-                study.
-                '''
-                val_df = pd.read_csv(f"{base}/val_results.csv", index_col=0)
-                results[model] = pd.concat([test_df, val_df])
-            else:
-                results[model] = test_df
-            summary = pd.read_csv(f"{base}/summary_results.csv")
-        else:
-            test_df = pd.read_csv(f"{run_dir}/{model}/test_results.csv", index_col=0)
-            if concat_val:
-                val_df = pd.read_csv(f"{run_dir}/{model}/val_results.csv", index_col=0)
-                results["pnet"] = pd.concat([test_df, val_df])
-            else:
-                results["pnet"] = test_df
-            summary = pd.read_csv(f"{run_dir}/{model}/summary_results.csv")
-        summary["model"] = model
-        summary.columns = ["split"] + summary.columns[1:].to_list()
-        tabular.append(summary)
-
-    for curve, plotter, fname in [("A", PlotAUPRC, "single_split_auprc.png"),
-                                   ("A", PlotROC,   "single_split_roc.png")]:
-        fig, ax = plt.subplots()
-        plotter(results).plot(ax, curve)
-        fig.savefig(os.path.join(figures_dir, fname), dpi=300)
-        plt.close(fig)
-
-    pd.concat(tabular).to_csv(f"{wd}/specific_split_results.csv")
-
-
-
-# def plot_sankey(wd, run_dir, selected_genes, n_hidden_layers, figures_dir):
-#     pnet_run_dir = f"{run_dir}/pnet_specific_train_split"
-#
-#     deeplift = {
-#         fn.split("_")[-1].replace(".csv", ""): pd.read_csv(f"{pnet_run_dir}/{fn}", index_col=0)
-#         for fn in os.listdir(pnet_run_dir) if fn.find("feature_importance") > -1
-#     }
-#
-#     reactome = PNetArchitectureGenerator()
-#     netx = reactome.get_networkx("architecture/Reactome/ReactomePathwaysRelation.txt", "reactome")
-#     maps = reactome.get_layers(netx, n_hidden_layers, "architecture/Reactome/ReactomePathways.gmt", selected_genes)
-#     maps = get_layer_maps(deeplift["h0"].index, maps, False)
-#
-#     pathwaynames = pd.read_csv("architecture/Reactome/ReactomePathways.txt", sep="\t", index_col=0, header=None)
-#     pathwaynames.columns = ["name", "species"]
-#
-#     layers = {}
-#     weights = {}
-#
-#     # build input layer from deeplift['inputs']
-#     inputs_df = deeplift["inputs"].copy()
-#     inputs_df.index.name = "feature"
-#     inputs_df = inputs_df.reset_index()
-#     inputs_df["input_type"] = inputs_df["feature"].str.extract(r"^(mut_important|cnv_amp|cnv_del)")
-#     inputs_df["gene"] = inputs_df["feature"].str.replace(r"^(mut_important|cnv_amp|cnv_del)_", "", regex=True)
-#
-#     input_types = ["mut_important", "cnv_amp", "cnv_del"]
-#     input_labels = np.array(["Mutation", "Amplification", "Deletion"])
-#
-#     gene_order = deeplift["h0"].index.tolist()
-#
-#     pivot = inputs_df.pivot(index="input_type", columns="gene", values="feature_importance")
-#     pivot = pivot.reindex(index=input_types, columns=gene_order).fillna(0)
-#
-#     layers["layer_0"] = input_labels
-#     weights["layer_0"] = pivot.to_numpy()
-#
-#     # remaining layers from maps and deeplift
-#     for i in range(len(maps)):
-#         nodes = pathwaynames.loc[maps[i].index, "name"].to_numpy() if i > 0 else maps[i].index.to_numpy()
-#         layers[f"layer_{i+1}"] = nodes
-#         col = "feature_importance"
-#
-#         # align deeplift to map row order before multiplying
-#         deeplift_aligned = deeplift[f"h{i}"][col].reindex(maps[i].index)
-#
-#         n_nan = deeplift_aligned.isna().sum()
-#         print(f"Layer {i}: deeplift aligned to maps[{i}], n_nan after reindex = {n_nan}")
-#         if n_nan > 0:
-#             print(f"  !! maps[{i}].index sample:       {maps[i].index.tolist()[:3]}")
-#             print(f"  !! deeplift['h{i}'].index sample: {deeplift[f'h{i}'].index.tolist()[:3]}")
-#
-#         weights[f"layer_{i+1}"] = maps[i].to_numpy() * deeplift_aligned.to_numpy()[:, np.newaxis]
-#
-#     SankeyDiagram(layers, weights).plot([3, 10, 10, 10, 10, 10, 6], figures_dir)
-
-
-
 
 def plot(wd, run_dir, selected_genes, n_hidden_layers):
     figures_dir = os.path.join(wd, "figures")
     if not os.path.exists(figures_dir):
         os.makedirs(figures_dir)
 
+    #Reproduce original: their hyperparams, test+val splits combined.
+    models_elmarakeby = ["pnet_single_split_elmarakeby",
+        "decision_tree_single_split_elmarakeby"]
+         #"linear_svm_single_split_elmarakeby",
+         #"rbf_svm_single_split_elmarakeby",
+         #"random_forest_single_split_elmarakeby",
+         #"adaboost_single_split_elmarakeby",
+         #"sgd_logistic_regression_single_split_elmarakeby"]
+
+    #Our hyperparams, test+val splits NOT combined.
+    models = ["pnet_single_split",
+                              "decision_tree_single_split"]
+                             # "linear_svm_single_split",
+                             # "rbf_svm_single_split",
+                             # "random_forest_single_split",
+                             # "adaboost_single_split",
+                             # "sgd_logistic_regression_single_split"]
+
+    plot_single_split_curves(run_dir, wd, figures_dir, models_elmarakeby, tag="elmarakeby", concat_val=True)
+    plot_single_split_curves(run_dir, wd, figures_dir, models, concat_val=False)
+
     #plot_nested_CV(run_dir, figures_dir)
 
-    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
+    #fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
     #plot_single_split_curves(run_dir, wd, figures_dir)
     #plot_train_size_comparisons(run_dir, figures_dir)
     # plt.tight_layout()
     # plt.savefig(f"{wd}/figure_1.jpg")
     # plt.close()
-    pnet_run_dir = f"{run_dir}/pnet_GO_single_split"
-    dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
+    #pnet_run_dir = f"{run_dir}/pnet_GO_single_split"
+    #dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
     #pp_relations = "architecture/Reactome/ReactomePathwaysRelation.txt"
-    plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
+    #plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
     #
     # plot_stratified_5_fold_CV(run_dir, figures_dir)

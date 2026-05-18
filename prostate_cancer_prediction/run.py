@@ -63,19 +63,21 @@ def run():
 
     configs = [
         # Single split
-        pnet_single_split_config,
-        #pnet_single_split_elmarakeby_config
-        # decision_tree_single_split_config,
-        # decision_tree_single_split_elmarakeby_config,
+        #pnet_single_split_config,
+        #decision_tree_single_split_config,
         # linear_svm_single_split_config,
-        # linear_svm_single_split_elmarakeby_config,
         # rbf_svm_single_split_config,
-        # rbf_svm_single_split_elmarakeby_config,
         # random_forest_single_split_config,
-        # random_forest_single_split_elmarakeby_config,
         # adaboost_single_split_config,
-        # adaboost_single_split_elmarakeby_config,
         # sgd_logistic_regression_single_split_config,
+
+        # Single split, using hyperparams from original paper.
+        #pnet_single_split_elmarakeby_config,
+        #decision_tree_single_split_elmarakeby_config,
+        # linear_svm_single_split_elmarakeby_config,
+        # rbf_svm_single_split_elmarakeby_config,
+        # random_forest_single_split_elmarakeby_config,
+        # adaboost_single_split_elmarakeby_config,
         # sgd_logistic_regression_single_split_elmarakeby_config,
 
         # Train size variation

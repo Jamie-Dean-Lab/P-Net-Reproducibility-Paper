@@ -5,7 +5,7 @@ from keras.callbacks import LearningRateScheduler
 from architecture.pipeline import TFPipeline
 from architecture.pnet_model import compile_pnet
 from architecture.callbacks_custom import step_decay_part
-from base_config import base_config, save_processor
+from .base_config import base_config, save_processor
 
 n_hidden_layers = 5
 

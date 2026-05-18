@@ -1,8 +1,8 @@
 import copy
 
 from architecture.evaluation import plot_history, collate_folds
-from base_config import save_processor, train_samples, val_samples
-from pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config
+from .base_config import save_processor, train_samples, val_samples
+from .pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config
 
 n_hidden_layers = 5
 

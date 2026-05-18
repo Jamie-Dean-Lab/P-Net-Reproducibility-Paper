@@ -3,17 +3,19 @@ import numpy as np
 import pandas as pd
 from architecture.pnet_model import TFModel
 
+
 class Pipeline:
     """
     Base class to setup the general structure for experiments
     """
-    def __init__(self, config : dict):
+
+    def __init__(self, config: dict):
         """
         Initialise the pipeline with a config file. See config_templates.py for examples
         """
         # Keep config reference
         self.config = config
-    
+
     def _sanitise_config(self, inp):
         """
         Tries to convert the config file into a json compatible string. Serialisation is problematic
@@ -21,11 +23,12 @@ class Pipeline:
         """
         terms = []
         if type(inp) is dict:
-            for k,v in inp.items():
+            for k, v in inp.items():
                 if type(v) == int or type(v) == float:
                     terms.append(f'"{k}" : {v}')
                 elif type(v) == str:
-                    v = v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+                    v = v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "\\r").replace(
+                        "\t", "\\t")
                     terms.append(f'"{k}" : "{v}"')
                 elif type(v) == tuple or type(v) == list:
                     terms.append(f'"{k}" : [' + self._sanitise_config(v) + "]")
@@ -42,7 +45,8 @@ class Pipeline:
                 if type(v) == int or type(v) == float:
                     terms.append(str(v))
                 elif type(v) == str:
-                    v = v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+                    v = v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "\\r").replace(
+                        "\t", "\\t")
                     terms.append(f'"{v}"')
                 elif type(v) == tuple or type(v) == list:
                     terms.append("[" + self._sanitise_config(v) + "]")
@@ -55,7 +59,7 @@ class Pipeline:
                         v = str(v).replace("\n", "").replace("\"", "")
                     terms.append(f'"{v}"')
         return ",".join(terms)
-    
+
     def run_single_split(self, load_data=True):
         """
         Runs a single split pipeline with the currently loaded config.
@@ -71,17 +75,15 @@ class Pipeline:
         self.fold_logger = self.log
         # Load in the data
         if load_data:
-            # To save time don't reload data if same data is going to be reused
             self._load_data(self.config["shuffle_seed"])
         self._summarise_data()
         # Perform training and evaluation
         test_dir = os.path.join(self.config["run_dir"], self.config["run_id"])
         if len(self.config["grid_search"]) == 0:
-            # Get splits
             train_df, val_df, test_df = self.data.get_specific_split(self.config["train_samples"],
-                                                                        self.config["val_samples"],
-                                                                        self.config["test_samples"],
-                                                                        self.config["tt_split_seed"])
+                                                                     self.config["val_samples"],
+                                                                     self.config["test_samples"],
+                                                                     self.config["tt_split_seed"])
             self.log.info("Number of train samples : {}".format(len(train_df)))
             self.log.info("Number of validation samples : {}".format(len(val_df)))
             self.log.info("Number of test samples : {}".format(len(test_df)))
@@ -89,26 +91,22 @@ class Pipeline:
         else:
             self.config["grid_search"] = construct_gs_params(self.config["grid_search"])
             gs_dirs = []
+            gs_params = []
             training_results = []
             # Perform training
             train_df, val_df, test_df = self.data.get_specific_split(self.config["train_samples"],
-                                                                    self.config["val_samples"],
-                                                                    self.config["test_samples"],
-                                                                    self.config["tt_split_seed"])
+                                                                     self.config["val_samples"],
+                                                                     self.config["test_samples"],
+                                                                     self.config["tt_split_seed"])
             for i in range(len(self.config["grid_search"])):
-                # Set the config params based on grid search
-                for k,v in self.config["grid_search"][i].items():
-                    # Ensure not to override own grid search
+                for k, v in self.config["grid_search"][i].items():
                     if k != "grid_search":
                         self.config[k] = v
-                # Create folder for cv runs
-                gs_dir = "{}/cv_{}".format(test_dir, i)                
+                gs_dir = "{}/cv_{}".format(test_dir, i)
                 if not os.path.exists(gs_dir):
                     os.mkdir(gs_dir)
-                # Save configuration file for this cv
                 with open(f"{gs_dir}/config.txt", "w") as f:
                     f.write("{" + self._sanitise_config(self.config) + "}")
-                # Prepare logging for current folder
                 self.fold_logger = self._get_logger("fold_logger", gs_dir)
                 self.log.info("Number of train samples : {}".format(len(train_df)))
                 self.log.info("Number of validation samples : {}".format(len(val_df)))
@@ -119,28 +117,30 @@ class Pipeline:
                 training_results = pd.DataFrame(training_results)
                 for metric in training_results.columns:
                     best_p = training_results[metric].idxmax()
-                    for k,v in self.config["grid_search"][best_p].items():
-                        # Ensure not to override own grid search
+                    for k, v in self.config["grid_search"][best_p].items():
                         if k != "grid_search":
                             self.config[k] = v
-                    gs_params = [self.config["grid_search"][best_p]["model_params_choice"]]
+                    gs_params.append(self.config["grid_search"][best_p]["model_params_choice"])
                     best_dir = f"{test_dir}/best_{metric}"
                     gs_dirs.append(best_dir)
                     if not os.path.exists(best_dir):
-                            os.mkdir(best_dir)
+                        os.mkdir(best_dir)
                     with open(f"{best_dir}/config.txt", "w") as f:
-                            f.write("{" + self._sanitise_config(self.config) + "}")
+                        f.write("{" + self._sanitise_config(self.config) + "}")
                     if self.config["use_validation_on_test"]:
                         self.fold_logger = self._get_logger("fold_logger", best_dir)
                         self._fold_run(best_dir, train_df, val_df, test_df)
                     else:
-                        train_df, val_df, test_df = self.data.get_specific_split(self.config["train_samples"] + self.config["val_samples"],
-                                                                                    0,
-                                                                                    self.config["test_samples"],
-                                                                                    self.config["tt_split_seed"])
+                        best_train_df, _, best_test_df = self.data.get_specific_split(
+                            self.config["train_samples"] + self.config["val_samples"],
+                            0,
+                            self.config["test_samples"],
+                            self.config["tt_split_seed"]
+                        )
                         self.fold_logger = self._get_logger("fold_logger", best_dir)
-                        self._fold_run(best_dir, train_df, val_df, test_df)
-            
+                        self._fold_run(best_dir, best_train_df, _, best_test_df)
+                for gsc in self.config["grid_search_collators"]:
+                    gsc({"gs_dirs": gs_dirs, "params": gs_params, "save_dir": self.run_dir})
 
     def run_crossvalidation(self, load_data=True):
         """
@@ -169,7 +169,8 @@ class Pipeline:
             # Split the data into outer_kfolds train test sets
             if self.config["outer_kfolds"] < 2:
                 raise Exception("For nested crossvalidation at least 2 outer_kfolds needed")
-            outer_folds = self.data.get_k_splits(self.config["outer_kfolds"], self.config["stratified"], self.config["tt_split_seed"])
+            outer_folds = self.data.get_k_splits(self.config["outer_kfolds"], self.config["stratified"],
+                                                 self.config["tt_split_seed"])
 
         # Outer loop of nested crossvalidation
         gs_dirs = []
@@ -187,7 +188,8 @@ class Pipeline:
             self.log.info("Number of train samples : {}".format(len(train_df)))
             self.log.info("Number of test samples : {}".format(len(test_df)))
 
-            self.log.info("Performing {} folds of crossvalidation on test fold {}".format(self.config["inner_kfolds"], i))
+            self.log.info(
+                "Performing {} folds of crossvalidation on test fold {}".format(self.config["inner_kfolds"], i))
 
             # Create folder for test fold
             test_dir = "{}/test_{}".format(self.run_dir, i)
@@ -197,7 +199,7 @@ class Pipeline:
             training_results = []
             for j in range(len(self.config["grid_search"])):
                 # Set the config params based on grid search
-                for k,v in self.config["grid_search"][j].items():
+                for k, v in self.config["grid_search"][j].items():
                     # Ensure not to override own grid search
                     if k != "grid_search":
                         self.config[k] = v
@@ -210,7 +212,8 @@ class Pipeline:
                     f.write("{" + self._sanitise_config(self.config) + "}")
                 if self.config["inner_kfolds"] > 1:
                     # Get folds
-                    folds = train_df.get_k_splits(self.config["inner_kfolds"], self.config["stratified"], self.config["tv_split_seed"])
+                    folds = train_df.get_k_splits(self.config["inner_kfolds"], self.config["stratified"],
+                                                  self.config["tv_split_seed"])
                     # Evaluate across K folds
                     fold_dirs = []
                     mean_val_metric = []
@@ -226,14 +229,16 @@ class Pipeline:
                         fold_dirs.append(fold_dir)
                     # Collate results across folds
                     for fold_collator in self.config["fold_collators"]:
-                        fold_collator({"results" : fold_dirs, "save_dir" : gs_dir})
+                        fold_collator({"results": fold_dirs, "save_dir": gs_dir})
                     # Save validation metrics to select best model
-                    training_results.append({k : np.mean([mean_val_metric[i][k] for i in range(len(mean_val_metric))]) for k, _ in mean_val_metric[0].items()})
+                    training_results.append(
+                        {k: np.mean([mean_val_metric[i][k] for i in range(len(mean_val_metric))]) for k, _ in
+                         mean_val_metric[0].items()})
                 else:
                     # No K folds so treat it as just train test split with validation split if provided
-                    train_fold, val_fold = train_df.get_train_test_split(1-self.config["validation_prop"],
+                    train_fold, val_fold = train_df.get_train_test_split(1 - self.config["validation_prop"],
                                                                          self.config["stratified"],
-                                                                        self.config["tv_split_seed"])
+                                                                         self.config["tv_split_seed"])
                     # Prepare logging for current folder
                     self.fold_logger = self._get_logger("fold_logger", gs_dir)
                     # Perform training
@@ -244,7 +249,7 @@ class Pipeline:
                 training_results = pd.DataFrame(training_results)
                 for metric in training_results.columns:
                     best_p = training_results[metric].idxmax()
-                    for k,v in self.config["grid_search"][best_p].items():
+                    for k, v in self.config["grid_search"][best_p].items():
                         # Ensure not to override own grid search
                         if k != "grid_search":
                             self.config[k] = v
@@ -252,21 +257,22 @@ class Pipeline:
                     gs_dirs.append(best_dir)
                     gs_params.append(self.config["grid_search"][best_p]["model_params_choice"])
                     if not os.path.exists(best_dir):
-                            os.mkdir(best_dir)
+                        os.mkdir(best_dir)
                     with open(f"{best_dir}/config.txt", "w") as f:
-                            f.write("{" + self._sanitise_config(self.config) + "}")
+                        f.write("{" + self._sanitise_config(self.config) + "}")
                     if self.config["use_validation_on_test"]:
-                        train_fold, val_fold = train_df.get_train_test_split(1-self.config["validation_prop"],
-                                                                            self.config["stratified"],
-                                                                                self.config["tv_split_seed"])
+                        train_fold, val_fold = train_df.get_train_test_split(1 - self.config["validation_prop"],
+                                                                             self.config["stratified"],
+                                                                             self.config["tv_split_seed"])
                         self.fold_logger = self._get_logger("fold_logger", best_dir)
                         self._fold_run(best_dir, train_fold, val_fold, test_df)
                     else:
-                        train_fold, val_fold = train_df.get_train_test_split(1, self.config["stratified"], self.config["tv_split_seed"])
+                        train_fold, val_fold = train_df.get_train_test_split(1, self.config["stratified"],
+                                                                             self.config["tv_split_seed"])
                         self.fold_logger = self._get_logger("fold_logger", best_dir)
                         self._fold_run(best_dir, train_fold, val_fold, test_df)
-        for gs in self.config["grid_search_collators"]:
-            gs({"gs_dirs" : gs_dirs, "params" : gs_params, "save_dir" : self.run_dir, "test_dirs" : test_dirs})
+        for gsc in self.config["grid_search_collators"]:
+            gsc({"gs_dirs": gs_dirs, "params": gs_params, "save_dir": self.run_dir, "test_dirs": test_dirs})
 
     def _get_logger(self, logger_name, log_dir):
         """
@@ -301,7 +307,7 @@ class Pipeline:
         view_aligner = {}
         for info in self.config["views"]:
             view_name, data_fn, selected_columns, id_col, preprocessor, aligner = info
-            self.data.load_data_view(view_name, os.path.join(self.config["data_dir"], data_fn), 
+            self.data.load_data_view(view_name, os.path.join(self.config["data_dir"], data_fn),
                                      selected_columns, id_col, preprocessor)
             view_aligner[view_name] = aligner
         # Load in the label files
@@ -309,15 +315,16 @@ class Pipeline:
             self.data.load_data_label(os.path.join(self.config["data_dir"], label_fn), id_col)
 
         # Align views
-        self.data.align_views(self.config["view_alignment_method"], view_aligner, self.config["drop_labels"], shuffle_seed)
+        self.data.align_views(self.config["view_alignment_method"], view_aligner, self.config["drop_labels"],
+                              shuffle_seed)
 
     def _summarise_data(self):
         self.log.info("Total number of samples {}".format(len(self.data)))
-        for k,v in self.data.data_views.items():
+        for k, v in self.data.data_views.items():
             self.log.info("View {} has {} features".format(k, v.shape[1]))
         self.log.info("{} features aligned across all views".format(len(set(self.data.get_alignment_ids()))))
         self.log.info("{} types of labels".format(self.data.labels.shape[1]))
-    
+
     def _train(self, train_df, val_df):
         """
         Placeholder function to be overriden by subclasses for different types of model training
@@ -358,10 +365,10 @@ class Pipeline:
         val_preds = model.predict(val_fold.xs) if len(val_fold) > 0 else None
         test_preds = model.predict(test_fold.xs) if len(test_fold) > 0 else None
         # Save both xs and ys so that self-supervised and semi-supervised methods can be evaluated as well
-        results = {"train_preds" : train_preds, "val_preds" : val_preds, "test_preds" : test_preds,
-                "train_df" : train_fold, "val_df" : val_fold, "test_df" : test_fold, "train_hx" : train_hx,
-                "save_dir" : fold_dir, "model" : model, "feature_preprocessor" : preprocessor,
-                "feature_selector" : feature_selector}
+        results = {"train_preds": train_preds, "val_preds": val_preds, "test_preds": test_preds,
+                   "train_df": train_fold, "val_df": val_fold, "test_df": test_fold, "train_hx": train_hx,
+                   "save_dir": fold_dir, "model": model, "feature_preprocessor": preprocessor,
+                   "feature_selector": feature_selector}
         # Process results as specified
         self.fold_logger.info("Saving results")
         for result_processor in self.config["results_processors"]:
@@ -369,13 +376,14 @@ class Pipeline:
         self.fold_logger.handlers.clear()
         # return validation metrics
         if len(val_fold) > 0:
-            return {k : v(results) for k,v in self.config["val_metric"].items()}
+            return {k: v(results) for k, v in self.config["val_metric"].items()}
 
 
 class TFPipeline(Pipeline):
     """
     Trains a TensorFlow model
     """
+
     def __init__(self, config: dict):
         super().__init__(config)
         self.nn_model = None
@@ -398,9 +406,9 @@ class TFPipeline(Pipeline):
         model, train_hx = self.nn_model.fit(train_df, val_df, self.config["rng_seed"])
         return model, train_hx
 
-    
+
 class MLPipeline(Pipeline):
-    def __init__(self, config : dict):
+    def __init__(self, config: dict):
         super().__init__(config)
 
     def _train(self, train_df, val_df):
@@ -420,13 +428,16 @@ class MLPipeline(Pipeline):
         model = SKModelWrapper(self.config["model"], self.config["task"], self.config["model_params"])
         model.fit(train_df.xs, train_df.ys)
         return model, None
-    
+
+
 class SKModelWrapper:
     def __init__(self, model, task, params):
         self.model = model(**params)
         self.task = task
+
     def fit(self, xs, ys):
         self.model.fit(xs, ys) if ys.shape[1] > 1 else self.model.fit(xs, ys.ravel())
+
     def predict(self, xs):
         if self.task == "binary classification":
             results = self.model.predict_proba(xs)
@@ -450,12 +461,13 @@ def construct_gs_params(params):
     else:
         out = construct_gs_params(params)
         return [gs_param | {cur_param: v, f"{cur_param}_choice": k} for k, v in cur_vals.items() for gs_param in out]
-    
+
+
 class IdentityProcessor:
     def fit_transform(self, dataset):
         self.fit(dataset)
         return self.transform(dataset)
-    
+
     def fit(self, dataset):
         pass
 

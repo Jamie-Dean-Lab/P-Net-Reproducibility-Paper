@@ -12,7 +12,7 @@ random_forest_single_split_elmarakeby_config = {
     "pipeline_class":         MLPipeline,
     "results_processors":     [save_processor],
     "use_validation_on_test": True,
-    "val_metric":             {"f1": f1_selection},
+    "val_metric":             {"auc": auc_selection},
     "grid_search":            {"model_params": {
         f"bootstrap_{b}_depth_{d}_estimators_{n}": {
             "bootstrap": b, "max_depth": d, "n_estimators": n, "class_weight": {0: 0.75, 1: 1.5}
