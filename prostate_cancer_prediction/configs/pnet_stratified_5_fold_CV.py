@@ -1,18 +1,13 @@
 import copy
-from keras.regularizers import L2
-from keras.callbacks import LearningRateScheduler
 
-from architecture.pipeline import TFPipeline
-from architecture.pnet_model import compile_pnet
-from architecture.callbacks_custom import step_decay_part
 from architecture.evaluation import plot_history, collate_folds
-from .base_config import base_config, save_processor, train_samples, val_samples
-from .pnet_single_split import pnet_single_split_config
+from .base_config import save_processor, train_samples, val_samples
+from .pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config
 
 n_hidden_layers = 5
 
 pnet_stratified_5_fold_CV_config = {
-    **copy.deepcopy(pnet_single_split_config),
+    **copy.deepcopy(pnet_single_split_elmarakeby_config),
     "run_id":                    "pnet_stratified_5_fold_CV",
     "results_processors":        [save_processor, plot_history],
     "val_metric":                {},

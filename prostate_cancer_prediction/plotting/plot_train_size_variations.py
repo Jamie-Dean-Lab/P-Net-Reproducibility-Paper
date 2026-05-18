@@ -6,9 +6,6 @@ from enum import Enum
 from scipy.stats import ttest_ind
 
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
 
 class FigureComparativeAnalysisConfiguration(Enum):
     plot_size = (10, 7)
@@ -47,11 +44,6 @@ METRICS_Y_LIMITS = {
     "precision": None,
     "recall":    None,
 }
-
-
-# ---------------------------------------------------------------------------
-# Core plotting class
-# ---------------------------------------------------------------------------
 
 class ComparativeAnalysis:
 
@@ -167,10 +159,6 @@ class ComparativeAnalysis:
             ax.set_yticklabels(y_tick_lbls)
 
 
-# ---------------------------------------------------------------------------
-# Data loading & aggregation
-# ---------------------------------------------------------------------------
-
 def _load_train_size_results(run_dir, prefix, metric="auc"):
     metric_col = f"response_{metric}"
     results = []
@@ -190,7 +178,6 @@ def _load_train_size_results(run_dir, prefix, metric="auc"):
 
 
 def _aggregate_train_size(df):
-    # groupby sorts by default, but explicit for safety
     return (
         df.groupby("n_samples")["response_metric"]
         .agg(["mean", "std"])
@@ -228,10 +215,6 @@ def _build_comparison_results(pnet_df, other_df, stats):
         "statistically_significant": np.array(stats),
     }
 
-
-# ---------------------------------------------------------------------------
-# Main entry point
-# ---------------------------------------------------------------------------
 
 def plot_train_size_comparisons(run_dir, figures_dir, metrics=METRICS):
     for metric in metrics:

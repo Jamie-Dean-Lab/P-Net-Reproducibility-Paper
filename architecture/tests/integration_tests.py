@@ -1539,5 +1539,110 @@ class TestFeatureSelectorGetFeaturesCalledAfterFit(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+class TestRunSingleSplitMultipleValMetricsNoClobber(unittest.TestCase):
+    """
+    When multiple val_metrics are present, the best-refit loop iterates once
+    per metric. The use_validation_on_test=False branch reassigns local split
+    variables — this test verifies that later metric iterations are not
+    corrupted by earlier ones.
+    """
+
+    def setUp(self):
+        self.ds = make_dataset(n_samples=60)
+        self.tmp = tempfile.TemporaryDirectory()
+        gs = [
+            {"model_params": {"C": 0.1}, "model_params_choice": "small"},
+            {"model_params": {"C": 1.0}, "model_params_choice": "large"},
+        ]
+
+        # Wrap get_specific_split to record every call's arguments and results
+        self.split_calls = []
+        original_split = self.ds.get_specific_split
+
+        def recording_split(*args, **kwargs):
+            result = original_split(*args, **kwargs)
+            self.split_calls.append({
+                "args": args,
+                "train_ids": set(result[0].ids),
+                "val_ids":   set(result[1].ids) if len(result[1]) > 0 else set(),
+                "test_ids":  set(result[2].ids) if len(result[2]) > 0 else set(),
+            })
+            return result
+
+        self.ds.get_specific_split = recording_split
+
+        self.p = make_pipeline(self.tmp.name, self.ds, {
+            "grid_search":            gs,
+            "val_metric":             {
+                "auc":   MagicMock(return_value=0.8),
+                "f1":    MagicMock(return_value=0.7),
+                "auprc": MagicMock(return_value=0.6),
+            },
+            "use_validation_on_test": False,
+            "test_samples":           0.2,
+        })
+        self.p.run_single_split(load_data=False)
+        self.all_calls = self.p._train.call_args_list
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_train_called_once_per_gs_config_plus_one_per_metric(self):
+        # 2 gs configs + 3 metrics = 5
+        self.assertEqual(self.p._train.call_count, 5)
+
+    def test_get_specific_split_called_once_per_metric_refit(self):
+        # 1 initial split + 3 refit splits (one per metric) = 4
+        self.assertEqual(len(self.split_calls), 4,
+                         f"Expected 4 get_specific_split calls, got {len(self.split_calls)}")
+
+    def test_all_refit_splits_use_same_train_proportion(self):
+        # Every refit call should pass train_samples+val_samples as first arg
+        # i.e. the same combined proportion, not an already-combined dataset
+        initial_train_prop = self.split_calls[0]["args"][0]  # e.g. 0.6
+        initial_val_prop   = self.split_calls[0]["args"][1]  # e.g. 0.2
+        expected_combined  = initial_train_prop + initial_val_prop
+        for i, call in enumerate(self.split_calls[1:], 1):
+            self.assertAlmostEqual(
+                call["args"][0], expected_combined, delta=0.001,
+                msg=f"Refit split {i}: train_samples arg was {call['args'][0]}, "
+                    f"expected {expected_combined} — earlier iteration may have "
+                    f"clobbered train_df causing a list of IDs to be passed instead"
+            )
+
+    def test_all_best_refits_have_identical_training_sets(self):
+        # All three best refits (train calls 2, 3, 4) must see the same train IDs
+        # because they all call get_specific_split with the same arguments.
+        # If train_df is clobbered, later refits train on the combined pool from
+        # the previous iteration which will have different (larger) IDs.
+        best_refit_train_ids = [
+            ids_of(self.all_calls[i][0][0]) for i in range(2, 5)
+        ]
+        for i in range(1, len(best_refit_train_ids)):
+            self.assertEqual(
+                best_refit_train_ids[0], best_refit_train_ids[i],
+                f"Best refit {i} has different training IDs than refit 0 — "
+                "train_df was clobbered between metric iterations"
+            )
+
+    def test_all_best_refits_exclude_test_samples(self):
+        # Test IDs are those not in the initial train or val split
+        initial = self.split_calls[0]
+        test_ids = set(self.ds.ids) - initial["train_ids"] - initial["val_ids"]
+        for i in range(2, 5):
+            best_train = ids_of(self.all_calls[i][0][0])
+            self.assertTrue(
+                best_train.isdisjoint(test_ids),
+                f"Best refit {i - 2}: training set contains test samples — leakage!"
+            )
+
+    def test_all_best_dirs_created(self):
+        run_dir = os.path.join(self.tmp.name, "test_run")
+        for metric in ("auc", "f1", "auprc"):
+            self.assertTrue(
+                os.path.exists(os.path.join(run_dir, f"best_{metric}")),
+                f"best_{metric} directory was not created"
+            )
+
 if __name__ == "__main__":
     unittest.main()

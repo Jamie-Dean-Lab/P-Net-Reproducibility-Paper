@@ -12,7 +12,7 @@ sgd_logistic_regression_single_split_elmarakeby_config = {
     "pipeline_class":         MLPipeline,
     "results_processors":     [save_processor],
     "use_validation_on_test": True,
-    "val_metric":             {"f1": f1_selection},
+    "val_metric":             {"auc": auc_selection},
     "grid_search":            {"model_params": {
         f"alpha_{a}_penalty_{p}": {
             "alpha": a, "penalty": p, "class_weight": {0: 0.75, 1: 1.5}, "loss": "log_loss"

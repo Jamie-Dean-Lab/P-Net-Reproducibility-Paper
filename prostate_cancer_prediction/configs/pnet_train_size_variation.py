@@ -4,6 +4,7 @@ from architecture.pipeline import TFPipeline
 from architecture.evaluation import plot_history, collate_folds
 from .base_config import (base_config, data_dir, val_samples, save_processor)
 from .pnet_single_split import pnet_single_split_config
+from .pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config
 
 train_size_samples = [
     pd.read_csv(f"{data_dir}/prostate/splits/training_set_{s}.csv")["id"].to_list() + val_samples
@@ -23,13 +24,13 @@ _train_size_base = {
 
 pnet_train_size_variation_configs = [
     {
-        **copy.deepcopy(pnet_single_split_config),
+        **copy.deepcopy(pnet_single_split_elmarakeby_config),
         **copy.deepcopy(_train_size_base),
         "run_id":                        f"pnet_train_size_variation_{i}",
         "train_samples":                 ts,
         "val_samples": [],
         "model_params": {
-            **copy.deepcopy(pnet_single_split_config["model_params"]),
+            **copy.deepcopy(pnet_single_split_elmarakeby_config["model_params"]),
             "sparse": True,
         },
         "run_method": "run_crossvalidation"
