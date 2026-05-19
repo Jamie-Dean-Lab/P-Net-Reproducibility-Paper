@@ -371,6 +371,12 @@ class PNetArchitectureGenerator:
             source, target = "child", "parent"
         elif pathway_dataset == 'go':
             human_hierarchy = hierarchy[hierarchy["child"].str.startswith("GO:")]
+            # Remove root node ("biological_process") - not meaningful as a P-Net node
+            GO_ROOT = 'GO:0008150'
+            human_hierarchy = human_hierarchy[
+                (human_hierarchy["parent"] != GO_ROOT) &
+                (human_hierarchy["child"] != GO_ROOT)
+                ]
             source, target = "parent", "child"
         else:
             raise ValueError(f"Unknown pathway_dataset: {pathway_dataset}")
