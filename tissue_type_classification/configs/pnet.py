@@ -20,6 +20,7 @@ _fitting_params = {
 }
 
 _model_params_base = {
+    "pathway_dataset": "reactome",
     "pp_relations": "architecture/Reactome/ReactomePathwaysRelation.txt",
     "gp_relations": "architecture/Reactome/ReactomePathways.gmt",
     "n_hidden_layers": n_hidden_layers,
@@ -47,11 +48,13 @@ pnet_config = {
     "results_processors": [save_processor],
     "pipeline_class": TFPipeline,
     "run_method": "run_crossvalidation",
-    "model_params": {
-        f"h_reg_{h}_o_reg_{o}": {**_model_params_base,
-                                 "h_reg": [(L2, {"l2": h})] * (n_hidden_layers + 1),
-                                 "o_reg": [(L2, {"l2": o})] * (n_hidden_layers + 1)}
-        for h in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
-        for o in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
-    },
+    "grid_search": {
+        "model_params": {
+            f"h_reg_{h}_o_reg_{o}": {**_model_params_base,
+                                     "h_reg": [(L2, {"l2": h})] * (n_hidden_layers + 1),
+                                     "o_reg": [(L2, {"l2": o})] * (n_hidden_layers + 1)}
+            for h in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
+            for o in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
+        }
+    }
 }

@@ -9,6 +9,7 @@ from .base_config import base_config, step_decay_part
 n_hidden_layers = 5
 
 _model_params_base = {
+    "pathway_dataset": "reactome",
     "pp_relations": "architecture/Reactome/ReactomePathwaysRelation.txt",
     "gp_relations": "architecture/Reactome/ReactomePathways.gmt",
     "n_hidden_layers": n_hidden_layers,
