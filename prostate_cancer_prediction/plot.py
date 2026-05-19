@@ -112,9 +112,10 @@ def plot_stratified_5_fold_CV(run_dir, figures_dir):
         plt.savefig(os.path.join(figures_dir, f"stratified_5_fold_CV_{metric}.png"), dpi=300)
         plt.close()
 
-def plot_nested_CV(run_dir, figures_dir, selection_metric="f1"):
+def plot_nested_CV(run_dir, figures_dir, selection_metric="auc"):
     model_names = [
         "pnet_nested_CV",
+        "pnet_GO_nested_CV",
         "decision_tree_nested_CV",
         "adaboost_nested_CV",
         "linear_svm_nested_CV",
@@ -125,6 +126,7 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="f1"):
 
     models_display = {
         "pnet": "P-NET",
+        "pnet_GO": "P-NET-GO",
         "decision_tree": "Decision Tree",
         "adaboost": "Ada. Boosting",
         "linear_svm": "Linear SVM",
@@ -247,10 +249,10 @@ def plot(wd, run_dir, selected_genes, n_hidden_layers):
                              # "adaboost_single_split",
                              # "sgd_logistic_regression_single_split"]
 
-    plot_single_split_curves(run_dir, figures_dir, models_elmarakeby, tag="elmarakeby", concat_val=True)
-    plot_single_split_curves(run_dir, figures_dir, models, concat_val=False)
+    #plot_single_split_curves(run_dir, figures_dir, models_elmarakeby, tag="elmarakeby", concat_val=True)
+    #plot_single_split_curves(run_dir, figures_dir, models, concat_val=False)
 
-    #plot_nested_CV(run_dir, figures_dir)
+    plot_nested_CV(run_dir, figures_dir)
 
     #fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
     #plot_single_split_curves(run_dir, wd, figures_dir)
