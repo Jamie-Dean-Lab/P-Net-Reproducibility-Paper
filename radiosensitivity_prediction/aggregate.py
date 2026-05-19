@@ -2,13 +2,14 @@ import os
 import pandas as pd
 
 def aggregate_results(run_dir, wd):
-    metrics = ["auc_r2", "auc_explained_variance", "auc_mse", "auc_mae"]
+    run_dir = run_dir + "/krr"
+    metrics = ["AUC_log1p_r2", "AUC_log1p_explained_variance", "AUC_log1p_mse", "AUC_log1p_mae"]
 
-    results = {m: pd.read_csv(f"{run_dir}/{m}/results.csv", index_col=0) for m in os.listdir(run_dir)}
+    results = pd.read_csv(f"{run_dir}/results.csv", index_col=0)
 
     result_table = []
-    for k, v in results.items():
-        df = v.groupby("index")[metrics].agg(["mean", "std"])
-        df["model"] = k
+    for hyperparams, group in results.groupby("hyperparams"):
+        df = group.groupby("index")[metrics].agg(["mean", "std"])
+        df["hyperparams"] = hyperparams
         result_table.append(df)
     pd.concat(result_table).to_csv(f"{wd}/results.csv")

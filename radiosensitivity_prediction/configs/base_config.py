@@ -10,19 +10,18 @@ from architecture.callbacks_custom import step_decay
 import os
 
 wd = "radiosensitivity_prediction"
-download_dir = f"{wd}/data"
-data_dir = f"{download_dir}/Cleveland"
+data_dir = f"{wd}/data"
 run_dir = f"{wd}/runs"
 
-if not os.path.exists(download_dir):
+if not os.path.exists(data_dir):
     with open(f"{wd}/download_data.py") as file:
         exec(file.read())
 
-selected_genes = list(set(pd.read_csv(f"{download_dir}/hugo_genes.txt", sep="\t")["symbol"]))
+selected_genes = list(set(pd.read_csv(f"{data_dir}/hugo_genes.txt", sep="\t")["symbol"]))
 
 views = [
-    ("gexpr", "cleveland_gene_expression.csv", selected_genes, 0, lambda x: x, lambda x: x),
-    ("methylation", "CCLE_Methylation_TSS1kb_20181022.csv", selected_genes, 0, lambda x: x, lambda x: x),
+    ("gexpr", "ccle_gene_expression_preprocessed.csv", selected_genes, 0, lambda x: x, lambda x: x),
+    ("methylation", "methylation_preprocessed.csv", selected_genes, 0, lambda x: x, lambda x: x),
 ]
 
 step_decay_part = partial(step_decay, init_lr=0.001, drop=0.5, epochs_drop=25)
@@ -45,7 +44,7 @@ base_config = {
     "run_dir": run_dir,
     "views": views,
     "view_alignment_method": "drop samples",
-    "labels": [("cleveland_auc_only.csv", 0)],
+    "labels": [("cleveland_auc_preprocessed.csv", 0)],
     "tv_split_seed": 42,
     "rng_seed": 42,
     "tt_split_seed": 42,

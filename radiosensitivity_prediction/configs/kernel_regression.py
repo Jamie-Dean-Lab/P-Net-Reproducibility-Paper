@@ -15,7 +15,7 @@ krr_config = {
         "model_params": {
             f"degree_{d}_alpha_{a}": {"kernel": "poly", "degree": d, "alpha": a}
             for d in [1, 2, 3]
-            for a in [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
+            for a in [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4]
         }
     },
 }
