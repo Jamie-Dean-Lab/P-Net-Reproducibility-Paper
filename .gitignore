@@ -17,6 +17,7 @@
 *.zip
 *.gct
 *.gmt
+*.html
 
 # Logs
 *.log
