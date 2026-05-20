@@ -1434,8 +1434,11 @@ class TestFoldCollatorNotCalledInSingleSplit(unittest.TestCase):
         self.fold_collator.assert_not_called()
 
 
-class TestGridSearchCollatorNotCalledInSingleSplit(unittest.TestCase):
-    """grid_search_collators belong to run_crossvalidation only."""
+class TestGridSearchCollatorCalledInSingleSplit(unittest.TestCase):
+    """
+    grid_search_collators ARE called by run_single_split (not only by
+    run_crossvalidation) once the best-refit loop completes.
+    """
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -1453,8 +1456,19 @@ class TestGridSearchCollatorNotCalledInSingleSplit(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_gs_collator_not_called(self):
-        self.gs_collator.assert_not_called()
+    def test_gs_collator_called_once(self):
+        self.gs_collator.assert_called_once()
+
+    def test_gs_collator_receives_gs_dirs_params_save_dir(self):
+        arg = self.gs_collator.call_args[0][0]
+        self.assertIn("gs_dirs",  arg)
+        self.assertIn("params",   arg)
+        self.assertIn("save_dir", arg)
+
+    def test_gs_collator_does_not_receive_test_dirs_in_single_split(self):
+        # run_crossvalidation includes test_dirs; run_single_split does not
+        arg = self.gs_collator.call_args[0][0]
+        self.assertNotIn("test_dirs", arg)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1538,6 +1552,16 @@ class TestFeatureSelectorGetFeaturesCalledAfterFit(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def test_fit_transform_called_on_selector(self):
+        self.assertIn("fit_transform", self.call_order,
+                      "feature_selector.fit_transform was never called by _fold_run")
+
+    def test_selector_fit_transform_called_exactly_once(self):
+        count = self.call_order.count("fit_transform")
+        self.assertEqual(count, 1,
+                         f"Expected fit_transform called once for a single split, got {count}")
+
 
 class TestRunSingleSplitMultipleValMetricsNoClobber(unittest.TestCase):
     """
@@ -1643,6 +1667,190 @@ class TestRunSingleSplitMultipleValMetricsNoClobber(unittest.TestCase):
                 os.path.exists(os.path.join(run_dir, f"best_{metric}")),
                 f"best_{metric} directory was not created"
             )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MLPipeline — real sklearn training
+# ══════════════════════════════════════════════════════════════════════════════
+
+def make_ml_pipeline(tmp_dir, ds, config_overrides=None):
+    """Build an MLPipeline backed by a real ConcatMultiViewDataset."""
+    from pipeline import MLPipeline
+    from sklearn.linear_model import Ridge
+
+    spy_pp = SpyTransformer()
+    spy_fs = SpyTransformer()
+
+    base_config = {
+        "run_dir":                tmp_dir,
+        "run_id":                 "test_ml_run",
+        "grid_search":            [],
+        "val_metric":             {},
+        "fold_collators":         [],
+        "grid_search_collators":  [],
+        "feature_selector":       spy_fs,
+        "data_augmentor":         lambda x: x,
+        "feature_preprocessor":   spy_pp,
+        "results_processors":     [],
+        "rng_seed":               42,
+        "train_samples":          0.6,
+        "val_samples":            0.2,
+        "tt_split_seed":          0,
+        "tv_split_seed":          0,
+        "use_validation_on_test": False,
+        "validation_prop":        0.2,
+        "stratified":             False,
+        "inner_kfolds":           1,
+        "outer_kfolds":           2,
+        "model_params":           {},
+        "shuffle_seed":           42,
+        "model":                  Ridge,
+        "task":                   "regression",
+    }
+    if config_overrides:
+        base_config.update(config_overrides)
+
+    p = MLPipeline(base_config)
+    p.data = ds
+    p._load_data = MagicMock(side_effect=lambda *args, **kwargs: None)
+
+    def silent_logger(name, log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+        log = logging.getLogger(name + log_dir)
+        log.handlers.clear()
+        log.addHandler(logging.NullHandler())
+        return log
+
+    p._get_logger = silent_logger
+    p._summarise_data = MagicMock()
+    p._spy_pp = spy_pp
+    p._spy_fs = spy_fs
+
+    return p
+
+
+class TestMLPipelineRunSingleSplit(unittest.TestCase):
+    """MLPipeline._train uses real sklearn and returns (SKModelWrapper, None)."""
+
+    def setUp(self):
+        self.ds = make_dataset(n_samples=60)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.captured = []
+        self.p = make_ml_pipeline(self.tmp.name, self.ds, {
+            "test_samples":       0.2,
+            "results_processors": [lambda r: self.captured.append(dict(r))],
+        })
+        self.p.run_single_split(load_data=False)
+        self.result = self.captured[0]
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_model_is_sk_model_wrapper(self):
+        from pipeline import SKModelWrapper
+        self.assertIsInstance(self.result["model"], SKModelWrapper)
+
+    def test_train_hx_is_none(self):
+        self.assertIsNone(self.result["train_hx"])
+
+    def test_train_preds_finite(self):
+        self.assertTrue(np.all(np.isfinite(self.result["train_preds"])))
+
+    def test_val_preds_finite(self):
+        self.assertTrue(np.all(np.isfinite(self.result["val_preds"])))
+
+    def test_predictions_length_matches_fold(self):
+        self.assertEqual(len(self.result["train_preds"]), len(self.result["train_df"]))
+        self.assertEqual(len(self.result["val_preds"]),   len(self.result["val_df"]))
+
+
+class TestMLPipelineExternalValidation(unittest.TestCase):
+    """_run_external_validation produces predictions.csv under external_validation/<tag>/."""
+
+    N_FEATURES = 10
+    N_EXT = 15
+
+    def setUp(self):
+        from sklearn.linear_model import Ridge
+
+        self.ds = make_dataset(n_samples=60, n_features=self.N_FEATURES)
+        self.tmp = tempfile.TemporaryDirectory()
+
+        rng = np.random.default_rng(99)
+        ext_ids = [f"ext_{i}" for i in range(self.N_EXT)]
+        ext_xs  = rng.random((self.N_EXT, self.N_FEATURES)).astype(np.float32)
+        ext_ys  = np.zeros((self.N_EXT, 1), dtype=np.float32)
+        features = [f"gene_{i}" for i in range(self.N_FEATURES)]
+
+        # Fake external dataset: load_data_view / align_views are no-ops so no
+        # CSV files are needed; xs/ys/features/ids are pre-populated.
+        class FakeExtDataset:
+            def __init__(self_):
+                self_.xs           = ext_xs.copy()
+                self_.ys           = ext_ys.copy()
+                self_.ids          = list(ext_ids)
+                self_.features     = list(features)
+                self_.alignment_ids = list(features)
+                self_.labels       = pd.DataFrame({"response": ext_ys[:, 0]}, index=ext_ids)
+                self_.data_views   = {}
+
+            def load_data_view(self_, *args, **kwargs): pass
+            def load_data_label(self_, *args, **kwargs): pass
+            def align_views(self_, *args, **kwargs):    pass
+            def get_labels(self_):                      return ["response"]
+
+        self.p = make_ml_pipeline(self.tmp.name, self.ds, {
+            "model":               Ridge,
+            "task":                "regression",
+            "model_params":        {"alpha": 1.0},
+            "final_model_params":  {"alpha": 1.0},
+            "dataloader":          FakeExtDataset,
+            "data_dir":            self.tmp.name,
+            "view_alignment_method": "zero fill",
+            "drop_labels":         False,
+            "shuffle_seed":        42,
+            "external_datasets":   [{
+                "tag":    "test_ext",
+                "views":  [("mut", "dummy.csv", None, "id", None, None)],
+                "labels": [],
+            }],
+        })
+
+        # run_dir and log are normally set by run_single_split / run_crossvalidation
+        self.run_dir = os.path.join(self.tmp.name, "test_ml_run")
+        self.p.run_dir = self.run_dir
+        os.makedirs(self.run_dir, exist_ok=True)
+        _log = logging.getLogger("test_ext_val_logger")
+        _log.handlers.clear()
+        _log.addHandler(logging.NullHandler())
+        self.p.log = _log
+
+        self.p._run_external_validation()
+        self.tag_dir = os.path.join(self.run_dir, "external_validation", "test_ext")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_predictions_csv_created(self):
+        self.assertTrue(os.path.exists(os.path.join(self.tag_dir, "predictions.csv")))
+
+    def test_predictions_has_correct_row_count(self):
+        df = pd.read_csv(os.path.join(self.tag_dir, "predictions.csv"), index_col=0)
+        self.assertEqual(len(df), self.N_EXT)
+
+    def test_predictions_has_response_and_pred_columns(self):
+        df = pd.read_csv(os.path.join(self.tag_dir, "predictions.csv"), index_col=0)
+        self.assertIn("response",      df.columns)
+        self.assertIn("response_pred", df.columns)
+
+    def test_predictions_are_finite(self):
+        df = pd.read_csv(os.path.join(self.tag_dir, "predictions.csv"), index_col=0)
+        self.assertTrue(np.all(np.isfinite(df["response_pred"].values)))
+
+    def test_predictions_index_is_ext_ids(self):
+        df = pd.read_csv(os.path.join(self.tag_dir, "predictions.csv"), index_col=0)
+        self.assertEqual(set(df.index.astype(str)),
+                         {f"ext_{i}" for i in range(self.N_EXT)})
+
 
 if __name__ == "__main__":
     unittest.main()

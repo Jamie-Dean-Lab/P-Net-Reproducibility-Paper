@@ -21,5 +21,5 @@ dense_config = {
             for h in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
             for o in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
         },
-    }
+    },
 }

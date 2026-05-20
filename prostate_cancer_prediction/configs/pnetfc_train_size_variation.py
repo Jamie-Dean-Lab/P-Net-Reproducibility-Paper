@@ -1,10 +1,11 @@
 import copy
 import pandas as pd
+from keras.regularizers import L2
 from architecture.pipeline import TFPipeline
 from architecture.evaluation import plot_history, collate_folds
 from .base_config import (base_config, data_dir, val_samples, save_processor)
 from .pnet_single_split import pnet_single_split_config
-from .pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config
+from .pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config, n_hidden_layers
 
 train_size_samples = [
     pd.read_csv(f"{data_dir}/prostate/splits/training_set_{s}.csv")["id"].to_list() + val_samples
@@ -32,6 +33,8 @@ pnetfc_train_size_variation_configs = [
         "model_params": {
             **copy.deepcopy(pnet_single_split_elmarakeby_config["model_params"]),
             "sparse": False,
+            "h_reg": [(L2, {"l2": 1e-3})] * (n_hidden_layers + 1),
+            "o_reg": [(L2, {"l2": 1e-2})] * (n_hidden_layers + 1),
         },
     "run_method": "run_crossvalidation"
     }

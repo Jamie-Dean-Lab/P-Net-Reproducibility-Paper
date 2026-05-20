@@ -48,6 +48,7 @@ def collate_aggregate_results(results: dict):
     non_metric_cols = {"index", "test_fold", "metric", "hyperparams"}
     metric_cols = [c for c in df.columns if c not in non_metric_cols]
     agg = df.groupby("index")[metric_cols].agg(["mean", "std"])
+    agg.columns = [f"{col}_{stat}" for col, stat in agg.columns]
     agg.reset_index().to_csv(f"{run_dir}/aggregated_results.csv", index=False)
 
 

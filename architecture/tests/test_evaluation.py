@@ -50,18 +50,6 @@ arch_stub.coef_weights_utils = mcw_stub
 sys.modules["architecture"] = arch_stub
 sys.modules["architecture.coef_weights_utils"] = mcw_stub
 
-# joblib
-sys.modules["joblib"] = types.ModuleType("joblib")
-
-# sklearn.metrics
-sklearn_stub = types.ModuleType("sklearn")
-sklearn_metrics_stub = types.ModuleType("sklearn.metrics")
-sklearn_metrics_stub.mean_squared_error = MagicMock(return_value=0.0)
-sklearn_metrics_stub.mean_absolute_error = MagicMock(return_value=0.0)
-sklearn_stub.metrics = sklearn_metrics_stub
-sys.modules["sklearn"] = sklearn_stub
-sys.modules["sklearn.metrics"] = sklearn_metrics_stub
-
 import matplotlib
 matplotlib.use("Agg")
 
@@ -481,6 +469,97 @@ class TestGetCoefImportance(unittest.TestCase):
         with self._patch_mcw("get_skf_weights", np.ones(5)) as mock_fn:
             ru.get_coef_importance(self.model, self.X, self.y, self.target, "skf_something")
             mock_fn.assert_called_once()
+
+
+class TestCollateAggregateResults(unittest.TestCase):
+
+    def _write_results_csv(self, tmp, rows):
+        df = pd.DataFrame(rows)
+        df.to_csv(os.path.join(tmp, "results.csv"))
+
+    def test_creates_aggregated_results_csv(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write_results_csv(tmp, [
+                {"index": "train", "test_fold": "fold_0", "metric": "rmse", "hyperparams": "h1", "rmse": 0.1},
+                {"index": "val",   "test_fold": "fold_0", "metric": "rmse", "hyperparams": "h1", "rmse": 0.2},
+            ])
+            ru.collate_aggregate_results({"save_dir": tmp})
+            self.assertTrue(os.path.exists(os.path.join(tmp, "aggregated_results.csv")))
+
+    def test_output_contains_mean_and_std_columns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write_results_csv(tmp, [
+                {"index": "train", "test_fold": "fold_0", "metric": "rmse", "hyperparams": "h1", "rmse": 0.1},
+                {"index": "train", "test_fold": "fold_1", "metric": "rmse", "hyperparams": "h1", "rmse": 0.3},
+            ])
+            ru.collate_aggregate_results({"save_dir": tmp})
+            df = pd.read_csv(os.path.join(tmp, "aggregated_results.csv"))
+            cols = df.columns.tolist()
+            self.assertTrue(any("mean" in c for c in cols), f"Expected a mean column, got {cols}")
+            self.assertTrue(any("std" in c for c in cols), f"Expected a std column, got {cols}")
+
+    def test_groups_by_split(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write_results_csv(tmp, [
+                {"index": "train", "test_fold": "fold_0", "metric": "rmse", "hyperparams": "h1", "rmse": 0.1},
+                {"index": "train", "test_fold": "fold_1", "metric": "rmse", "hyperparams": "h1", "rmse": 0.3},
+                {"index": "val",   "test_fold": "fold_0", "metric": "rmse", "hyperparams": "h1", "rmse": 0.5},
+                {"index": "val",   "test_fold": "fold_1", "metric": "rmse", "hyperparams": "h1", "rmse": 0.7},
+            ])
+            ru.collate_aggregate_results({"save_dir": tmp})
+            df = pd.read_csv(os.path.join(tmp, "aggregated_results.csv"))
+            self.assertEqual(sorted(df["index"].tolist()), ["train", "val"])
+
+    def test_mean_values_are_correct(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write_results_csv(tmp, [
+                {"index": "train", "test_fold": "fold_0", "metric": "rmse", "hyperparams": "h1", "rmse": 0.2},
+                {"index": "train", "test_fold": "fold_1", "metric": "rmse", "hyperparams": "h1", "rmse": 0.4},
+            ])
+            ru.collate_aggregate_results({"save_dir": tmp})
+            df = pd.read_csv(os.path.join(tmp, "aggregated_results.csv"))
+            mean_col = [c for c in df.columns if "rmse" in c and "mean" in c][0]
+            train_row = df[df["index"] == "train"]
+            self.assertAlmostEqual(float(train_row[mean_col].values[0]), 0.3, places=5)
+
+    def test_non_metric_columns_excluded_from_aggregation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write_results_csv(tmp, [
+                {"index": "train", "test_fold": "fold_0", "metric": "rmse", "hyperparams": "h1", "rmse": 0.1},
+                {"index": "train", "test_fold": "fold_1", "metric": "rmse", "hyperparams": "h2", "rmse": 0.3},
+            ])
+            ru.collate_aggregate_results({"save_dir": tmp})
+            df = pd.read_csv(os.path.join(tmp, "aggregated_results.csv"))
+            cols = df.columns.tolist()
+            for non_metric in ["test_fold", "metric", "hyperparams"]:
+                self.assertNotIn(non_metric, cols,
+                                 f"Non-metric column '{non_metric}' should not appear in aggregated output")
+
+    def test_multiple_metric_columns_all_aggregated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write_results_csv(tmp, [
+                {"index": "train", "test_fold": "fold_0", "metric": "rmse", "hyperparams": "h1",
+                 "rmse": 0.1, "mae": 0.05},
+                {"index": "train", "test_fold": "fold_1", "metric": "rmse", "hyperparams": "h1",
+                 "rmse": 0.3, "mae": 0.15},
+            ])
+            ru.collate_aggregate_results({"save_dir": tmp})
+            df = pd.read_csv(os.path.join(tmp, "aggregated_results.csv"))
+            cols = df.columns.tolist()
+            self.assertTrue(any("rmse" in c and "mean" in c for c in cols))
+            self.assertTrue(any("mae" in c and "mean" in c for c in cols))
+
+    def test_three_splits_all_present(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write_results_csv(tmp, [
+                {"index": split, "test_fold": f"fold_{i}", "metric": "rmse",
+                 "hyperparams": "h1", "rmse": 0.1}
+                for split in ["train", "val", "test"]
+                for i in range(2)
+            ])
+            ru.collate_aggregate_results({"save_dir": tmp})
+            df = pd.read_csv(os.path.join(tmp, "aggregated_results.csv"))
+            self.assertEqual(sorted(df["index"].tolist()), ["test", "train", "val"])
 
 
 if __name__ == "__main__":
