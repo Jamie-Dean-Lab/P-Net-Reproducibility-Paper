@@ -1,6 +1,8 @@
+import lifelines
 import pandas as pd
 from functools import partial
-from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, explained_variance_score
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, explained_variance_score, \
+    root_mean_squared_error
 
 from architecture.data_utils import ConcatMultiViewDataset
 from architecture.pipeline import IdentityProcessor
@@ -32,7 +34,9 @@ save_processor = lambda x: save_results(x, save_supervised_result, {
     "r2": r2_score,
     "explained_variance": explained_variance_score,
     "mse": mean_squared_error,
+    "rmse": root_mean_squared_error,
     "mae": mean_absolute_error,
+    "concordance_index": lifelines.utils.concordance_index
 }, "individual")
 
 base_config = {
