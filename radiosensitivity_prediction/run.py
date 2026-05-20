@@ -14,7 +14,6 @@ from radiosensitivity_prediction.preprocess import Preprocessor
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from radiosensitivity_prediction.aggregate import aggregate_results
 from radiosensitivity_prediction.significance_testing import significance_test
 from radiosensitivity_prediction.configs.base_config import wd, run_dir, data_dir
 from radiosensitivity_prediction.configs.pnet import pnet_config
@@ -34,23 +33,22 @@ def run():
         os.mkdir(run_dir)
 
     configs = [
-        pnet_config,
-        dense_config,
-        krr_config,
-        lgbm_config,
-        xgb_config,
-        adaboost_config,
-        decision_tree_config,
-        linear_svm_config,
-        rbf_svm_config,
-        random_forest_config,
-        sgd_logistic_regression_config
+        #pnet_config,
+        #dense_config,
+         krr_config,
+        # lgbm_config,
+        # xgb_config,
+        # adaboost_config,
+        # decision_tree_config,
+        # linear_svm_config,
+        # rbf_svm_config,
+        # random_forest_config,
+        # sgd_logistic_regression_config
     ]
 
     for config in configs:
         train(config)
 
-    aggregate_results(run_dir, wd)
     #significance_test(run_dir, wd)
 
 

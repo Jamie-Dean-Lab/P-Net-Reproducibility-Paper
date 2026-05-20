@@ -6,7 +6,7 @@ from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, e
 
 from architecture.data_utils import ConcatMultiViewDataset
 from architecture.pipeline import IdentityProcessor
-from architecture.evaluation import save_results, save_supervised_result, collate_grid_search
+from architecture.evaluation import save_results, save_supervised_result, collate_grid_search, collate_aggregate_results
 from architecture.callbacks_custom import step_decay
 
 import os
@@ -19,7 +19,7 @@ if not os.path.exists(data_dir):
     with open(f"{wd}/download_data.py") as file:
         exec(file.read())
 
-selected_genes = list(set(pd.read_csv(f"{data_dir}/hugo_genes.txt", sep="\t")["symbol"]))
+selected_genes = list(set(pd.read_csv(f"{data_dir}/hugo_genes.txt", sep="\t", low_memory=False)["symbol"]))
 
 views = [
     ("gexpr", "ccle_gene_expression_preprocessed.csv", selected_genes, 0, lambda x: x, lambda x: x),
@@ -61,6 +61,6 @@ base_config = {
     "results_processors": [save_processor],
     "grid_search": [],
     "fold_collators": [],
-    "grid_search_collators": [collate_grid_search],
+    "grid_search_collators": [collate_grid_search, collate_aggregate_results],
     "drop_labels": True,
 }

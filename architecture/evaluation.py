@@ -37,6 +37,19 @@ def collate_grid_search(results: dict):
     summaries.to_csv(f"{run_dir}/results.csv")
 
 
+def collate_aggregate_results(results: dict):
+    """
+    Reads the results.csv produced by collate_grid_search and writes
+    aggregated_results.csv (mean/std per split per hyperparameter set) to the same directory.
+    """
+    run_dir = results["save_dir"]
+    df = pd.read_csv(f"{run_dir}/results.csv", index_col=0)
+    non_metric_cols = {"index", "test_fold", "metric", "hyperparams"}
+    metric_cols = [c for c in df.columns if c not in non_metric_cols]
+    agg = df.groupby("index")[metric_cols].agg(["mean", "std"])
+    agg.reset_index().to_csv(f"{run_dir}/aggregated_results.csv", index=False)
+
+
 def collate_folds(results: dict):
     """
     Function to perform any post-processing across folds after the runs have finished.
