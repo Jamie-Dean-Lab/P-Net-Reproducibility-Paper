@@ -1,6 +1,14 @@
 import os
 import sys
 
+from radiosensitivity_prediction.configs.adaboost import adaboost_config
+from radiosensitivity_prediction.configs.decision_tree import decision_tree_config
+from radiosensitivity_prediction.configs.lgbm import lgbm_config
+from radiosensitivity_prediction.configs.linear_svm import linear_svm_config
+from radiosensitivity_prediction.configs.random_forest import random_forest_config
+from radiosensitivity_prediction.configs.rbf_svm import rbf_svm_config
+from radiosensitivity_prediction.configs.sgd_logistic_regression import sgd_logistic_regression_config
+from radiosensitivity_prediction.configs.xgb import xgb_config
 from radiosensitivity_prediction.preprocess import Preprocessor
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -26,9 +34,17 @@ def run():
         os.mkdir(run_dir)
 
     configs = [
-        #pnet_config,
-        #dense_config,
+        pnet_config,
+        dense_config,
         krr_config,
+        lgbm_config,
+        xgb_config,
+        adaboost_config,
+        decision_tree_config,
+        linear_svm_config,
+        rbf_svm_config,
+        random_forest_config,
+        sgd_logistic_regression_config
     ]
 
     for config in configs:
