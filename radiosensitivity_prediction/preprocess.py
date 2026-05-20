@@ -431,6 +431,31 @@ class Preprocessor:
         df_disc_h.to_csv(self.data_dir / discovery_name, index=False)
         df_valid_h.to_csv(self.data_dir / validation_name, index=False)
 
+    def print_preprocessing_summary(self):
+        files = {
+            "cleveland_auc":    "cleveland_auc_preprocessed.csv",
+            "gene_expression":  "ccle_gene_expression_preprocessed.csv",
+            "methylation":      "methylation_preprocessed.csv",
+        }
+
+        cell_line_sets = {}
+        print("\n--- Preprocessing summary ---")
+        for name, filename in files.items():
+            path = self.data_dir / filename
+            if not path.exists():
+                print(f"  {name}: file not found ({filename})")
+                continue
+            df = pd.read_csv(path, index_col=0)
+            n_cell_lines = df.shape[0]
+            n_features = df.shape[1]
+            print(f"  {name}: {n_cell_lines} cell lines, {n_features} features")
+            cell_line_sets[name] = set(df.index)
+
+        if len(cell_line_sets) == len(files):
+            intersection = set.intersection(*cell_line_sets.values())
+            print(f"  Intersection of all 3 files: {len(intersection)} cell lines")
+        print("-----------------------------\n")
+
     # --- Pipeline ---
 
     def run_all(self):
@@ -455,6 +480,7 @@ class Preprocessor:
                 print(f"{name}: FAILED – {e}")
                 traceback.print_exc()
         print("Preprocessing pipeline finished.")
+        self.print_preprocessing_summary()
 
 
 if __name__ == "__main__":
