@@ -66,4 +66,24 @@ base_config = {
     "fold_collators": [],
     "grid_search_collators": [collate_grid_search, collate_aggregate_results],
     "drop_labels": True,
+    "external_datasets": [
+        {
+            "tag": "nci60",
+            "views": [
+                ("gexpr", "nci60_rnaseq_preprocessed.csv", selected_genes, 0, lambda x: x, lambda x: x),
+                ("methylation", "nci60_methylation_preprocessed.csv", selected_genes, 0, lambda x: x, lambda x: x),
+            ],
+            "labels": [("nci60_auc_preprocessed.csv", 0)],
+        }
+    ],
+    "external_validation_metrics": {
+        "r2": r2_score,
+        "explained_variance": explained_variance_score,
+        "pearson_r": lambda y, yhat: pearsonr(y, yhat)[0],
+        "spearman_r": lambda y, yhat: spearmanr(y, yhat)[0],
+        "mae": mean_absolute_error,
+        "mse": mean_squared_error,
+        "rmse": root_mean_squared_error,
+        "concordance_index": lifelines.utils.concordance_index,
+    },
 }
