@@ -27,6 +27,7 @@ def collate_grid_search(results: dict):
     run_dir = results["save_dir"]
     gs_params = results["params"]
     gs_dirs = results["gs_dirs"]
+    assert len(gs_dirs) == len(gs_params), f"gs_dirs and gs_params must have the same length, got {len(gs_dirs)} and {len(gs_params)}"
     for i, d in enumerate(gs_dirs):
         df = pd.read_csv(f"{d}/summary_results.csv", index_col=0)
         df["test_fold"] = os.path.basename(os.path.dirname(d))
