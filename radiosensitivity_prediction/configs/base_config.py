@@ -1,6 +1,7 @@
 import lifelines
 import pandas as pd
 from functools import partial
+from scipy.stats import pearsonr, spearmanr
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, explained_variance_score, \
     root_mean_squared_error
 
@@ -36,6 +37,8 @@ save_processor = lambda x: save_results(x, save_supervised_result, {
     "mse": mean_squared_error,
     "rmse": root_mean_squared_error,
     "mae": mean_absolute_error,
+    "pearson_r": lambda y, yhat: pearsonr(y, yhat)[0],
+    "spearman_r": lambda y, yhat: spearmanr(y, yhat)[0],
     "concordance_index": lifelines.utils.concordance_index
 }, "individual")
 
