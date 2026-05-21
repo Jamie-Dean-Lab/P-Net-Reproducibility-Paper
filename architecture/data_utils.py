@@ -124,10 +124,12 @@ class MultiViewDataset:
             new_samples = pd.DataFrame(np.full((len(new_idxs), data.shape[1]), fill_value=np.nan),
                                         index=new_idxs, columns=data.columns)
             # Combine old and new and rearrange to keep in order with self.ids
+            new_samples = new_samples.astype(data.dtypes)
             self.data_views[view] = pd.concat([data, new_samples]).loc[self.ids]
         # Amend label indices
         new_labels = pd.DataFrame(np.full((len(new_idxs), self.labels.shape[1]), fill_value=np.nan),
                                   index=new_idxs, columns=self.labels.columns)
+        new_labels = new_labels.astype(self.labels.dtypes)
         self.labels = pd.concat([self.labels, new_labels]).loc[self.ids]
 
     def align_views(self):

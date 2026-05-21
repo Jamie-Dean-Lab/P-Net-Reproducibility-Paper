@@ -27,6 +27,7 @@ def collate_grid_search(results: dict):
     run_dir = results["save_dir"]
     gs_params = results["params"]
     gs_dirs = results["gs_dirs"]
+    assert len(gs_dirs) == len(gs_params), f"gs_dirs and gs_params must have the same length, got {len(gs_dirs)} and {len(gs_params)}"
     for i, d in enumerate(gs_dirs):
         df = pd.read_csv(f"{d}/summary_results.csv", index_col=0)
         df["test_fold"] = os.path.basename(os.path.dirname(d))
@@ -35,6 +36,20 @@ def collate_grid_search(results: dict):
         summaries.append(df)
     summaries = pd.concat(summaries).reset_index()
     summaries.to_csv(f"{run_dir}/results.csv")
+
+
+def collate_aggregate_results(results: dict):
+    """
+    Reads the results.csv produced by collate_grid_search and writes
+    aggregated_results.csv (mean/std per split per hyperparameter set) to the same directory.
+    """
+    run_dir = results["save_dir"]
+    df = pd.read_csv(f"{run_dir}/results.csv", index_col=0)
+    non_metric_cols = {"index", "test_fold", "metric", "hyperparams"}
+    metric_cols = [c for c in df.columns if c not in non_metric_cols]
+    agg = df.groupby("index")[metric_cols].agg(["mean", "std"])
+    agg.columns = [f"{col}_{stat}" for col, stat in agg.columns]
+    agg.reset_index().to_csv(f"{run_dir}/aggregated_results.csv", index=False)
 
 
 def collate_folds(results: dict):

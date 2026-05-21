@@ -1,3 +1,4 @@
+import copy
 import logging, os
 import numpy as np
 import pandas as pd
@@ -273,6 +274,8 @@ class Pipeline:
                         self._fold_run(best_dir, train_fold, val_fold, test_df)
         for gsc in self.config["grid_search_collators"]:
             gsc({"gs_dirs": gs_dirs, "params": gs_params, "save_dir": self.run_dir, "test_dirs": test_dirs})
+        if "external_datasets" in self.config:
+            self._run_external_validation()
 
     def _get_logger(self, logger_name, log_dir):
         """
@@ -330,6 +333,90 @@ class Pipeline:
         Placeholder function to be overriden by subclasses for different types of model training
         """
         pass
+
+    def _get_modal_hyperparams(self):
+        df = pd.read_csv(f"{self.run_dir}/results.csv", index_col=0)
+        fold_choices = df[["test_fold", "hyperparams"]].drop_duplicates(subset="test_fold")
+        modes = fold_choices["hyperparams"].mode()
+        if len(modes) == 1:
+            choice_key = modes.iloc[0]
+            self.log.info(f"External validation: modal hyperparameter choice '{choice_key}'")
+        else:
+            fold_choices = fold_choices.copy()
+            fold_choices["fold_num"] = fold_choices["test_fold"].str.rsplit("_", n=1).str[-1].astype(int)
+            choice_key = fold_choices.sort_values("fold_num").iloc[0]["hyperparams"]
+            self.log.info(f"External validation: tied hyperparameter selection, using fold 0 choice '{choice_key}'")
+        return next(
+            p["model_params"] for p in self.config["grid_search"]
+            if p["model_params_choice"] == choice_key
+        )
+
+    def _build_and_train_final_model(self, full_train, empty_val, model_params):
+        raise NotImplementedError
+
+    def _run_external_validation(self):
+        model_params = self.config.get("final_model_params") or self._get_modal_hyperparams()
+        self.log.info(f"External validation: model_params = {model_params}")
+
+        full_train, empty_val = self.data.get_train_test_split(1, self.config["stratified"], self.config["tt_split_seed"])
+        pre_selection_features = list(full_train.features)
+        pre_selection_alignment_ids = list(full_train.alignment_ids)
+        feature_selector = copy.deepcopy(self.config["feature_selector"])
+        full_train = feature_selector.fit_transform(full_train)
+        full_train = self.config["data_augmentor"](full_train)
+        preprocessor = copy.deepcopy(self.config["feature_preprocessor"])
+        full_train = preprocessor.fit_transform(full_train)
+
+        model = self._build_and_train_final_model(full_train, empty_val, model_params)
+
+        ext_dir = f"{self.run_dir}/external_validation"
+        os.makedirs(ext_dir, exist_ok=True)
+
+        for ext_config in self.config["external_datasets"]:
+            tag = ext_config["tag"]
+            tag_dir = f"{ext_dir}/{tag}"
+            os.makedirs(tag_dir, exist_ok=True)
+
+            ext_data = self.config["dataloader"]()
+            view_aligner = {}
+            for view_name, data_fn, selected_columns, id_col, preprocess_fn, aligner in ext_config["views"]:
+                ext_data.load_data_view(view_name, os.path.join(self.config["data_dir"], data_fn),
+                                        selected_columns, id_col, preprocess_fn)
+                view_aligner[view_name] = aligner
+            for label_fn, id_col in ext_config["labels"]:
+                ext_data.load_data_label(os.path.join(self.config["data_dir"], label_fn), id_col)
+            ext_data.align_views(self.config["view_alignment_method"], view_aligner,
+                                 self.config["drop_labels"], self.config["shuffle_seed"])
+
+            ext_df = pd.DataFrame(ext_data.xs, columns=ext_data.features, index=ext_data.ids)
+            ext_df = ext_df.reindex(columns=pre_selection_features, fill_value=0.0)
+            ext_data.xs = ext_df.to_numpy(dtype=np.float32)
+            ext_data.features = pre_selection_features
+            ext_data.alignment_ids = pre_selection_alignment_ids
+
+            ext_data = feature_selector.transform(ext_data)
+            ext_data = preprocessor.transform(ext_data)
+
+            preds = model.predict(ext_data.xs).reshape(ext_data.ys.shape)
+
+            label_names = ext_data.get_labels()
+            pd.DataFrame(
+                np.concatenate([ext_data.ys, preds], axis=1),
+                columns=label_names + [f"{l}_pred" for l in label_names],
+                index=ext_data.ids,
+            ).to_csv(f"{tag_dir}/predictions.csv")
+
+            metrics = self.config.get("external_validation_metrics", {})
+            if metrics:
+                row = {}
+                for i, label in enumerate(label_names):
+                    is_na = np.isnan(ext_data.ys[:, i])
+                    y_true, y_pred = ext_data.ys[~is_na, i], preds[~is_na, i]
+                    for metric_name, metric_fn in metrics.items():
+                        row[f"{label}_{metric_name}"] = metric_fn(y_true, y_pred)
+                pd.DataFrame([row]).to_csv(f"{tag_dir}/metrics.csv", index=False)
+
+            self.log.info(f"External validation '{tag}': {len(ext_data.ids)} samples -> {tag_dir}")
 
     def _fold_run(self, fold_dir, train_fold, val_fold, test_fold):
         """
@@ -406,6 +493,16 @@ class TFPipeline(Pipeline):
         model, train_hx = self.nn_model.fit(train_df, val_df, self.config["rng_seed"])
         return model, train_hx
 
+    def _build_and_train_final_model(self, full_train, empty_val, model_params):
+        tf_model = TFModel(
+            self.config["run_id"],
+            self.config["model"],
+            model_params,
+            self.config["fitting_params"],
+        )
+        model, _ = tf_model.fit(full_train, empty_val, self.config["rng_seed"])
+        return model
+
 
 class MLPipeline(Pipeline):
     def __init__(self, config: dict):
@@ -419,7 +516,7 @@ class MLPipeline(Pipeline):
         args:
             train_df (MultiViewDataset) : Dataset containing the training data
             val_df (MultiViewDataset) : Dataset containing validation data
-        
+
         returns:
             (BaseEstimator, None) : Tuple of the fitted model and None as there is no training
                                     history
@@ -428,6 +525,12 @@ class MLPipeline(Pipeline):
         model = SKModelWrapper(self.config["model"], self.config["task"], self.config["model_params"])
         model.fit(train_df.xs, train_df.ys)
         return model, None
+
+    def _build_and_train_final_model(self, full_train, empty_val, model_params):
+        np.random.seed(self.config["rng_seed"])
+        model = SKModelWrapper(self.config["model"], self.config["task"], model_params)
+        model.fit(full_train.xs, full_train.ys)
+        return model
 
 
 class SKModelWrapper:

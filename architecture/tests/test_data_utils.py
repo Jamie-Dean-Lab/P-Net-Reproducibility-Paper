@@ -1,8 +1,15 @@
+import os
+import sys
 import unittest
 import numpy as np
 import pandas as pd
-import os
 import tempfile
+
+_ARCH_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+_ROOT_DIR = os.path.normpath(os.path.join(_ARCH_DIR, ".."))
+for _p in (_ARCH_DIR, _ROOT_DIR):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from data_utils import MultiViewDataset, ConcatMultiViewDataset
 
