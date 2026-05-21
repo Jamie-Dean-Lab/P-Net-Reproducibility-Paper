@@ -12,9 +12,9 @@ from .base_config import base_config, step_decay_part, save_processor, selected_
 n_hidden_layers = 5
 
 _model_params_base = {
-    "pathway_dataset": "reactome",
-    "pp_relations": "architecture/Reactome/ReactomePathwaysRelation.txt",
-    "gp_relations": "architecture/Reactome/ReactomePathways.gmt",
+    "pathway_dataset":        "go",
+    "pp_relations":           "architecture/GO/go_hierarchy.tsv",
+    "gp_relations":           "architecture/GO/go_gene_sets.gmt",
     "n_hidden_layers": n_hidden_layers,
     "h_dropout": [0.5] + [0.1] * n_hidden_layers,
     "h_activation": ["tanh"] * (n_hidden_layers + 1),
@@ -42,7 +42,7 @@ _fitting_params = {
     "class_weight": None,
 }
 
-pnet_config = {
+pnet_GO_config = {
     **copy.deepcopy(base_config),
     "run_id": "pnet",
     "model": compile_pnet,
