@@ -3,7 +3,7 @@ from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, ac
 
 from architecture.data_utils import ConcatMultiViewDataset
 from architecture.pipeline import IdentityProcessor
-from architecture.evaluation import save_results, save_supervised_result, collate_grid_search
+from architecture.evaluation import save_results, save_supervised_result, collate_grid_search, collate_aggregate_results
 from prostate_cancer_prediction.preprocess import mut_binary, cnv_amp, cnv_del
 
 import os
@@ -68,6 +68,6 @@ base_config = {
     "shuffle_seed":          42,
     "grid_search":           [],
     "fold_collators":        [],
-    "grid_search_collators": [collate_grid_search],
+    "grid_search_collators": [collate_grid_search, collate_aggregate_results],
     "drop_labels":           True,
 }

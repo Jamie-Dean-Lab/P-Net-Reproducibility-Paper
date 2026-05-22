@@ -1,13 +1,15 @@
 import copy
+from functools import partial
+
 from keras.regularizers import L2
 from keras.callbacks import LearningRateScheduler
 
 from architecture.pipeline import TFPipeline
 from architecture.pnet_model import compile_pnet
 from architecture.callbacks_custom import step_decay_part
-from architecture.evaluation import plot_history
+from architecture.evaluation import plot_history, get_deeplift_global
 from .base_config import (base_config, f1_selection, auprc_selection,
-                          auc_selection, save_processor)
+                          auc_selection, save_processor, selected_genes)
 
 n_hidden_layers = 5
 
@@ -47,7 +49,16 @@ pnet_GO_nested_CV_config = {
         "shuffle_samples":    True,
         "class_weight":       [[0.75, 1.5]] * (n_hidden_layers + 1),
     },
-    "results_processors":     [save_processor, plot_history],
+    "results_processors": [
+        save_processor,
+        plot_history,
+        partial(get_deeplift_global,
+                selected_genes=selected_genes,
+                n_hidden_layers=n_hidden_layers,
+                pathway_dataset=_model_params_base["pathway_dataset"],
+                pp_relations=_model_params_base["pp_relations"],
+                gp_relations=_model_params_base["gp_relations"])
+    ],
     "val_metric":             {"f1": f1_selection, "auprc": auprc_selection, "auc": auc_selection},
     "pipeline_class":         TFPipeline,
     "run_method":             "run_crossvalidation",
