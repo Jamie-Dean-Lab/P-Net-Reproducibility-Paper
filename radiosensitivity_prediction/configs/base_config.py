@@ -61,7 +61,7 @@ base_config = {
     "shuffle_seed": 42,
     "stratified": False,
     "inner_kfolds": 5,
-    "outer_kfolds": 10,
+    "outer_kfolds": 5,
     "use_validation_on_test": False,
     "val_metric": {"r2": r2_selection},
     "results_processors": [save_processor],

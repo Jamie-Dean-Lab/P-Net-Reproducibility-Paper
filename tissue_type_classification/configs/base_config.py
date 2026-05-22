@@ -60,7 +60,7 @@ base_config = {
     "tt_split_seed": 42,
     "shuffle_seed": 42,
     "inner_kfolds": 5,
-    "outer_kfolds": 10,
+    "outer_kfolds": 5,
     "stratified": False,
     "use_validation_on_test": False,
     "val_metric": {"f1": f1_selection},

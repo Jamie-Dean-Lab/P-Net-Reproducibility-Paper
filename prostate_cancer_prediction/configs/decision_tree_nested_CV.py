@@ -14,7 +14,7 @@ decision_tree_nested_CV_config = {
     "results_processors":        [save_processor],
     "val_metric":                {"f1": f1_selection, "auprc": auprc_selection, "auc": auc_selection},
     "inner_kfolds":              5,
-    "outer_kfolds":              10,
+    "outer_kfolds":              5,
     "stratified":                True,
     "run_method":                "run_crossvalidation",
     "grid_search":            {"model_params": {
