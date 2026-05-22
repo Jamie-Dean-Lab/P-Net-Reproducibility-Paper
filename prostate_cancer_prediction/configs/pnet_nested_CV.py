@@ -53,7 +53,7 @@ pnet_nested_CV_config = {
     "run_method":             "run_crossvalidation",
     "stratified":              True,
     "inner_kfolds":            5,
-    "outer_kfolds":            10,
+    "outer_kfolds":            5,
     "grid_search": {
         "model_params": {
             f"h_reg_{h}_o_reg_{o}": {**_model_params_base,
