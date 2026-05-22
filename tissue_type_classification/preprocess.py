@@ -20,6 +20,8 @@ _EXPRESSION_GCT = "GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_tpm.gct"
 _METADATA_TSV = "GTEx_Analysis_v8_Annotations_SampleAttributesDS.tsv"
 _HPA_URL = "https://www.proteinatlas.org/download/tsv/rna_tissue_hpa.tsv.zip"
 _HPA_TSV = "rna_tissue_hpa.tsv"
+_TRANSCRIPT_RNA_URL = "https://www.proteinatlas.org/download/tsv/transcript_rna_tissue.tsv.zip"
+_TRANSCRIPT_RNA_TSV = "transcript_rna_tissue.tsv"
 
 
 class Preprocessor:
@@ -85,7 +87,7 @@ class Preprocessor:
         encoder = OneHotEncoder()
         encoded = encoder.fit_transform(info)
         info = pd.DataFrame(encoded.todense(), index=info.index, columns=encoder.categories_[0])
-        info.to_csv(self.data_dir / "tissue_classes.csv", index=True)
+        info.to_csv(self.data_dir / "GTEx_tissue_classes_encoded.csv", index=True)
         joblib.dump(encoder, self.data_dir / "tissue_encoder.pkl")
         pd.Series(encoder.categories_[0], name="tissue").to_csv(
             self.data_dir / "GTEx_tissue_classes.csv", index=False
@@ -94,6 +96,7 @@ class Preprocessor:
 
     # --- Human Protein Atlas ---
 
+    # We just use this file for ENSG to gene name mappings
     def download_hpa_expression(self):
         out = self.data_dir / _HPA_TSV
         if out.exists():
@@ -107,50 +110,71 @@ class Preprocessor:
         df.to_csv(out, index=False)
         print(f"HPA tissue RNA data saved: {df.shape[0]} rows, {df.shape[1]} columns.")
 
-    def process_hpa_expression(self):
-        print("Processing HPA expression data...")
-        df = pd.read_csv(self.data_dir / _HPA_TSV)
+    def download_transcript_rna_tissue(self):
+        out = self.data_dir / _TRANSCRIPT_RNA_TSV
+        if out.exists():
+            print("Transcript RNA tissue data already downloaded, skipping.")
+            return
+        print("Downloading transcript RNA tissue data...")
+        response = requests.get(_TRANSCRIPT_RNA_URL)
+        with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+            with zf.open(_TRANSCRIPT_RNA_TSV) as tsv_file:
+                df = pd.read_csv(tsv_file, sep="\t")
+        df.to_csv(out, index=False)
+        print(f"Transcript RNA tissue data saved: {df.shape[0]} rows, {df.shape[1]} columns.")
+        return df
 
-        df["log2_tpm"] = np.log2(df["TPM"] + 1)
+    def process_transcript_rna_tissue(self):
+        print("Processing transcript RNA tissue data...")
+        df = pd.read_csv(self.data_dir / _TRANSCRIPT_RNA_TSV)
 
-        duplicates = df.groupby(["Tissue", "Gene"]).size()
-        n_duplicates = (duplicates > 1).sum()
-        if n_duplicates > 0:
-            print(f"Found {n_duplicates} duplicate Tissue/Gene pairs — aggregating by mean.")
-            df = df.pivot_table(index="Tissue", columns="Gene", values="log2_tpm", aggfunc="mean")
-        else:
-            df = df.pivot(index="Tissue", columns="Gene", values="log2_tpm")
-        df.index.name = "Tissue"
-        df.columns.name = None
+        tpm_cols = [c for c in df.columns if c.startswith("TPM.")]
 
-        df.to_csv(self.data_dir / "hpa_expression_preprocessed.csv", index=True)
-        pd.Series(df.index, name="tissue").to_csv(
-            self.data_dir / "hpa_tissue_classes.csv", index=False
-        )
-        print(f"HPA expression saved: {df.shape[0]} tissues, {df.shape[1]} genes.")
+        # Extract numeric sample ID and tissue name from column ("TPM.adipose tissue.86" → id="86", tissue="adipose tissue")
+        sample_ids = [col.rsplit(".", 1)[1] for col in tpm_cols]
+        tissues = [col[4:].rsplit(".", 1)[0] for col in tpm_cols]
+        sample_tissue = pd.Series(tissues, index=sample_ids, name="tissue")
+        sample_tissue.index.name = "sample_id"
+        sample_tissue.to_csv(self.data_dir / "hpa_sample_tissue.csv")
+        print(f"Sample-tissue mapping saved: {len(sample_tissue)} samples.")
+
+        # Sum transcript TPMs to gene level per sample, then log2-transform
+        gene_df = df.groupby("ensgid")[tpm_cols].sum()
+        gene_df = np.log2(gene_df + 1)
+
+        # Pivot to (sample × gene) matrix, using numeric sample IDs as index
+        gene_df = gene_df.T
+        gene_df.index = sample_ids
+        gene_df.index.name = "sample_id"
+        gene_df.columns.name = None
+
+        gene_df.to_csv(self.data_dir / "hpa_expression_preprocessed.csv", index=True)
+        print(f"Transcript RNA expression saved: {gene_df.shape[0]} samples, {gene_df.shape[1]} genes.")
 
     def process_hpa_tissue_labels(self):
-        print("Processing HPA tissue labels...")
         mapping = pd.read_csv(self.data_dir / "tissue_mappings.csv")
         hpa_to_gtex = dict(zip(mapping["hpa_tissue"], mapping["gtex_tissue"]))
 
         hpa = pd.read_csv(self.data_dir / "hpa_expression_preprocessed.csv", index_col=0)
+        sample_tissue = pd.read_csv(self.data_dir / "hpa_sample_tissue.csv", index_col=0)
 
-        keep = hpa.index.map(hpa_to_gtex).notna()
-        dropped = sorted(hpa.index[~keep])
-        if dropped:
-            print(f"Dropping {len(dropped)} unmapped HPA tissues: {dropped}")
+        sample_tissue["gtex_tissue"] = sample_tissue["tissue"].map(hpa_to_gtex)
+        keep = sample_tissue["gtex_tissue"].notna()
+        dropped_tissues = sorted(sample_tissue.loc[~keep, "tissue"].unique())
+        if dropped_tissues:
+            print(f"Dropping samples from {len(dropped_tissues)} unmapped tissues: {dropped_tissues}")
 
-        hpa = hpa[keep].copy()
-        hpa.index = hpa.index.map(hpa_to_gtex)
-        hpa.index.name = "Tissue"
+        kept_samples = sample_tissue[keep].index
+        hpa = hpa.loc[kept_samples].copy()
         hpa.to_csv(self.data_dir / "hpa_expression_preprocessed.csv", index=True)
 
+        gtex_tissues = sample_tissue.loc[kept_samples, "gtex_tissue"]
         encoder = joblib.load(self.data_dir / "tissue_encoder.pkl")
-        encoded = encoder.transform(hpa.index.to_frame().values)
+        encoded = encoder.transform(gtex_tissues.to_frame().values)
         labels = pd.DataFrame(encoded.todense(), index=hpa.index, columns=encoder.categories_[0])
-        labels.to_csv(self.data_dir / "hpa_tissue_classes.csv", index=True)
-        print(f"HPA tissue labels saved: {labels.shape[0]} tissues, {labels.shape[1]} classes.")
+        labels.to_csv(self.data_dir / "hpa_tissue_classes_encoded.csv", index=True)
+        print(f"HPA tissue labels saved: {labels.shape[0]} samples, {labels.shape[1]} classes.")
+        print(f"Samples per tissue:\n{gtex_tissues.value_counts().sort_index()}")
 
     # --- Shared ---
 
@@ -174,9 +198,9 @@ class Preprocessor:
         common_ensg = [g for g in common_ensg if g in ensg_to_symbol]
         symbol_columns = [ensg_to_symbol[g] for g in common_ensg]
 
-        gtex[common_ensg].set_axis(symbol_columns, axis=1).to_csv(self.data_dir / "GTEx_gene_log2_tpm_0.csv",
+        gtex[common_ensg].set_axis(symbol_columns, axis=1).to_csv(self.data_dir / "GTEx_gene_expression_preprocessed.csv",
                                                                   index=True)
-        hpa[common_ensg].set_axis(symbol_columns, axis=1).to_csv(self.data_dir / "hpa_expression_preprocessed.csv",
+        hpa[common_ensg].set_axis(symbol_columns, axis=1).to_csv(self.data_dir / "hpa_gene_expression_preprocessed.csv",
                                                                  index=True)
 
         print(f"Both datasets saved with {len(symbol_columns)} gene symbol columns.")
@@ -189,10 +213,11 @@ class Preprocessor:
             ("download_hugo_genes", self.download_hugo_genes),
             ("download_gtex_metadata", self.download_gtex_metadata),
             ("download_gtex_expression", self.download_gtex_expression),
+            ("download_transcript_rna_tissue", self.download_transcript_rna_tissue),
             ("download_hpa_expression", self.download_hpa_expression),
             ("process_gtex_expression", self.process_gtex_expression),
             ("process_gtex_tissue_labels", self.process_gtex_tissue_labels),
-            ("process_hpa_expression", self.process_hpa_expression),
+            ("process_transcript_rna_tissue", self.process_transcript_rna_tissue),
             ("process_hpa_tissue_labels", self.process_hpa_tissue_labels),
             ("intersect_genes", self.intersect_genes),
         ]
@@ -208,5 +233,5 @@ class Preprocessor:
 
 
 if __name__ == "__main__":
-    preprocessor = Preprocessor("data2")
+    preprocessor = Preprocessor("data")
     preprocessor.run_all()

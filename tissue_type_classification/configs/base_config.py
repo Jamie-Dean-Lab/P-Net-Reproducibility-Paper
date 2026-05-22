@@ -20,7 +20,7 @@ if not os.path.exists(download_dir):
 selected_genes = list(set(pd.read_csv(f"{download_dir}/hugo_genes.txt", sep="\t")["symbol"]))
 
 views = [
-    ("gexpr", "GTEx_gene_log2_tpm_0.csv", selected_genes, 0, lambda x: x, lambda x: x),
+    ("gexpr", "GTEx_gene_expression_preprocessed.csv", selected_genes, 0, lambda x: x, lambda x: x),
 ]
 
 f1_selection = lambda x: f1_score(
@@ -54,7 +54,7 @@ base_config = {
     "run_dir": run_dir,
     "views": views,
     "view_alignment_method": "drop samples",
-    "labels": [("tissue_classes.csv", 0)],
+    "labels": [("GTEx_tissue_classes_encoded.csv", 0)],
     "tv_split_seed": 42,
     "rng_seed": 42,
     "tt_split_seed": 42,
@@ -69,4 +69,22 @@ base_config = {
     "fold_collators": [],
     "grid_search_collators": [collate_grid_search],
     "drop_labels": True,
+    "external_datasets": [
+        {
+            "tag": "hpa",
+            "views": [
+                ("gexpr", "hpa_gene_expression_preprocessed.csv", selected_genes, 0, lambda x: x, lambda x: x),
+            ],
+            "labels": [("hpa_tissue_classes_encoded.csv", 0)],
+        }
+    ],
+    "external_validation_metrics": {
+        "auc": lambda y, y_hat: roc_auc_score(y, y_hat, multi_class="ovr", average="micro"),
+        "auprc": lambda y, y_hat: average_precision_score(y, y_hat, average="micro"),
+        "f1": lambda ys, preds: f1_score(ys, ((preds >= np.sort(preds, axis=1)[:, [-1]]) & (preds > 0)).astype(int),
+                                         average="weighted"),
+        "accuracy": lambda ys, preds: accuracy_score(ys,
+                                                     ((preds >= np.sort(preds, axis=1)[:, [-1]]) & (preds > 0)).astype(
+                                                         int)),
+    },
 }
