@@ -369,8 +369,9 @@ def get_link_weights_df_(model, features, layer_names):
     return link_weights_df
 
 
-def get_deeplift_global(results, selected_genes, n_hidden_layers,
-                        pathway_dataset, pp_relations, gp_relations):
+def get_deeplift_global(results, n_hidden_layers, pathway_dataset, pp_relations, gp_relations):
+    if not os.path.basename(results["save_dir"]).startswith("best_"):
+        return
     print("Computing DeepLIFT global importance scores")
 
     global_coefs, sample_coefs = get_coef_importance(
@@ -385,7 +386,7 @@ def get_deeplift_global(results, selected_genes, n_hidden_layers,
 
     reactome = PNetArchitectureGenerator()
     netx = reactome.get_networkx(pp_relations, pathway_dataset)
-    maps = reactome.get_layers(netx, n_hidden_layers, gp_relations, selected_genes)
+    maps = reactome.get_layers(netx, n_hidden_layers, gp_relations, features["inputs"])
     maps = get_layer_maps(pd.Index(features["h0"]), maps, False)
     print(f"Built {len(maps)} layer maps from Reactome")
 

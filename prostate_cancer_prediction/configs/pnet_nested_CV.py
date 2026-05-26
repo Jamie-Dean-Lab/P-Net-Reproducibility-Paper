@@ -53,7 +53,6 @@ pnet_nested_CV_config = {
         save_processor,
         plot_history,
         partial(get_deeplift_global,
-                selected_genes=selected_genes,
                 n_hidden_layers=n_hidden_layers,
                 pathway_dataset=_model_params_base["pathway_dataset"],
                 pp_relations=_model_params_base["pp_relations"],
