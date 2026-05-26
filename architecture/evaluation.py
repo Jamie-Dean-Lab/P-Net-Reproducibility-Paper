@@ -381,12 +381,12 @@ def get_deeplift_global(results, n_hidden_layers, pathway_dataset, pp_relations,
     for k, v in sample_coefs.items():
         print(f"  sample_coefs['{k}'] type={type(v)}, shape={v.shape if hasattr(v, 'shape') else len(v)}")
 
-    features = results["model"].feature_names
+    features = dict(results["model"].feature_names)
     features["inputs"] = [x[1] for x in features["inputs"]]
 
     reactome = PNetArchitectureGenerator()
     netx = reactome.get_networkx(pp_relations, pathway_dataset)
-    maps = reactome.get_layers(netx, n_hidden_layers, gp_relations, features["inputs"])
+    maps = reactome.get_layers(netx, n_hidden_layers, gp_relations, features["h0"])
     maps = get_layer_maps(pd.Index(features["h0"]), maps, False)
     print(f"Built {len(maps)} layer maps from Reactome")
 
@@ -402,7 +402,7 @@ def get_deeplift_global(results, n_hidden_layers, pathway_dataset, pp_relations,
 
     # extract link weights from trained model
     print("\n--- Extracting link weights ---")
-    layer_names = ['inputs', 'h0', 'h1', 'h2', 'h3', 'h4', 'h5']
+    layer_names = ['inputs'] + [f'h{i}' for i in range(n_hidden_layers + 1)]
     link_weights = get_link_weights_df_(results["model"].predictor, features, layer_names)
     for i, (layer_name, df) in enumerate(link_weights.items()):
         save_path = results["save_dir"] + f"/link_weights_{i}.csv"
