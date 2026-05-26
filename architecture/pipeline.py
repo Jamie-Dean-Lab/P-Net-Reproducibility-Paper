@@ -386,7 +386,8 @@ class Pipeline:
             for label_fn, id_col in ext_config["labels"]:
                 ext_data.load_data_label(os.path.join(self.config["data_dir"], label_fn), id_col)
             ext_data.align_views(self.config["view_alignment_method"], view_aligner,
-                                 self.config["drop_labels"], self.config["shuffle_seed"])
+                                 self.config["drop_labels"], drop_zero_label_cols=False,
+                                 shuffle_seed=self.config["shuffle_seed"])
 
             ext_df = pd.DataFrame(ext_data.xs, columns=ext_data.features, index=ext_data.ids)
             ext_df = ext_df.reindex(columns=pre_selection_features, fill_value=0.0)
@@ -408,12 +409,20 @@ class Pipeline:
 
             metrics = self.config.get("external_validation_metrics", {})
             if metrics:
+                ext_task = self.config.get("external_validation_task", "individual")
                 row = {}
-                for i, label in enumerate(label_names):
-                    is_na = np.isnan(ext_data.ys[:, i])
-                    y_true, y_pred = ext_data.ys[~is_na, i], preds[~is_na, i]
-                    for metric_name, metric_fn in metrics.items():
-                        row[f"{label}_{metric_name}"] = metric_fn(y_true, y_pred)
+                for metric_name, metric_fn in metrics.items():
+                    if ext_task == "individual":
+                        for i, label in enumerate(label_names):
+                            is_na = np.isnan(ext_data.ys[:, i])
+                            y_true, y_pred = ext_data.ys[~is_na, i], preds[~is_na, i]
+                            row[f"{label}_{metric_name}"] = metric_fn(y_true, y_pred)
+                    elif ext_task == "group":
+                        is_na = np.isnan(ext_data.ys).any(axis=1)
+                        valid_cols = ext_data.ys[~is_na].sum(axis=0) > 0
+                        y_true = ext_data.ys[~is_na][:, valid_cols]
+                        y_pred = preds[~is_na][:, valid_cols]
+                        row[metric_name] = metric_fn(y_true, y_pred)
                 pd.DataFrame([row]).to_csv(f"{tag_dir}/metrics.csv", index=False)
 
             self.log.info(f"External validation '{tag}': {len(ext_data.ids)} samples -> {tag_dir}")

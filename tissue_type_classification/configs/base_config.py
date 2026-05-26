@@ -10,7 +10,7 @@ import os
 
 wd = "tissue_type_classification"
 download_dir = f"{wd}/data"
-data_dir = f"{download_dir}/GTEx"
+data_dir = f"{download_dir}"
 run_dir = f"{wd}/runs"
 
 if not os.path.exists(download_dir):
@@ -59,8 +59,8 @@ base_config = {
     "rng_seed": 42,
     "tt_split_seed": 42,
     "shuffle_seed": 42,
-    "inner_kfolds": 5,
-    "outer_kfolds": 5,
+    "inner_kfolds": 2,
+    "outer_kfolds": 2,
     "stratified": False,
     "use_validation_on_test": False,
     "val_metric": {"f1": f1_selection},
@@ -78,6 +78,7 @@ base_config = {
             "labels": [("hpa_tissue_classes_encoded.csv", 0)],
         }
     ],
+    "external_validation_task": "group",
     "external_validation_metrics": {
         "auc": lambda y, y_hat: roc_auc_score(y, y_hat, multi_class="ovr", average="micro"),
         "auprc": lambda y, y_hat: average_precision_score(y, y_hat, average="micro"),

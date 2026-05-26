@@ -27,7 +27,8 @@ def collate_grid_search(results: dict):
     run_dir = results["save_dir"]
     gs_params = results["params"]
     gs_dirs = results["gs_dirs"]
-    assert len(gs_dirs) == len(gs_params), f"gs_dirs and gs_params must have the same length, got {len(gs_dirs)} and {len(gs_params)}"
+    assert len(gs_dirs) == len(
+        gs_params), f"gs_dirs and gs_params must have the same length, got {len(gs_dirs)} and {len(gs_params)}"
     for i, d in enumerate(gs_dirs):
         df = pd.read_csv(f"{d}/summary_results.csv", index_col=0)
         df["test_fold"] = os.path.basename(os.path.dirname(d))
@@ -94,7 +95,7 @@ def save_results(results: dict, processor, metrics: dict, task: str, pred_idx: i
 
 
 def save_supervised_result(results: dict, split: str, run_dir: str, metrics: dict, task: str,
-                            pred_idx: int = 0):
+                           pred_idx: int = 0):
     """
     Saves each split of supervised results e.g train, validation, test.
 
@@ -110,7 +111,8 @@ def save_supervised_result(results: dict, split: str, run_dir: str, metrics: dic
     returns:
         dict : Dictionary consisting of the summary metrics computed on the data
     """
-    preds = results[f"{split}_preds"][pred_idx] if type(results[f"{split}_preds"]) is tuple else results[f"{split}_preds"]
+    preds = results[f"{split}_preds"][pred_idx] if type(results[f"{split}_preds"]) is tuple else results[
+        f"{split}_preds"]
     label_dims = len(results[f"{split}_df"].ys.shape)
     # Fix: use pure NumPy instead of PyTorch-style flatten(start_dim=...)
     if len(preds.shape) > label_dims:
@@ -162,12 +164,12 @@ def evaluate_on_external(results: dict, external_df: pd.DataFrame, tag: str):
 
 
 def plot_channels(
-    history,
-    channels,
-    filename: str,
-    folder_name: str,
-    xlabel: str = "epochs",
-    ylabel: str = " ",
+        history,
+        channels,
+        filename: str,
+        folder_name: str,
+        xlabel: str = "epochs",
+        ylabel: str = " ",
 ):
     """
     Plot the training history.
@@ -228,7 +230,6 @@ def plot_history(results):
 
 
 def get_coef_importance(model, X_train, y_train, target, feature_importance, detailed=True, **kwargs):
-
     print(feature_importance)
 
     if feature_importance.startswith("skf"):
@@ -240,14 +241,16 @@ def get_coef_importance(model, X_train, y_train, target, feature_importance, det
     elif feature_importance == "gradient_outcome":
         coef_ = mcw.get_weights_gradient_outcome(model, X_train, y_train, target, multiply_by_input=False, signed=False)
     elif feature_importance == "gradient_outcome_signed":
-        coef_ = mcw.get_weights_gradient_outcome(model, X_train, y_train, target=target, detailed=detailed, multiply_by_input=False, signed=True)
+        coef_ = mcw.get_weights_gradient_outcome(model, X_train, y_train, target=target, detailed=detailed,
+                                                 multiply_by_input=False, signed=True)
     elif feature_importance == "gradient_outcome*input":
         coef_ = mcw.get_weights_gradient_outcome(model, X_train, y_train, target, multiply_by_input=True, signed=False)
     elif feature_importance == "gradient_outcome*input_signed":
         coef_ = mcw.get_weights_gradient_outcome(model, X_train, y_train, target, multiply_by_input=True, signed=True)
     elif feature_importance.startswith("deepexplain"):
         method = feature_importance.split("_")[1]
-        coef_ = mcw.get_deep_explain_scores(model, X_train, y_train, target, method_name=method, detailed=detailed, **kwargs)
+        coef_ = mcw.get_deep_explain_scores(model, X_train, y_train, target, method_name=method, detailed=detailed,
+                                            **kwargs)
     elif feature_importance.startswith("shap"):
         method = feature_importance.split("_")[1]
         coef_ = mcw.get_shap_scores(model, X_train, y_train, target, method_name=method, detailed=detailed)
@@ -274,6 +277,7 @@ def get_layers(model, level=1):
             layers.append(l)
     return layers
 
+
 def adjust_deeplift_for_degree(coef_df, maps, layer_idx):
     curr = maps[layer_idx].copy()
     curr[curr != 0] = 1.0
@@ -297,7 +301,8 @@ def adjust_deeplift_for_degree(coef_df, maps, layer_idx):
         zero_degree_genes = df[df["coef_graph"] == 0].index.tolist()
         nonzero_in_map = (maps[0].loc[maps[0].index.isin(zero_degree_genes)] != 0).sum(axis=1)
         print(f"  Non-zero connections for zero-degree genes: {nonzero_in_map.sum()}")
-        print(f"  Zero-degree genes in maps[0]: {(~maps[0].index.isin(zero_degree_genes)).sum()} connected, {maps[0].index.isin(zero_degree_genes).sum()} unconnected")
+        print(
+            f"  Zero-degree genes in maps[0]: {(~maps[0].index.isin(zero_degree_genes)).sum()} connected, {maps[0].index.isin(zero_degree_genes).sum()} unconnected")
 
     n_missing = df["coef_graph"].eq(0).sum()
     mean = df["coef_graph"].mean()

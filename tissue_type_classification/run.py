@@ -10,6 +10,7 @@ from tissue_type_classification.configs.base_config import wd, download_dir, run
 from tissue_type_classification.configs.pnet import pnet_config
 from tissue_type_classification.configs.dense import dense_config
 from tissue_type_classification.configs.svc import svc_config
+from tissue_type_classification.configs.adaboost import adaboost_config
 from architecture.train import train
 
 
@@ -23,9 +24,10 @@ def run():
         os.mkdir(run_dir)
 
     configs = [
-        pnet_config,
-        dense_config,
+        #pnet_config,
+        #dense_config,
         svc_config,
+        adaboost_config,
     ]
 
     for config in configs:
