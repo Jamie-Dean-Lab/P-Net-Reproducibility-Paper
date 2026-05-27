@@ -308,7 +308,7 @@ def adjust_deeplift_for_degree(coef_df, maps, layer_idx):
     n_hubs = ind.sum()
 
     print(f"  Nodes: {len(df)}, degree mean={mean:.2f}, std={std:.2f}, threshold={threshold:.2f}")
-    print(f"  Hub nodes penalised: {n_hubs}, zero degree (index mismatch): {n_missing}")
+    print(f"  Hub nodes penalised: {n_hubs}, zero degree (no pathway connections): {n_missing}")
 
     divide = df["coef_graph"].copy()
     divide[~ind] = 1.0
