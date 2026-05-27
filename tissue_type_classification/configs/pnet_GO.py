@@ -23,9 +23,9 @@ _fitting_params = {
 }
 
 _model_params_base = {
-    "pathway_dataset": "reactome",
-    "pp_relations": "architecture/Reactome/ReactomePathwaysRelation.txt",
-    "gp_relations": "architecture/Reactome/ReactomePathways.gmt",
+    "pathway_dataset": "go",
+    "pp_relations": "architecture/GO/go_hierarchy.tsv",
+    "gp_relations": "architecture/GO/go_gene_sets.gmt",
     "n_hidden_layers": n_hidden_layers,
     "h_dropout": [0.5] + [0.1] * n_hidden_layers,
     "h_activation": ["tanh"] * (n_hidden_layers + 1),
@@ -40,12 +40,12 @@ _model_params_base = {
     "loss": [{"class_name": "CategoricalCrossentropy", "config": {"from_logits": False}}] * (n_hidden_layers + 1),
     "loss_weights": [2, 7, 20, 54, 148, 400],
     "optimizer": {"class_name": "Adam", "config": {"learning_rate": 1e-3}},
-    "map_seed": 42
+    "map_seed": 42,
 }
 
-pnet_config = {
+pnet_GO_config = {
     **copy.deepcopy(base_config),
-    "run_id": "pnet",
+    "run_id": "pnet_GO",
     "model": compile_pnet,
     "fitting_params": _fitting_params,
     "results_processors": [
@@ -61,11 +61,13 @@ pnet_config = {
     "run_method": "run_crossvalidation",
     "grid_search": {
         "model_params": {
-            f"h_reg_{h}_o_reg_{o}": {**_model_params_base,
-                                     "h_reg": [(L2, {"l2": h})] * (n_hidden_layers + 1),
-                                     "o_reg": [(L2, {"l2": o})] * (n_hidden_layers + 1)}
+            f"h_reg_{h}_o_reg_{o}": {
+                **_model_params_base,
+                "h_reg": [(L2, {"l2": h})] * (n_hidden_layers + 1),
+                "o_reg": [(L2, {"l2": o})] * (n_hidden_layers + 1),
+            }
             for h in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
             for o in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
         }
-    }
+    },
 }

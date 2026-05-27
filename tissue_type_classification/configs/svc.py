@@ -4,15 +4,15 @@ import numpy as np
 from sklearn.svm import LinearSVC
 
 from architecture.pipeline import MLPipeline
-from .base_config import base_config, save_processor_svc
-from ..ovr import OVRWrapper
+from .base_config import base_config, save_processor
+from ..wrapper import ProbaWrapper
 
 svc_config = {
     **copy.deepcopy(base_config),
     "run_id":             "svc",
-    "model":              OVRWrapper,
+    "model":              ProbaWrapper,
     "task":               "multiclass",
-    "results_processors": [save_processor_svc],
+    "results_processors": [save_processor],
     "pipeline_class":     MLPipeline,
     "run_method":         "run_crossvalidation",
     "grid_search": {

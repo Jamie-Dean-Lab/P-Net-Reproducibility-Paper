@@ -1,13 +1,13 @@
 import copy
-from sklearn.ensemble import AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
 
 from architecture.pipeline import MLPipeline
 from .base_config import base_config, save_processor
 from ..wrapper import ProbaWrapper
 
-adaboost_config = {
+decision_tree_config = {
     **copy.deepcopy(base_config),
-    "run_id":             "adaboost",
+    "run_id":             "decision_tree",
     "model":              ProbaWrapper,
     "task":               "multiclass",
     "results_processors": [save_processor],
@@ -15,8 +15,12 @@ adaboost_config = {
     "run_method":         "run_crossvalidation",
     "grid_search": {
         "model_params": {
-            f"n_est_{n}": {"estimator": AdaBoostClassifier, "args": {"n_estimators": n}}
-            for n in [5]
+            f"depth_{d}_mss_{mss}": {
+                "estimator": DecisionTreeClassifier,
+                "args": {"max_depth": d, "min_samples_split": mss, "random_state": 42},
+            }
+            for d in range(1, 20, 2)
+            for mss in range(10, 500, 20)
         }
     },
 }
