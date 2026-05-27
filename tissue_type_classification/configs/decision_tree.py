@@ -1,15 +1,13 @@
 import copy
-
-import numpy as np
-from sklearn.svm import LinearSVC
+from sklearn.tree import DecisionTreeClassifier
 
 from architecture.pipeline import MLPipeline
 from .base_config import base_config, save_processor
 from ..wrapper import ProbaWrapper
 
-svc_config = {
+decision_tree_config = {
     **copy.deepcopy(base_config),
-    "run_id":             "svc",
+    "run_id":             "decision_tree",
     "model":              ProbaWrapper,
     "task":               "multiclass",
     "results_processors": [save_processor],
@@ -17,8 +15,12 @@ svc_config = {
     "run_method":         "run_crossvalidation",
     "grid_search": {
         "model_params": {
-            f"c_{c}": {"estimator": LinearSVC, "args": {"C": c}}
-            for c in np.logspace(-6, 6, 10).tolist()
+            f"depth_{d}_mss_{mss}": {
+                "estimator": DecisionTreeClassifier,
+                "args": {"max_depth": d, "min_samples_split": mss, "random_state": 42},
+            }
+            for d in range(1, 20, 2)
+            for mss in range(10, 500, 20)
         }
     },
 }

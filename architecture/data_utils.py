@@ -322,7 +322,8 @@ class ConcatMultiViewDataset(MultiViewDataset):
         self.features = None    # To hold feature names after alignment
         self.alignment_ids = None   # To hold ids for alignment between views
 
-    def align_views(self, method: str, view_aligner: dict = {}, drop_labels=True, shuffle_seed: int = 42):
+    def align_views(self, method: str, view_aligner: dict = {}, drop_labels=True,
+                    drop_zero_label_cols=True, shuffle_seed: int = 42):
         """
         Method to call after loading all the data desired. Aligns the views by concatenating them
         into one dataframe prefixed by the view name.
@@ -332,6 +333,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
             view_aligner (dict) : Dictionary containing function to extract identifier from each view
                                     to use as alignment between views
             drop_labels (bool) : whether to drop samples with missing labels
+            drop_zero_label_cols (bool) : whether to drop label columns whose sum is zero
         """
         # Copy individual views for computation but retain original if needed
         # Rename view features with view name prefix to ensure unique feature names
@@ -399,7 +401,8 @@ class ConcatMultiViewDataset(MultiViewDataset):
             self.xs = self.xs[valid_samples, :]
             self.ys = self.ys[valid_samples, :]
             self.ids = list(np.array(self.ids)[valid_samples])
-            valid_labels = self.ys.sum(axis=0) > 0
+        if drop_zero_label_cols:
+            valid_labels = np.nansum(self.ys, axis=0) > 0
             self.ys = self.ys[:, valid_labels]
             self.labels = self.labels.loc[:, valid_labels]
 

@@ -4,23 +4,29 @@ from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_sco
 
 from architecture.data_utils import ConcatMultiViewDataset
 from architecture.pipeline import IdentityProcessor
-from architecture.evaluation import save_results, save_supervised_result, collate_grid_search
+from architecture.evaluation import save_results, save_supervised_result, collate_grid_search, collate_aggregate_results
 
 import os
 
+from tissue_type_classification.preprocess import Preprocessor
+
 wd = "tissue_type_classification"
-download_dir = f"{wd}/data"
-data_dir = f"{download_dir}/GTEx"
+data_dir = f"{wd}/data"
 run_dir = f"{wd}/runs"
 
-if not os.path.exists(download_dir):
-    with open(f"{wd}/download_data.py") as file:
-        exec(file.read())
+_PREPROCESSING_SENTINEL = "GTEx_gene_expression_preprocessed.csv"
 
-selected_genes = list(set(pd.read_csv(f"{download_dir}/hugo_genes.txt", sep="\t")["symbol"]))
+if not os.path.exists(run_dir):
+    os.mkdir(run_dir)
+
+if not os.path.exists(os.path.join(data_dir, _PREPROCESSING_SENTINEL)):
+    print("Preprocessed data not found — running preprocessing pipeline...")
+    Preprocessor(data_dir).run_all()
+
+selected_genes = list(set(pd.read_csv(f"{data_dir}/hugo_genes.txt", sep="\t", low_memory=False)["symbol"]))
 
 views = [
-    ("gexpr", "GTEx_gene_log2_tpm_0.csv", selected_genes, 0, lambda x: x, lambda x: x),
+    ("gexpr", "GTEx_gene_expression_preprocessed.csv", selected_genes, 0, lambda x: x, lambda x: x),
 ]
 
 f1_selection = lambda x: f1_score(
@@ -54,7 +60,7 @@ base_config = {
     "run_dir": run_dir,
     "views": views,
     "view_alignment_method": "drop samples",
-    "labels": [("tissue_classes.csv", 0)],
+    "labels": [("GTEx_tissue_classes_encoded.csv", 0)],
     "tv_split_seed": 42,
     "rng_seed": 42,
     "tt_split_seed": 42,
@@ -67,6 +73,32 @@ base_config = {
     "results_processors": [save_processor],
     "grid_search": [],
     "fold_collators": [],
-    "grid_search_collators": [collate_grid_search],
+    "grid_search_collators": [collate_grid_search, collate_aggregate_results],
     "drop_labels": True,
+    "external_datasets": [
+        {
+            "tag": "hpa",
+            "views": [
+                ("gexpr", "hpa_gene_expression_preprocessed.csv", selected_genes, 0, lambda x: x, lambda x: x),
+            ],
+            "labels": [("hpa_tissue_classes_encoded.csv", 0)],
+        }
+    ],
+    "external_validation_task": "group",
+    "external_validation_metrics": {
+        # AUC/AUPRC require at least one positive example per class, so columns absent from the
+        # external dataset (all-zero) are dropped. Predictions for those classes count as
+        # mispredictions in the argmax-based metrics below.
+        "auc": lambda y, y_hat: roc_auc_score(
+            y[:, y.sum(axis=0) > 0], y_hat[:, y.sum(axis=0) > 0], multi_class="ovr", average="micro"
+        ),
+        "auprc": lambda y, y_hat: average_precision_score(
+            y[:, y.sum(axis=0) > 0], y_hat[:, y.sum(axis=0) > 0], average="micro"
+        ),
+        "f1": lambda ys, preds: f1_score(ys, ((preds >= np.sort(preds, axis=1)[:, [-1]]) & (preds > 0)).astype(int),
+                                         average="weighted"),
+        "accuracy": lambda ys, preds: accuracy_score(ys,
+                                                     ((preds >= np.sort(preds, axis=1)[:, [-1]]) & (preds > 0)).astype(
+                                                         int)),
+    },
 }
