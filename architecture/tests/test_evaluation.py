@@ -497,6 +497,7 @@ class TestCollateAggregateResults(unittest.TestCase):
             cols = df.columns.tolist()
             self.assertTrue(any("mean" in c for c in cols), f"Expected a mean column, got {cols}")
             self.assertTrue(any("std" in c for c in cols), f"Expected a std column, got {cols}")
+            self.assertTrue(any("sem" in c for c in cols), f"Expected a sem column, got {cols}")
 
     def test_groups_by_split(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -518,9 +519,8 @@ class TestCollateAggregateResults(unittest.TestCase):
             ])
             ru.collate_aggregate_results({"save_dir": tmp})
             df = pd.read_csv(os.path.join(tmp, "aggregated_results.csv"))
-            mean_col = [c for c in df.columns if "rmse" in c and "mean" in c][0]
-            train_row = df[df["index"] == "train"]
-            self.assertAlmostEqual(float(train_row[mean_col].values[0]), 0.3, places=5)
+            train_row = df[(df["index"] == "train") & (df["performance_metric"] == "rmse")]
+            self.assertAlmostEqual(float(train_row["mean"].values[0]), 0.3, places=5)
 
     def test_non_metric_columns_excluded_from_aggregation(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -531,9 +531,32 @@ class TestCollateAggregateResults(unittest.TestCase):
             ru.collate_aggregate_results({"save_dir": tmp})
             df = pd.read_csv(os.path.join(tmp, "aggregated_results.csv"))
             cols = df.columns.tolist()
-            for non_metric in ["test_fold", "metric", "hyperparams"]:
+            for non_metric in ["test_fold", "hyperparams"]:
                 self.assertNotIn(non_metric, cols,
                                  f"Non-metric column '{non_metric}' should not appear in aggregated output")
+            self.assertEqual(sorted(cols), sorted(["index", "metric", "performance_metric", "mean", "std", "sem"]))
+
+    def test_sem_correct_with_multiple_val_metrics(self):
+        # Each fold's results appear once per val_metric (f1/auprc/auc).
+        # Without deduplication, n would be n_folds * n_val_metrics, making sem too small.
+        # drop_duplicates ensures n = n_folds.
+        import math
+        fold_values = [0.2, 0.4, 0.6, 0.8, 1.0]
+        expected_sem = np.std(fold_values, ddof=1) / math.sqrt(len(fold_values))
+        rows = [
+            {"index": "test", "test_fold": f"fold_{i}", "metric": m,
+             "hyperparams": "h1", "rmse": fold_values[i]}
+            for i in range(5)
+            for m in ["f1", "auprc", "auc"]
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write_results_csv(tmp, rows)
+            ru.collate_aggregate_results({"save_dir": tmp})
+            df = pd.read_csv(os.path.join(tmp, "aggregated_results.csv"))
+            for val_metric in ["f1", "auprc", "auc"]:
+                row = df[(df["index"] == "test") & (df["metric"] == val_metric) & (df["performance_metric"] == "rmse")]
+                self.assertAlmostEqual(float(row["sem"].values[0]), expected_sem, places=10,
+                                       msg=f"sem wrong for val_metric={val_metric}")
 
     def test_multiple_metric_columns_all_aggregated(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -545,9 +568,8 @@ class TestCollateAggregateResults(unittest.TestCase):
             ])
             ru.collate_aggregate_results({"save_dir": tmp})
             df = pd.read_csv(os.path.join(tmp, "aggregated_results.csv"))
-            cols = df.columns.tolist()
-            self.assertTrue(any("rmse" in c and "mean" in c for c in cols))
-            self.assertTrue(any("mae" in c and "mean" in c for c in cols))
+            self.assertIn("rmse", df["performance_metric"].values)
+            self.assertIn("mae", df["performance_metric"].values)
 
     def test_three_splits_all_present(self):
         with tempfile.TemporaryDirectory() as tmp:

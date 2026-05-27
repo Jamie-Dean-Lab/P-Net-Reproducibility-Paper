@@ -4,7 +4,6 @@ import unittest
 
 from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, accuracy_score
 
-from evaluation import save_results, save_supervised_result, plot_history, get_deeplift_global
 from prostate_cancer_prediction.configs.dense_single_layer_train_size_variation import \
     dense_single_layer_train_size_variation_configs
 from prostate_cancer_prediction.configs.pnet_single_split import pnet_single_split_config

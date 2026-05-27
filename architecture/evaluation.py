@@ -48,9 +48,10 @@ def collate_aggregate_results(results: dict):
     df = pd.read_csv(f"{run_dir}/results.csv", index_col=0)
     non_metric_cols = {"index", "test_fold", "metric", "hyperparams"}
     metric_cols = [c for c in df.columns if c not in non_metric_cols]
-    agg = df.groupby("index")[metric_cols].agg(["mean", "std"])
-    agg.columns = [f"{col}_{stat}" for col, stat in agg.columns]
-    agg.reset_index().to_csv(f"{run_dir}/aggregated_results.csv", index=False)
+    agg = df.groupby(["index", "metric"])[metric_cols].agg(["mean", "std", "sem"])
+    result = agg.stack(level=0, future_stack=True).rename_axis(["index", "metric", "performance_metric"]).reset_index()
+    result.columns.name = None
+    result.to_csv(f"{run_dir}/aggregated_results.csv", index=False)
 
 
 def collate_folds(results: dict):
@@ -312,7 +313,7 @@ def adjust_deeplift_for_degree(coef_df, maps, layer_idx):
     n_hubs = ind.sum()
 
     print(f"  Nodes: {len(df)}, degree mean={mean:.2f}, std={std:.2f}, threshold={threshold:.2f}")
-    print(f"  Hub nodes penalised: {n_hubs}, zero degree (index mismatch): {n_missing}")
+    print(f"  Hub nodes penalised: {n_hubs}, zero degree (no pathway connections): {n_missing}")
 
     divide = df["coef_graph"].copy()
     divide[~ind] = 1.0
@@ -374,8 +375,9 @@ def get_link_weights_df_(model, features, layer_names):
     return link_weights_df
 
 
-def get_deeplift_global(results, selected_genes, n_hidden_layers,
-                        pathway_dataset, pp_relations, gp_relations):
+def get_deeplift_global(results, n_hidden_layers, pathway_dataset, pp_relations, gp_relations):
+    if not os.path.basename(results["save_dir"]).startswith("best_"):
+        return
     print("Computing DeepLIFT global importance scores")
 
     global_coefs, sample_coefs = get_coef_importance(
@@ -385,12 +387,12 @@ def get_deeplift_global(results, selected_genes, n_hidden_layers,
     for k, v in sample_coefs.items():
         print(f"  sample_coefs['{k}'] type={type(v)}, shape={v.shape if hasattr(v, 'shape') else len(v)}")
 
-    features = results["model"].feature_names
+    features = dict(results["model"].feature_names)
     features["inputs"] = [x[1] for x in features["inputs"]]
 
     reactome = PNetArchitectureGenerator()
     netx = reactome.get_networkx(pp_relations, pathway_dataset)
-    maps = reactome.get_layers(netx, n_hidden_layers, gp_relations, selected_genes)
+    maps = reactome.get_layers(netx, n_hidden_layers, gp_relations, features["h0"])
     maps = get_layer_maps(pd.Index(features["h0"]), maps, False)
     print(f"Built {len(maps)} layer maps from Reactome")
 
@@ -406,7 +408,7 @@ def get_deeplift_global(results, selected_genes, n_hidden_layers,
 
     # extract link weights from trained model
     print("\n--- Extracting link weights ---")
-    layer_names = ['inputs', 'h0', 'h1', 'h2', 'h3', 'h4', 'h5']
+    layer_names = ['inputs'] + [f'h{i}' for i in range(n_hidden_layers + 1)]
     link_weights = get_link_weights_df_(results["model"].predictor, features, layer_names)
     for i, (layer_name, df) in enumerate(link_weights.items()):
         save_path = results["save_dir"] + f"/link_weights_{i}.csv"

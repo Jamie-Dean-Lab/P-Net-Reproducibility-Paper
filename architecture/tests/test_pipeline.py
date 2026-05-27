@@ -792,6 +792,9 @@ class TestGetModalHyperparams(unittest.TestCase):
         {"model_params_choice": "c", "model_params": {"lr": 0.0001}},
     ]
 
+    def _params_for(self, choice):
+        return next(g["model_params"] for g in self._GRID if g["model_params_choice"] == choice)
+
     def _pipeline_with_results(self, rows, grid=None):
         tmp = tempfile.mkdtemp()
         pd.DataFrame(rows).to_csv(os.path.join(tmp, "results.csv"))
@@ -807,7 +810,7 @@ class TestGetModalHyperparams(unittest.TestCase):
         ]
         p, tmp = self._pipeline_with_results(rows)
         try:
-            self.assertEqual(p._get_modal_hyperparams(), {"lr": 0.01})
+            self.assertEqual(p._get_modal_hyperparams(), self._params_for("a"))
         finally:
             shutil.rmtree(tmp)
 
@@ -819,7 +822,7 @@ class TestGetModalHyperparams(unittest.TestCase):
         ]
         p, tmp = self._pipeline_with_results(rows)
         try:
-            self.assertEqual(p._get_modal_hyperparams(), {"lr": 0.01})
+            self.assertEqual(p._get_modal_hyperparams(), self._params_for("a"))
         finally:
             shutil.rmtree(tmp)
 
@@ -832,7 +835,7 @@ class TestGetModalHyperparams(unittest.TestCase):
         ]
         p, tmp = self._pipeline_with_results(rows)
         try:
-            self.assertEqual(p._get_modal_hyperparams(), {"lr": 0.001})
+            self.assertEqual(p._get_modal_hyperparams(), self._params_for("b"))
         finally:
             shutil.rmtree(tmp)
 
@@ -840,9 +843,7 @@ class TestGetModalHyperparams(unittest.TestCase):
         rows = [{"test_fold": "test_0", "hyperparams": "c"}]
         p, tmp = self._pipeline_with_results(rows)
         try:
-            result = p._get_modal_hyperparams()
-            self.assertIsInstance(result, dict)
-            self.assertIn("lr", result)
+            self.assertEqual(p._get_modal_hyperparams(), self._params_for("c"))
         finally:
             shutil.rmtree(tmp)
 
@@ -860,7 +861,7 @@ class TestGetModalHyperparams(unittest.TestCase):
         p, tmp = self._pipeline_with_results(rows)
         try:
             # "b" wins 2-1 after dedup
-            self.assertEqual(p._get_modal_hyperparams(), {"lr": 0.001})
+            self.assertEqual(p._get_modal_hyperparams(), self._params_for("b"))
         finally:
             shutil.rmtree(tmp)
 
