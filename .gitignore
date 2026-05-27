@@ -19,6 +19,8 @@
 *.gmt
 *.html
 *.gtf
+*.gz
+*.gff3
 
 # Logs
 *.log
