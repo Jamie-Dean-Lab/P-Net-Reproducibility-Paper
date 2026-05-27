@@ -1280,5 +1280,148 @@ class TestAlignViewsViewAligner(unittest.TestCase):
         self.assertEqual(len(ds.alignment_ids), ds.xs.shape[1])
 
 
+# ---------------------------------------------------------------------------
+# Regression: stratified get_k_splits after drop_labels with zero fill
+# ---------------------------------------------------------------------------
+
+class TestStratifiedKSplitsSmallClass(unittest.TestCase):
+    """
+    Regression test for ValueError: range() arg 3 must not be zero.
+    When a class has fewer samples than n_splits, integer division gives 0
+    and range() was called with step=0 before the guard check could fire.
+    The fix moves the range() call inside the guard.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        n = 12
+        ids = [f"s{i}" for i in range(n)]
+        path_v = _make_view_csv(self.tmp, "v.csv", ids, ["g1", "g2"], seed=0)
+        # class 0 has 10 samples, class 1 has only 2 — fewer than n_splits=5
+        labels = pd.DataFrame(
+            {"binary": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]},
+            index=ids,
+        )
+        labels.index.name = "id"
+        lpath = os.path.join(self.tmp, "labels.csv")
+        _write_csv(labels, lpath)
+        self.ds = ConcatMultiViewDataset()
+        self.ds.load_data_view("v", path_v)
+        self.ds.load_data_label(lpath)
+        self.ds.align_views(method="zero fill")
+
+    def test_stratified_k_splits_small_class_raises(self):
+        """get_k_splits must raise ValueError when a class has fewer samples than n_splits."""
+        with self.assertRaises(ValueError):
+            list(self.ds.get_k_splits(5, stratified=True))
+
+
+class TestStratifiedTrainTestSplitSmallClass(unittest.TestCase):
+    """
+    Regression test: get_train_test_split with stratified=True must raise ValueError
+    when a class has fewer than 2 instances, rather than silently continuing.
+    """
+
+    def _build(self, tmp, labels):
+        ids = list(labels.index)
+        path_v = _make_view_csv(tmp, "v.csv", ids, ["g1", "g2"], seed=0)
+        labels.index.name = "id"
+        lpath = os.path.join(tmp, "labels.csv")
+        _write_csv(labels, lpath)
+        ds = ConcatMultiViewDataset()
+        ds.load_data_view("v", path_v)
+        ds.load_data_label(lpath)
+        ds.align_views(method="zero fill")
+        return ds
+
+    def test_single_label_small_class_raises(self):
+        """Single-column binary label with only one instance of class 1 must raise."""
+        tmp = tempfile.mkdtemp()
+        ids = [f"s{i}" for i in range(6)]
+        labels = pd.DataFrame({"binary": [0, 0, 0, 0, 0, 1]}, index=ids)
+        ds = self._build(tmp, labels)
+        with self.assertRaises(ValueError):
+            ds.get_train_test_split(0.8, stratified=True)
+
+    def test_multi_label_small_class_raises(self):
+        """One-hot label with a class that has only one positive instance must raise."""
+        tmp = tempfile.mkdtemp()
+        ids = [f"s{i}" for i in range(6)]
+        labels = pd.DataFrame(
+            {"cls_0": [1, 1, 1, 1, 1, 0], "cls_1": [0, 0, 0, 0, 0, 1]},
+            index=ids,
+        )
+        ds = self._build(tmp, labels)
+        with self.assertRaises(ValueError):
+            ds.get_train_test_split(0.8, stratified=True)
+
+    def test_sufficient_samples_does_not_raise(self):
+        """Stratified split must succeed when all classes have more than 1 instance."""
+        tmp = tempfile.mkdtemp()
+        ids = [f"s{i}" for i in range(10)]
+        labels = pd.DataFrame({"binary": [0, 1] * 5}, index=ids)
+        ds = self._build(tmp, labels)
+        train, test = ds.get_train_test_split(0.8, stratified=True)
+        self.assertGreater(len(train), 0)
+        self.assertGreater(len(test), 0)
+
+
+class TestStratifiedKSplitsAfterDropLabels(unittest.TestCase):
+    """
+    Regression test for the bug where align_views(drop_labels=True) filtered
+    self.ids/self.xs/self.ys but left self.labels at its original (larger) size.
+    _get_k_splits stratified mode indexed into self.labels, producing row numbers
+    >= len(self.ids), which caused IndexError in _copy.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        # View covers s0..s19; labels only cover s0..s15 (8 per class).
+        # After zero fill + drop_labels, the dataset has 16 samples.
+        # Before the fix, self.labels still had 20 rows; group_idx from
+        # np.argwhere on a 20-row labels could yield indices 16..19,
+        # which are out of range for len(self.ids) == 16.
+        # Using 8 samples per class ensures len(group_idx) > n_splits=4
+        # so the stratified path is exercised without hitting the warning branch.
+        view_ids  = [f"s{i}" for i in range(20)]
+        label_ids = [f"s{i}" for i in range(16)]
+
+        path_v = _make_view_csv(self.tmp, "v.csv", view_ids, ["g1", "g2"], seed=0)
+        labels = pd.DataFrame(
+            {"binary": [0, 1] * 8},
+            index=label_ids,
+        )
+        labels.index.name = "id"
+        lpath = os.path.join(self.tmp, "labels.csv")
+        _write_csv(labels, lpath)
+
+        self.ds = ConcatMultiViewDataset()
+        self.ds.load_data_view("v", path_v)
+        self.ds.load_data_label(lpath)
+        self.ds.align_views(method="zero fill", drop_labels=True)
+
+    def test_drop_labels_syncs_labels_with_ids(self):
+        """self.labels must have the same row count as self.ids after drop_labels."""
+        self.assertEqual(len(self.ds.labels), len(self.ds.ids))
+
+    def test_stratified_k_splits_does_not_raise(self):
+        """Stratified get_k_splits must not raise IndexError when labels were dropped."""
+        try:
+            folds = list(self.ds.get_k_splits(4, stratified=True))
+        except IndexError as e:
+            self.fail(f"get_k_splits raised IndexError after drop_labels: {e}")
+
+    def test_stratified_k_splits_indices_in_range(self):
+        """Every split index produced by stratified k-splits must be within bounds."""
+        n = len(self.ds.ids)
+        for train, val in self.ds.get_k_splits(4, stratified=True):
+            for sid in train.ids + val.ids:
+                self.assertIn(sid, self.ds.ids)
+
+    def test_stratified_k_splits_no_overlap(self):
+        for train, val in self.ds.get_k_splits(4, stratified=True):
+            self.assertEqual(len(set(train.ids) & set(val.ids)), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

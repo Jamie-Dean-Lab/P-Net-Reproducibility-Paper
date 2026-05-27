@@ -160,19 +160,17 @@ class MultiViewDataset:
             if self.labels.shape[1] > 1:
                 for i in range(self.labels.shape[1]):
                     group_idx = np.argwhere(self.labels.iloc[:, i] == 1)
-                    if len(group_idx) > 1:
-                        splits.append(int(len(group_idx) * train_proportion))
-                        idxs.append(group_idx)
-                    else:
-                        print(f"Warning : label {self.labels.columns[i]} has less than 2 instances, unable to stratify")
+                    if len(group_idx) <= 1:
+                        raise ValueError(f"Label '{self.labels.columns[i]}' has {len(group_idx)} instances, need more than 1 for stratified split.")
+                    splits.append(int(len(group_idx) * train_proportion))
+                    idxs.append(group_idx)
             else:
                 for i in range(2):
                     group_idx = np.argwhere(self.labels.iloc[:, 0] == i)
-                    if len(group_idx) > 1:
-                        splits.append(int(len(group_idx) * train_proportion))
-                        idxs.append(group_idx)
-                    else:
-                        print(f"Warning : label {self.labels.columns[i]} has less than 2 instances, unable to stratify")
+                    if len(group_idx) <= 1:
+                        raise ValueError(f"Label '{self.labels.columns[0]}' class {i} has {len(group_idx)} instances, need more than 1 for stratified split.")
+                    splits.append(int(len(group_idx) * train_proportion))
+                    idxs.append(group_idx)
             train_idxs = np.concatenate([idxs[i][:splits[i]].ravel() for i in range(len(idxs))])
             test_idxs = np.concatenate([idxs[i][splits[i]:].ravel() for i in range(len(idxs))])
             rng.shuffle(train_idxs)
@@ -212,21 +210,17 @@ class MultiViewDataset:
             if self.labels.shape[1] > 1:
                 for i in range(self.labels.shape[1]):
                     group_idx = np.argwhere(self.labels.iloc[:, i] == 1)
-                    cv_splits = range(0, len(group_idx), len(group_idx) // n_splits)
-                    if len(group_idx) > n_splits:
-                        splits.append(cv_splits)
-                        idxs.append(group_idx)
-                    else:
-                        print(f"Warning : label {self.labels.columns[i]} has less than {n_splits} instances, unable to stratify")
+                    if len(group_idx) <= n_splits:
+                        raise ValueError(f"Label '{self.labels.columns[i]}' has {len(group_idx)} instances, need more than {n_splits} for stratified {n_splits}-fold split.")
+                    splits.append(range(0, len(group_idx), len(group_idx) // n_splits))
+                    idxs.append(group_idx)
             else:
                 for i in range(2):
                     group_idx = np.argwhere(self.labels.iloc[:, 0] == i)
-                    cv_splits = range(0, len(group_idx), len(group_idx) // n_splits)
-                    if len(group_idx) > n_splits:
-                        splits.append(cv_splits)
-                        idxs.append(group_idx)
-                    else:
-                        print(f"Warning : label {self.labels.columns[i]} has less than {n_splits} instances, unable to stratify")
+                    if len(group_idx) <= n_splits:
+                        raise ValueError(f"Label '{self.labels.columns[0]}' class {i} has {len(group_idx)} instances, need more than {n_splits} for stratified {n_splits}-fold split.")
+                    splits.append(range(0, len(group_idx), len(group_idx) // n_splits))
+                    idxs.append(group_idx)
             folds = []
             for i in range(n_splits):
                 val_split = [idxs[j][splits[j][i]:splits[j][i+1]].ravel() if i < n_splits - 1 else idxs[j][splits[j][i]:].ravel() for j in range(len(idxs))]
@@ -401,6 +395,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
             self.xs = self.xs[valid_samples, :]
             self.ys = self.ys[valid_samples, :]
             self.ids = list(np.array(self.ids)[valid_samples])
+            self.labels = self.labels.loc[valid_samples]
         if drop_zero_label_cols:
             valid_labels = np.nansum(self.ys, axis=0) > 0
             self.ys = self.ys[:, valid_labels]
