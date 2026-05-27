@@ -419,9 +419,8 @@ class Pipeline:
                             row[f"{label}_{metric_name}"] = metric_fn(y_true, y_pred)
                     elif ext_task == "group":
                         is_na = np.isnan(ext_data.ys).any(axis=1)
-                        valid_cols = ext_data.ys[~is_na].sum(axis=0) > 0
-                        y_true = ext_data.ys[~is_na][:, valid_cols]
-                        y_pred = preds[~is_na][:, valid_cols]
+                        y_true = ext_data.ys[~is_na]
+                        y_pred = preds[~is_na]
                         row[metric_name] = metric_fn(y_true, y_pred)
                 pd.DataFrame([row]).to_csv(f"{tag_dir}/metrics.csv", index=False)
 
