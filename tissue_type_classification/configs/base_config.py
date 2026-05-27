@@ -17,7 +17,7 @@ if not os.path.exists(download_dir):
     with open(f"{wd}/download_data.py") as file:
         exec(file.read())
 
-selected_genes = list(set(pd.read_csv(f"{download_dir}/hugo_genes.txt", sep="\t")["symbol"]))
+selected_genes = list(set(pd.read_csv(f"{data_dir}/hugo_genes.txt", sep="\t", low_memory=False)["symbol"]))
 
 views = [
     ("gexpr", "GTEx_gene_expression_preprocessed.csv", selected_genes, 0, lambda x: x, lambda x: x),
