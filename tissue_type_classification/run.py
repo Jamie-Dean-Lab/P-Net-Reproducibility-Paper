@@ -1,6 +1,5 @@
 import os, sys
 
-from tissue_type_classification.aggregate import aggregate_results
 from tissue_type_classification.significance_testing import significance_test
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
