@@ -1000,6 +1000,123 @@ class TestRunExternalValidation(unittest.TestCase):
             self.assertEqual(mock_pp.fit_transform.call_count, 1)
             self.assertEqual(mock_pp.transform.call_count, 1)
 
+    # ------------------------------------------------------------------
+    # individual vs group task routing
+    # ------------------------------------------------------------------
+
+    def test_individual_task_metric_receives_1d_arrays(self):
+        captured = {}
+        def capture(y_true, y_pred):
+            captured["y_true"] = y_true
+            captured["y_pred"] = y_pred
+            return 0.5
+        with tempfile.TemporaryDirectory() as tmp:
+            pipeline, _, _ = make_ext_pipeline(tmp, metrics={"rmse": capture})
+            pipeline.config["external_validation_task"] = "individual"
+            pipeline._run_external_validation()
+        self.assertEqual(captured["y_true"].ndim, 1)
+        self.assertEqual(captured["y_pred"].ndim, 1)
+
+    def test_individual_task_metrics_csv_has_label_prefixed_columns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pipeline, _, _ = make_ext_pipeline(tmp, metrics={"rmse": MagicMock(return_value=0.5)})
+            pipeline.config["external_validation_task"] = "individual"
+            pipeline._run_external_validation()
+            df = pd.read_csv(os.path.join(tmp, "external_validation", "nci60", "metrics.csv"))
+        self.assertIn("label_0_rmse", df.columns)
+        self.assertNotIn("rmse", df.columns)
+
+    def test_individual_task_is_default_when_task_not_configured(self):
+        """No external_validation_task key defaults to individual (label-prefixed columns)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            pipeline, _, _ = make_ext_pipeline(tmp, metrics={"rmse": MagicMock(return_value=0.5)})
+            pipeline._run_external_validation()
+            df = pd.read_csv(os.path.join(tmp, "external_validation", "nci60", "metrics.csv"))
+        self.assertIn("label_0_rmse", df.columns)
+
+    def test_group_task_metric_receives_2d_arrays(self):
+        captured = {}
+        def capture(y_true, y_pred):
+            captured["y_true"] = y_true
+            return 0.5
+        with tempfile.TemporaryDirectory() as tmp:
+            pipeline, model, ext_data = make_ext_pipeline(tmp, metrics={"rmse": capture})
+            pipeline.config["external_validation_task"] = "group"
+            ext_data.ys = np.ones((6, 2), dtype=np.float32)
+            ext_data.get_labels.return_value = ["cls_0", "cls_1"]
+            model.predict.return_value = np.zeros((6, 2), dtype=np.float32)
+            pipeline._run_external_validation()
+        self.assertEqual(captured["y_true"].ndim, 2)
+        self.assertEqual(captured["y_true"].shape[1], 2)
+
+    def test_group_task_metrics_csv_has_unprefixed_column(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pipeline, model, ext_data = make_ext_pipeline(tmp, metrics={"rmse": MagicMock(return_value=0.5)})
+            pipeline.config["external_validation_task"] = "group"
+            ext_data.ys = np.ones((6, 2), dtype=np.float32)
+            ext_data.get_labels.return_value = ["cls_0", "cls_1"]
+            model.predict.return_value = np.zeros((6, 2), dtype=np.float32)
+            pipeline._run_external_validation()
+            df = pd.read_csv(os.path.join(tmp, "external_validation", "nci60", "metrics.csv"))
+        self.assertIn("rmse", df.columns)
+        self.assertNotIn("cls_0_rmse", df.columns)
+
+    # ------------------------------------------------------------------
+    # NaN masking
+    # ------------------------------------------------------------------
+
+    def test_individual_task_nan_label_rows_excluded_from_metric(self):
+        captured = {}
+        def capture(y_true, y_pred):
+            captured["y_true"] = y_true
+            return 0.5
+        with tempfile.TemporaryDirectory() as tmp:
+            pipeline, model, ext_data = make_ext_pipeline(tmp, metrics={"rmse": capture})
+            pipeline.config["external_validation_task"] = "individual"
+            ys = np.ones((6, 1), dtype=np.float32)
+            ys[2, 0] = np.nan
+            ext_data.ys = ys
+            model.predict.return_value = np.zeros((6, 1), dtype=np.float32)
+            pipeline._run_external_validation()
+        self.assertEqual(len(captured["y_true"]), 5)
+        self.assertFalse(np.isnan(captured["y_true"]).any())
+
+    def test_group_task_nan_label_rows_excluded_from_metric(self):
+        """Rows where any label column is NaN are excluded in group mode."""
+        captured = {}
+        def capture(y_true, y_pred):
+            captured["y_true"] = y_true
+            return 0.5
+        with tempfile.TemporaryDirectory() as tmp:
+            pipeline, model, ext_data = make_ext_pipeline(tmp, metrics={"rmse": capture})
+            pipeline.config["external_validation_task"] = "group"
+            ys = np.ones((6, 2), dtype=np.float32)
+            ys[1, 0] = np.nan  # row 1 NaN in col 0
+            ys[4, 1] = np.nan  # row 4 NaN in col 1
+            ext_data.ys = ys
+            ext_data.get_labels.return_value = ["cls_0", "cls_1"]
+            model.predict.return_value = np.zeros((6, 2), dtype=np.float32)
+            pipeline._run_external_validation()
+        self.assertEqual(captured["y_true"].shape[0], 4)
+        self.assertFalse(np.isnan(captured["y_true"]).any())
+
+    # ------------------------------------------------------------------
+    # Multiple external datasets
+    # ------------------------------------------------------------------
+
+    def test_multiple_external_datasets_each_get_subdirectory(self):
+        feature_names = [f"feat_{i}" for i in range(4)]
+        with tempfile.TemporaryDirectory() as tmp:
+            pipeline, _, _ = make_ext_pipeline(tmp)
+            pipeline.config["external_datasets"].append({
+                "tag": "gdc",
+                "views": [("gexpr", "ext2.csv", feature_names, 0, lambda x: x, lambda x: x)],
+                "labels": [("labels2.csv", 0)],
+            })
+            pipeline._run_external_validation()
+            self.assertTrue(os.path.isdir(os.path.join(tmp, "external_validation", "nci60")))
+            self.assertTrue(os.path.isdir(os.path.join(tmp, "external_validation", "gdc")))
+
 
 if __name__ == "__main__":
     unittest.main()

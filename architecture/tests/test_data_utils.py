@@ -386,13 +386,30 @@ class TestAlignViewsMethods(unittest.TestCase):
 
         self.all_ids = all_ids
 
-    def _build(self, method, label_path=None, drop_labels=True):
+    def _build(self, method, label_path=None, drop_labels=True, drop_zero_label_cols=None):
         ds = ConcatMultiViewDataset()
         ds.load_data_view("v1", self.path_v1)
         ds.load_data_view("v2", self.path_v2)
         ds.load_data_label(label_path or self.label_path)
-        ds.align_views(method=method, drop_labels=drop_labels)
+        kwargs = {"method": method, "drop_labels": drop_labels}
+        if drop_zero_label_cols is not None:
+            kwargs["drop_zero_label_cols"] = drop_zero_label_cols
+        ds.align_views(**kwargs)
         return ds
+
+    def _make_rare_label_path(self, filename="labels_rare2.csv", nan_first=True):
+        """Labels where cls_rare becomes zero-sum after filtering s0 (which has nan)."""
+        labels = pd.DataFrame(
+            {"cls_rare":   [1, 0, 0, 0, 0, 0, 0, 0],
+             "cls_common": [0, 1, 1, 1, 1, 1, 1, 1]},
+            index=self.all_ids,
+        ).astype(float)
+        labels.index.name = "id"
+        if nan_first:
+            labels.iloc[0] = np.nan
+        lpath = os.path.join(self.tmp, filename)
+        _write_csv(labels, lpath)
+        return lpath
 
     # ------------------------------------------------------------------
     # zero fill
@@ -470,8 +487,8 @@ class TestAlignViewsMethods(unittest.TestCase):
         ds = self._build("zero fill", label_path=self.partial_label_path, drop_labels=True)
         self.assertFalse(np.isnan(ds.ys).any())
 
-    def test_drop_labels_true_removes_zero_label_columns(self):
-        """Label columns that are all-zero after sample filtering are dropped."""
+    def test_drop_zero_label_cols_true_drops_zero_sum_col_after_sample_filtering(self):
+        """Label column that becomes zero-sum after NaN-row filtering is dropped when drop_zero_label_cols=True."""
         all_ids = self.all_ids
         labels = pd.DataFrame(
             {"cls_rare":   [1, 0, 0, 0, 0, 0, 0, 0],
@@ -484,7 +501,7 @@ class TestAlignViewsMethods(unittest.TestCase):
         lpath = os.path.join(self.tmp, "labels_rare.csv")
         _write_csv(labels, lpath)
 
-        ds = self._build("zero fill", label_path=lpath, drop_labels=True)
+        ds = self._build("zero fill", label_path=lpath, drop_labels=True, drop_zero_label_cols=True)
         self.assertNotIn("cls_rare", ds.labels.columns)
 
     def test_drop_labels_true_xs_and_ys_row_count_match(self):
@@ -507,6 +524,61 @@ class TestAlignViewsMethods(unittest.TestCase):
         ds_keep = self._build("zero fill", drop_labels=False)
         ds_drop = self._build("zero fill", drop_labels=True)
         self.assertGreaterEqual(ds_keep.xs.shape[0], ds_drop.xs.shape[0])
+
+    # ------------------------------------------------------------------
+    # drop_zero_label_cols
+    # ------------------------------------------------------------------
+
+    def test_drop_zero_label_cols_false_retains_zero_column_when_drop_labels_true(self):
+        """Explicitly setting drop_zero_label_cols=False keeps zero-sum cols even with drop_labels=True."""
+        lpath = self._make_rare_label_path()
+        ds = self._build("zero fill", label_path=lpath, drop_labels=True, drop_zero_label_cols=False)
+        self.assertIn("cls_rare", ds.labels.columns)
+
+    def test_drop_zero_label_cols_true_removes_initially_zero_column_with_drop_labels_false(self):
+        """A label column that is zero for all samples is dropped when drop_zero_label_cols=True."""
+        labels = pd.DataFrame(
+            {"cls_always_zero": [0, 0, 0, 0, 0, 0, 0, 0],
+             "cls_present":     [1, 0, 1, 0, 1, 0, 1, 0]},
+            index=self.all_ids,
+        ).astype(float)
+        labels.index.name = "id"
+        lpath = os.path.join(self.tmp, "labels_zero.csv")
+        _write_csv(labels, lpath)
+        ds = self._build("zero fill", label_path=lpath, drop_labels=False, drop_zero_label_cols=True)
+        self.assertNotIn("cls_always_zero", ds.labels.columns)
+        self.assertIn("cls_present", ds.labels.columns)
+
+    def test_drop_zero_label_cols_false_retains_initially_zero_column_with_drop_labels_false(self):
+        """drop_zero_label_cols=False keeps a column that is all-zero from the start."""
+        labels = pd.DataFrame(
+            {"cls_always_zero": [0, 0, 0, 0, 0, 0, 0, 0],
+             "cls_present":     [1, 0, 1, 0, 1, 0, 1, 0]},
+            index=self.all_ids,
+        ).astype(float)
+        labels.index.name = "id"
+        lpath = os.path.join(self.tmp, "labels_zero2.csv")
+        _write_csv(labels, lpath)
+        ds = self._build("zero fill", label_path=lpath, drop_labels=False, drop_zero_label_cols=False)
+        self.assertIn("cls_always_zero", ds.labels.columns)
+
+    def test_drop_zero_label_cols_default_is_true_drops_zero_cols(self):
+        """Default drop_zero_label_cols=True means zero-sum cols are dropped when drop_labels=True."""
+        lpath = self._make_rare_label_path()
+        ds = self._build("zero fill", label_path=lpath, drop_labels=True)
+        self.assertNotIn("cls_rare", ds.labels.columns)
+
+    def test_drop_zero_label_cols_ys_and_labels_shape_consistent(self):
+        """After dropping zero cols, ys.shape[1] and labels column count stay in sync."""
+        lpath = self._make_rare_label_path()
+        ds = self._build("zero fill", label_path=lpath, drop_labels=True, drop_zero_label_cols=True)
+        self.assertEqual(ds.ys.shape[1], len(ds.labels.columns))
+
+    def test_drop_zero_label_cols_false_ys_and_labels_shape_consistent(self):
+        """With drop_zero_label_cols=False, ys.shape[1] still matches labels column count."""
+        lpath = self._make_rare_label_path()
+        ds = self._build("zero fill", label_path=lpath, drop_labels=True, drop_zero_label_cols=False)
+        self.assertEqual(ds.ys.shape[1], len(ds.labels.columns))
 
 
 class TestConcatMultiViewDatasetSplits(unittest.TestCase):
