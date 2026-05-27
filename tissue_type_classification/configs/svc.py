@@ -1,4 +1,6 @@
 import copy
+
+import numpy as np
 from sklearn.svm import LinearSVC
 
 from architecture.pipeline import MLPipeline
@@ -15,8 +17,8 @@ svc_config = {
     "run_method":         "run_crossvalidation",
     "grid_search": {
         "model_params": {
-            f"c_{c}": {"estimator": LinearSVC, "args": {"C": 10 ** c}}
-            for c in [1, 0, -1, -2, -3]
+            f"c_{c}": {"estimator": LinearSVC, "args": {"C": c}}
+            for c in np.logspace(-6, 6, 10).tolist()
         }
     },
 }

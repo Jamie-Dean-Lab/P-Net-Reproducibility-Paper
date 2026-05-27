@@ -4,7 +4,7 @@ from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_sco
 
 from architecture.data_utils import ConcatMultiViewDataset
 from architecture.pipeline import IdentityProcessor
-from architecture.evaluation import save_results, save_supervised_result, collate_grid_search
+from architecture.evaluation import save_results, save_supervised_result, collate_grid_search, collate_aggregate_results
 
 import os
 
@@ -59,15 +59,15 @@ base_config = {
     "rng_seed": 42,
     "tt_split_seed": 42,
     "shuffle_seed": 42,
-    "inner_kfolds": 2,
-    "outer_kfolds": 2,
+    "inner_kfolds": 5,
+    "outer_kfolds": 5,
     "stratified": False,
     "use_validation_on_test": False,
     "val_metric": {"f1": f1_selection},
     "results_processors": [save_processor],
     "grid_search": [],
     "fold_collators": [],
-    "grid_search_collators": [collate_grid_search],
+    "grid_search_collators": [collate_grid_search, collate_aggregate_results],
     "drop_labels": True,
     "external_datasets": [
         {
@@ -80,8 +80,15 @@ base_config = {
     ],
     "external_validation_task": "group",
     "external_validation_metrics": {
-        "auc": lambda y, y_hat: roc_auc_score(y, y_hat, multi_class="ovr", average="micro"),
-        "auprc": lambda y, y_hat: average_precision_score(y, y_hat, average="micro"),
+        # AUC/AUPRC require at least one positive example per class, so columns absent from the
+        # external dataset (all-zero) are dropped. Predictions for those classes count as
+        # mispredictions in the argmax-based metrics below.
+        "auc": lambda y, y_hat: roc_auc_score(
+            y[:, y.sum(axis=0) > 0], y_hat[:, y.sum(axis=0) > 0], multi_class="ovr", average="micro"
+        ),
+        "auprc": lambda y, y_hat: average_precision_score(
+            y[:, y.sum(axis=0) > 0], y_hat[:, y.sum(axis=0) > 0], average="micro"
+        ),
         "f1": lambda ys, preds: f1_score(ys, ((preds >= np.sort(preds, axis=1)[:, [-1]]) & (preds > 0)).astype(int),
                                          average="weighted"),
         "accuracy": lambda ys, preds: accuracy_score(ys,
