@@ -55,13 +55,6 @@ from architecture.train import train
 from prostate_cancer_prediction.plot import plot
 
 def run():
-    if not os.path.exists(download_dir):
-        with open("prostate_cancer_prediction/download_data.py") as file:
-            exec(file.read())
-
-    if not os.path.exists(run_dir):
-        os.mkdir(run_dir)
-
     configs = [
         # Single split
         # pnet_single_split_config,

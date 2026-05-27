@@ -8,14 +8,20 @@ from architecture.evaluation import save_results, save_supervised_result, collat
 
 import os
 
+from tissue_type_classification.preprocess import Preprocessor
+
 wd = "tissue_type_classification"
-download_dir = f"{wd}/data"
-data_dir = f"{download_dir}"
+data_dir = f"{wd}/data"
 run_dir = f"{wd}/runs"
 
-if not os.path.exists(download_dir):
-    with open(f"{wd}/download_data.py") as file:
-        exec(file.read())
+_PREPROCESSING_SENTINEL = "GTEx_gene_expression_preprocessed.csv"
+
+if not os.path.exists(run_dir):
+    os.mkdir(run_dir)
+
+if not os.path.exists(os.path.join(data_dir, _PREPROCESSING_SENTINEL)):
+    print("Preprocessed data not found — running preprocessing pipeline...")
+    Preprocessor(data_dir).run_all()
 
 selected_genes = list(set(pd.read_csv(f"{data_dir}/hugo_genes.txt", sep="\t", low_memory=False)["symbol"]))
 

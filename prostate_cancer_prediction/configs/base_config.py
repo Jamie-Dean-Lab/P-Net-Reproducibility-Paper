@@ -17,6 +17,9 @@ if not os.path.exists(download_dir):
     with open(f"{wd}/download_data.py") as file:
         exec(file.read())
 
+if not os.path.exists(run_dir):
+    os.mkdir(run_dir)
+
 selected_genes = set(pd.read_csv(f"{data_dir}/genes/tcga_prostate_expressed_genes_and_cancer_genes.csv")["genes"])
 hugo_genes = set(pd.read_csv(f"{data_dir}/genes/HUGO_genes/protein-coding_gene_with_coordinate_minimal.txt",
                           sep="\t", header=None).iloc[:, 3].unique())
