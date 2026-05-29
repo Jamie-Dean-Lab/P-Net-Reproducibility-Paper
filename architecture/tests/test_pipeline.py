@@ -795,10 +795,22 @@ class TestGetModalHyperparams(unittest.TestCase):
     def _params_for(self, choice):
         return next(g["model_params"] for g in self._GRID if g["model_params_choice"] == choice)
 
-    def _pipeline_with_results(self, rows, grid=None):
+    def _pipeline_with_results(self, rows, grid=None, selection_metric="auc"):
+        """
+        Writes rows to results.csv and returns a pipeline configured to select
+        hyperparams using selection_metric. Each row that lacks a 'metric' key
+        is stamped with selection_metric so existing helpers stay concise.
+        """
+        stamped = [
+            {**r, "metric": r.get("metric", selection_metric)} for r in rows
+        ]
         tmp = tempfile.mkdtemp()
-        pd.DataFrame(rows).to_csv(os.path.join(tmp, "results.csv"))
-        p = make_pipeline({"grid_search": grid or self._GRID})
+        pd.DataFrame(stamped).to_csv(os.path.join(tmp, "results.csv"))
+        p = make_pipeline({
+            "grid_search": grid or self._GRID,
+            "hyperparam_selection_metric": selection_metric,
+            "val_metric": {"auc": MagicMock(), "f1": MagicMock()},
+        })
         p.run_dir = tmp
         return p, tmp
 
@@ -862,6 +874,61 @@ class TestGetModalHyperparams(unittest.TestCase):
         try:
             # "b" wins 2-1 after dedup
             self.assertEqual(p._get_modal_hyperparams(), self._params_for("b"))
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_only_rows_matching_configured_metric_used(self):
+        # f1 rows all point to "a"; auc rows all point to "b".
+        # With selection_metric="auc", "b" must win despite "a" dominating overall.
+        rows = [
+            {"test_fold": "test_0", "hyperparams": "a", "metric": "f1"},
+            {"test_fold": "test_1", "hyperparams": "a", "metric": "f1"},
+            {"test_fold": "test_2", "hyperparams": "a", "metric": "f1"},
+            {"test_fold": "test_0", "hyperparams": "b", "metric": "auc"},
+            {"test_fold": "test_1", "hyperparams": "b", "metric": "auc"},
+            {"test_fold": "test_2", "hyperparams": "b", "metric": "auc"},
+        ]
+        p, tmp = self._pipeline_with_results(rows, selection_metric="auc")
+        try:
+            self.assertEqual(p._get_modal_hyperparams(), self._params_for("b"))
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_different_configured_metric_yields_different_selection(self):
+        # Same rows as above but selection_metric="f1" → "a" must win.
+        rows = [
+            {"test_fold": "test_0", "hyperparams": "a", "metric": "f1"},
+            {"test_fold": "test_1", "hyperparams": "a", "metric": "f1"},
+            {"test_fold": "test_2", "hyperparams": "a", "metric": "f1"},
+            {"test_fold": "test_0", "hyperparams": "b", "metric": "auc"},
+            {"test_fold": "test_1", "hyperparams": "b", "metric": "auc"},
+            {"test_fold": "test_2", "hyperparams": "b", "metric": "auc"},
+        ]
+        p, tmp = self._pipeline_with_results(rows, selection_metric="f1")
+        try:
+            self.assertEqual(p._get_modal_hyperparams(), self._params_for("a"))
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_falls_back_to_first_val_metric_key_when_no_explicit_config(self):
+        # No hyperparam_selection_metric in config; first key of val_metric ("f1")
+        # is used as the default, so "a" (f1 rows) wins over "b" (auc rows).
+        rows = [
+            {"test_fold": "test_0", "hyperparams": "a", "metric": "f1"},
+            {"test_fold": "test_1", "hyperparams": "a", "metric": "f1"},
+            {"test_fold": "test_0", "hyperparams": "b", "metric": "auc"},
+            {"test_fold": "test_1", "hyperparams": "b", "metric": "auc"},
+        ]
+        tmp = tempfile.mkdtemp()
+        pd.DataFrame(rows).to_csv(os.path.join(tmp, "results.csv"))
+        p = make_pipeline({
+            "grid_search": self._GRID,
+            "val_metric": {"f1": MagicMock(), "auc": MagicMock()},
+            # hyperparam_selection_metric intentionally absent
+        })
+        p.run_dir = tmp
+        try:
+            self.assertEqual(p._get_modal_hyperparams(), self._params_for("a"))
         finally:
             shutil.rmtree(tmp)
 

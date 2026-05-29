@@ -335,17 +335,19 @@ class Pipeline:
         pass
 
     def _get_modal_hyperparams(self):
+        metric = self.config.get("hyperparam_selection_metric") or next(iter(self.config["val_metric"]))
         df = pd.read_csv(f"{self.run_dir}/results.csv", index_col=0)
+        df = df[df["metric"] == metric]
         fold_choices = df[["test_fold", "hyperparams"]].drop_duplicates(subset="test_fold")
         modes = fold_choices["hyperparams"].mode()
         if len(modes) == 1:
             choice_key = modes.iloc[0]
-            self.log.info(f"External validation: modal hyperparameter choice '{choice_key}'")
+            self.log.info(f"External validation: modal hyperparameter choice '{choice_key}' (metric: {metric})")
         else:
             fold_choices = fold_choices.copy()
             fold_choices["fold_num"] = fold_choices["test_fold"].str.rsplit("_", n=1).str[-1].astype(int)
             choice_key = fold_choices.sort_values("fold_num").iloc[0]["hyperparams"]
-            self.log.info(f"External validation: tied hyperparameter selection, using fold 0 choice '{choice_key}'")
+            self.log.info(f"External validation: tied hyperparameter selection, using fold 0 choice '{choice_key}' (metric: {metric})")
         return next(
             p["model_params"] for p in self.config["grid_search"]
             if p["model_params_choice"] == choice_key
