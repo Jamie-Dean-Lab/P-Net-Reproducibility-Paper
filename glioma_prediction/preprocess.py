@@ -1,81 +1,217 @@
-import pandas as pd
+import os
+import shutil
+import tarfile
+
 import numpy as np
-import os, requests, gzip, tqdm
+import pandas as pd
+import requests
+from pathlib import Path
 
-wd = "glioma_prediction/data"
+_GDAC = "http://gdac.broadinstitute.org/runs/stddata__2016_01_28/data/GBMLGG/20160128"
 
-# Process CNA
-if not os.path.exists(f"{wd}/hg38_reference_genome.gff3"):
-    with open(f"{wd}/hg38_reference_genome.gz", "wb") as f:
-        data = requests.get("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_47/gencode.v47.annotation.gff3.gz").content
-        f.write(data)
-    with gzip.open(f"{wd}/hg38_reference_genome.gz", "rb") as f:
-        data = f.read()
-        with open(f"{wd}/hg38_reference_genome.gff3", "wb") as o:
-            o.write(data)
-genome = pd.read_csv(f"{wd}/hg38_reference_genome.gff3", skiprows=7, sep="\t", header=None)
-genome.columns = ["seqid", "source", "type", "start", "end", "score", "strand", "phase", "attributes"]
-genome = genome.loc[genome["type"] == "gene"]
-genome["seqid"] = genome["seqid"].str.replace("chr", "")
-genome["seqid"] = genome["seqid"].str.replace("X", "23")
-genome = genome.loc[genome["seqid"].str.isnumeric()]
-genome["symbol"] = genome["attributes"].apply(lambda x : x[x.find("gene_name") + 10:x.find(";", x.find("gene_name"))])
-genome = genome[["seqid", "symbol", "start", "end"]]
-genome["seqid"] = genome["seqid"].astype(int)
-df = pd.read_csv(f"{wd}/cna/GBMLGG.snp__humanhap550__hudsonalpha_org__Level_3__segmented_cna__seg.seg.txt", sep="\t")
-df = df.merge(genome, left_on="Chromosome", right_on="seqid")
-df = df.loc[((df["start"] < df["End"]) & (df["start"] > df["Start"])) | ((df["end"] < df["End"]) & (df["end"] > df["Start"]))]
-df["Sample"] = df["Sample"].apply(lambda x : "-".join(x.split("-")[:3]))
-df = df.loc[df["symbol"].str.find("ENSG") == -1]
+CGGA_EXCLUDED_MUTATION_TYPES = {
+    'synonymous_variant',               # silent
+    'intron_variant',
+    '3_prime_UTR_variant',
+    '5_prime_UTR_variant',
+    'non_coding_transcript_exon_variant',  # RNA / lincRNA
+    'upstream_gene_variant',
+    'downstream_gene_variant',
+}
 
-genes = np.array(sorted(df["symbol"].unique()))
-cna_mat = np.zeros((df["Sample"].nunique(), len(genes)))
-df = df.sort_values("Sample")
-idxs = []
-for i, sample in enumerate(tqdm.tqdm(df["Sample"].unique())):
-    cnas = df.loc[df["Sample"] == sample, ["symbol", "Segment_Mean"]]
-    cna_mat[i, [np.argwhere(x == genes).ravel()[0] for x in cnas["symbol"]]] = cnas["Segment_Mean"].to_numpy()
-    idxs.append(sample)
-cna_mat = pd.DataFrame(cna_mat, index=idxs, columns=genes)
-cna_mat.to_csv(f"{wd}/cnas.csv", index=True)
+TCGA_EXCLUDED_VARIANT_CLASSIFICATIONS = {
+    'Silent',
+    'Intron',
+    "3'UTR",
+    "5'UTR",
+    'RNA',
+    'lincRNA',
+}
 
-# Process mutations
-samples = {}
-genes = []
-for sample in os.listdir(f"{wd}/mut"):
-    if sample != "MANIFEST.txt":
-        sample_id = "-".join(sample.split("-")[:-1])
-        df = pd.read_csv(f"{wd}/mut/{sample}", sep="\t")
-        genes += df["Hugo_Symbol"].to_list()
-        samples[sample_id] = df.groupby("Hugo_Symbol")["Variant_Classification"].count()
 
-genes = np.array(sorted(list(set(genes))))
-mut_mat = np.zeros((len(samples), len(genes)))
-idxs = []
-for i, (k, v) in enumerate(samples.items()):
-    idxs.append(k)
-    muts = np.argwhere(genes.reshape(-1,1) == v.index.to_numpy().reshape(1, -1))[:, 0]
-    mut_mat[i, muts] = v.to_numpy()
-mut_mat = pd.DataFrame(mut_mat, index=idxs, columns=genes)
-mut_mat.to_csv(f"{wd}/mutations.csv")
+class Preprocessor:
+    def __init__(self, data_dir):
+        self.cgga_data_dir = Path(data_dir)
+        self.tcga_data_dir = Path(data_dir)
 
-# Process gene expression
-df = pd.read_csv(f"{wd}/gexpr/GBMLGG.rnaseqv2__illuminahiseq_rnaseqv2__unc_edu__Level_3__RSEM_genes_normalized__data.data.txt", sep="\t")
-df = df.iloc[1:, :]
-df.columns = ["gene_id"] + ["-".join(x.split("-")[:3]) for x in df.columns[1:]]
-df["gene_id"] = df["gene_id"].apply(lambda x : x.split("|")[0])
-df = df.loc[df["gene_id"] != "?"].reset_index().drop("index", axis=1)
-df = df.T
-df.columns = df.iloc[0, :]
-df = df.iloc[1:, :]
-df = df[~df.index.duplicated(keep="first")]
-df.to_csv(f"{wd}/gexpr.csv", index=True)
+    # --- Shared utilities ---
 
-# Process labels
-df = pd.read_csv(f"{wd}/clin/GBMLGG.merged_only_clinical_clin_format.txt", sep="\t", index_col=0)
-df = df.loc[["admin.disease_code", "patient.bcr_patient_barcode"]].T.set_index("patient.bcr_patient_barcode")
-df.columns = ["response"]
-df.index = [x.upper() for x in df.index]
-df["response"] = [0 if x == "lgg" else 1 for x in df["response"]]
-df.to_csv(f"{wd}/response.csv")
+    @staticmethod
+    def _download_and_extract(url, tar_path, extracted_name, dest):
+        if dest.exists():
+            print(f"{dest} already exists, skipping download.")
+            return
+        print(f"Downloading {url} ...")
+        with open(tar_path, 'wb') as f:
+            f.write(requests.get(url).content)
+        with tarfile.open(tar_path) as tf:
+            tf.extractall(path=tar_path.parent)
+        shutil.move(tar_path.parent / extracted_name, dest)
+        os.remove(tar_path)
 
+    # --- CGGA ---
+
+    def cgga_mutations(self):
+        print("Preprocessing CGGA mutations data...")
+        df = pd.read_csv(
+            self.cgga_data_dir / 'CGGA.WEseq_286.20200506.txt',
+            sep='\t',
+            index_col=0,
+            low_memory=False,
+        )
+        df = df.map(lambda v: v if (pd.notna(v) and v not in CGGA_EXCLUDED_MUTATION_TYPES) else None)
+        df = df.T
+        df.index.name = None
+        df = (df.notna() & (df != '')).astype(float)
+        df.to_csv(self.cgga_data_dir / 'cgga_mutations_preprocessed.csv')
+        print(f"Saved {df.shape[0]} samples x {df.shape[1]} genes to cgga_mutations_preprocessed.csv")
+
+    def cgga_cna(self):
+        print("Preprocessing CGGA copy number data...")
+        df = pd.read_csv(
+            self.cgga_data_dir / 'cgga_all_thresholded.by_genes.txt',
+            sep='\t',
+            index_col=0,
+            low_memory=False,
+        )
+        df = df.drop(columns=['Locus ID', 'Cytoband'])
+        df.index = df.index.str.split('|').str[0]
+        df.index.name = None
+        df = df.T
+        df.index.name = None
+        df.to_csv(self.cgga_data_dir / 'cgga_cna_preprocessed.csv')
+        print(f"Saved {df.shape[0]} samples x {df.shape[1]} genes to cgga_cna_preprocessed.csv")
+
+    def cgga_labels(self):
+        print("Preprocessing CGGA labels...")
+        df = pd.read_csv(
+            self.cgga_data_dir / 'CGGA.WEseq_286_clinical.20200506.txt',
+            sep='\t',
+            index_col=0,
+        )
+        labels = df['Subtype'].map(lambda v: 1 if 'GBM' in v else 0)
+        labels.index.name = None
+        labels.name = 'response'
+        labels.to_csv(self.cgga_data_dir / 'cgga_labels_preprocessed.csv', header=True)
+        print(f"Saved {len(labels)} labels (LGG=0: {(labels==0).sum()}, GBM=1: {(labels==1).sum()}) to cgga_labels_preprocessed.csv")
+
+    # --- TCGA ---
+
+    def download_tcga_mutations(self):
+        name = 'gdac.broadinstitute.org_GBMLGG.Mutation_Packager_Calls.Level_3.2016012800.0.0'
+        self._download_and_extract(
+            url=f"{_GDAC}/{name}.tar.gz",
+            tar_path=self.tcga_data_dir / 'mut.tar.gz',
+            extracted_name=name,
+            dest=self.tcga_data_dir / 'mut',
+        )
+
+    def tcga_mutations(self):
+        print("Preprocessing TCGA mutations data...")
+        self.download_tcga_mutations()
+
+        mut_dir = self.tcga_data_dir / 'mut'
+        samples = {}
+        all_genes = set()
+        for filename in os.listdir(mut_dir):
+            if filename == 'MANIFEST.txt':
+                continue
+            sample_id = '-'.join(filename.split('-')[:-1])
+            df = pd.read_csv(
+                mut_dir / filename,
+                sep='\t',
+                usecols=['Hugo_Symbol', 'Variant_Classification'],
+            )
+            df = df[~df['Variant_Classification'].isin(TCGA_EXCLUDED_VARIANT_CLASSIFICATIONS)]
+            mutated_genes = set(df['Hugo_Symbol'].unique())
+            all_genes.update(mutated_genes)
+            samples[sample_id] = samples.get(sample_id, set()) | mutated_genes
+
+        genes = np.array(sorted(all_genes))
+        sample_ids = sorted(samples)
+        mut_mat = pd.DataFrame(
+            [[1.0 if g in samples[s] else 0.0 for g in genes] for s in sample_ids],
+            index=sample_ids,
+            columns=genes,
+        )
+        mut_mat.index.name = None
+        mut_mat.to_csv(self.tcga_data_dir / 'tcga_mutations_preprocessed.csv')
+        print(f"Saved {mut_mat.shape[0]} samples x {mut_mat.shape[1]} genes to tcga_mutations_preprocessed.csv")
+
+    def tcga_labels(self):
+        print("Preprocessing TCGA labels...")
+        name = 'gdac.broadinstitute.org_GBMLGG.Merge_Clinical.Level_1.2016012800.0.0'
+        self._download_and_extract(
+            url=f"{_GDAC}/{name}.tar.gz",
+            tar_path=self.tcga_data_dir / 'clin.tar.gz',
+            extracted_name=name,
+            dest=self.tcga_data_dir / 'clin',
+        )
+        df = pd.read_csv(
+            self.tcga_data_dir / 'clin' / 'GBMLGG.merged_only_clinical_clin_format.txt',
+            sep='\t',
+            index_col=0,
+        )
+        df = df.loc[['admin.disease_code', 'patient.bcr_patient_barcode']].T.set_index('patient.bcr_patient_barcode')
+        df.columns = ['response']
+        df.index = [x.upper() for x in df.index]
+        df['response'] = [0 if x == 'lgg' else 1 for x in df['response']]
+        df.index.name = None
+        df.to_csv(self.tcga_data_dir / 'tcga_labels_preprocessed.csv')
+        print(f"Saved {len(df)} labels (LGG=0: {(df['response']==0).sum()}, GBM=1: {(df['response']==1).sum()}) to tcga_labels_preprocessed.csv")
+
+    def tcga_cna(self):
+        print("Preprocessing TCGA copy number data...")
+        cached = self.tcga_data_dir / 'Gistic2_CopyNumber_Gistic2_all_thresholded.by_genes.gz'
+        url = "https://tcga.xenahubs.net/download/TCGA.GBMLGG.sampleMap/Gistic2_CopyNumber_Gistic2_all_thresholded.by_genes.gz"
+        if not cached.exists():
+            print(f"Downloading {url} ...")
+            with open(cached, 'wb') as f:
+                f.write(requests.get(url).content)
+        cna = pd.read_csv(cached, sep='\t', index_col=0, compression='gzip')
+        cna = cna.T
+        cna.index = ['-'.join(x.split('-')[:3]) for x in cna.index]
+        cna.index.name = None
+        cna.to_csv(self.tcga_data_dir / 'tcga_cna_preprocessed.csv')
+        print(f"Saved {cna.shape[0]} samples x {cna.shape[1]} genes to tcga_cna_preprocessed.csv")
+
+    # --- Alignment ---
+
+    def _align_pair(self, path_a, path_b):
+        df_a = pd.read_csv(path_a, index_col=0)
+        df_b = pd.read_csv(path_b, index_col=0)
+        common = sorted(set(df_a.columns) & set(df_b.columns))
+        print(f"  {path_a.name}: {df_a.shape[1]} genes -> {len(common)} common")
+        print(f"  {path_b.name}: {df_b.shape[1]} genes -> {len(common)} common")
+        df_a[common].to_csv(path_a)
+        df_b[common].to_csv(path_b)
+
+    def align_mutations(self):
+        print("Aligning mutation gene sets...")
+        self._align_pair(
+            self.tcga_data_dir / 'tcga_mutations_preprocessed.csv',
+            self.cgga_data_dir / 'cgga_mutations_preprocessed.csv',
+        )
+
+    def align_cna(self):
+        print("Aligning CNA gene sets...")
+        self._align_pair(
+            self.tcga_data_dir / 'tcga_cna_preprocessed.csv',
+            self.cgga_data_dir / 'cgga_cna_preprocessed.csv',
+        )
+
+    # --- Pipeline ---
+
+    def run_all(self):
+        self.cgga_mutations()
+        self.cgga_cna()
+        self.cgga_labels()
+        self.tcga_mutations()
+        self.tcga_labels()
+        self.tcga_cna()
+        self.align_mutations()
+        self.align_cna()
+
+
+if __name__ == '__main__':
+    Preprocessor(Path(__file__).parent / 'data').run_all()

@@ -21,6 +21,7 @@
 *.gtf
 *.gz
 *.gff3
+*.seg
 
 # Logs
 *.log

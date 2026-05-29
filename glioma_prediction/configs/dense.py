@@ -4,13 +4,12 @@ from architecture.pipeline import TFPipeline
 from architecture.pnet_model import compile_pnet
 from architecture.evaluation import plot_history
 from .base_config import base_config, auc_selection, save_processor
-from .pnet import _model_params, n_hidden_layers
 
 dense_config = {
     **copy.deepcopy(base_config),
     "run_id":         "dense",
     "model":          compile_pnet,
-    "model_params":   {**_model_params, "sparse": False},
+    #"model_params":   {**_model_params, "sparse": False},
     "fitting_params": {
         "epochs":            200,
         "batch":             100,

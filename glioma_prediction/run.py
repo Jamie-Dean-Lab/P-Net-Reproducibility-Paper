@@ -1,6 +1,9 @@
 import os
 import sys
 
+from glioma_prediction.configs import decision_tree
+from glioma_prediction.configs.decision_tree import decision_tree_config
+
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
@@ -11,8 +14,9 @@ from architecture.train import train
 
 def run():
     configs = [
-        pnet_config,
-        dense_config,
+        decision_tree_config,
+        #pnet_config,
+        #dense_config,
     ]
 
     for config in configs:
