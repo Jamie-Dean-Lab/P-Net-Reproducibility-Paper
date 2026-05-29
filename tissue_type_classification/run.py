@@ -7,7 +7,6 @@ sys.path.insert(0, project_root)
 
 from tissue_type_classification.configs.base_config import wd, run_dir
 from tissue_type_classification.configs.pnet import pnet_config
-from tissue_type_classification.configs.pnet_GO import pnet_GO_config
 from tissue_type_classification.configs.dense import dense_config
 from tissue_type_classification.configs.svc import svc_config
 from tissue_type_classification.configs.adaboost import adaboost_config
@@ -23,7 +22,6 @@ from architecture.train import train
 def run():
     configs = [
         pnet_config,
-        pnet_GO_config,
         dense_config,
         svc_config,
         adaboost_config,
