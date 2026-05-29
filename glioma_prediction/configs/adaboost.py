@@ -15,8 +15,13 @@ adaboost_config = {
     "run_method":         "run_crossvalidation",
     "grid_search": {
         "model_params": {
-            f"n_est_{n}": {"n_estimators": n}
-            for n in [5]
+            f"lr_{lr}_est_{n}": {
+                "n_estimators": n,
+                "learning_rate": lr,
+                "random_state": 42,
+            }
+            for lr in [0.01, 0.05, 0.1, 0.3, 1]
+            for n in [50, 100]
         }
     },
 }

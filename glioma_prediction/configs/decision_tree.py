@@ -14,7 +14,7 @@ decision_tree_config = {
     "run_method": "run_crossvalidation",
     "grid_search": {
         "model_params": {
-            f"ssplit_{s}_depth_{d}": {"min_samples_split": s, "max_depth": d}
+            f"ssplit_{s}_depth_{d}": {"min_samples_split": s, "max_depth": d, "random_state": 42}
             for s in range(10, 500, 20) for d in range(1, 20, 2)
         }},
 }

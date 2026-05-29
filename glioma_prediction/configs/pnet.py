@@ -35,20 +35,22 @@ _model_params_base = {
         "map_seed":               42
 }
 
+_fitting_params = {
+    "epochs": 300,
+    "batch": 50,
+    "LRScheduler": LearningRateScheduler(step_decay_part, verbose=0),
+    "early_stopping": None,
+    "prediction_output": "average",
+    "shuffle_samples": True,
+    "class_weight": None,
+}
+
 pnet_config = {
     **copy.deepcopy(base_config),
     "run_id":                 "pnet",
     "model":                  compile_pnet,
     "task":                   "binary classification",
-    "fitting_params": {
-        "epochs":             300,
-        "batch":              50,
-        "LRScheduler":        LearningRateScheduler(step_decay_part, verbose=0),
-        "early_stopping":     None,
-        "prediction_output":  "average",
-        "shuffle_samples":    True,
-        "class_weight":       [[0.75, 1.5]] * (n_hidden_layers + 1),
-    },
+    "fitting_params": _fitting_params,
     "results_processors": [
         save_processor,
         plot_history,
