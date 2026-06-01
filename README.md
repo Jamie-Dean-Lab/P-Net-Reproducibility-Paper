@@ -9,13 +9,12 @@ This is the implementation of P-NET (a Biologically Informed Neural Network). Th
 The code has been heavily refactored to allow input datasets to be more easily integrated for experiments beyond the original Prostate Cancer Classification task. Issues around reproducibility of results have also been fixed and the pipeline and configuration has been cleaned up to ensure that settings within the configuration files will influence each run where previously sometimes there was overriding of parameters hidden in the pipeline. The pipeline has also been designed to be more extensible, allowing users to write their own functions to be inserted at different stages of the pipeline for the purposes of experiments and are described below
 
 ## Installation
+
+### Windows
 Recommended to install with some kind of environment managing software like conda
 
 ```
 conda create --name pnet-repro python=3.10
-```
-Then activate the environment
-```
 conda activate pnet-repro
 ```
 Install the CUDA toolkit and cuDNN for GPU support before installing requirements
@@ -25,6 +24,22 @@ conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1
 Install requirements file from the root directory of the repository
 ```
 pip install -r requirements.txt
+```
+
+### macOS (Apple Silicon)
+TensorFlow on Apple Silicon requires the `tensorflow-macos` and `tensorflow-metal` packages instead of the standard `tensorflow`. The metal plugin version must be pinned to match the TensorFlow version.
+
+```
+conda create --name pnet-repro python=3.10
+conda activate pnet-repro
+```
+Install TensorFlow and the Metal GPU plugin separately before the rest of the requirements
+```
+pip install tensorflow-macos==2.10.0 tensorflow-metal==0.6.0
+```
+Then install the remaining requirements
+```
+pip install -r requirements-mac.txt
 ```
 
 All scripts should be run from the root directory rather than from the individual experiment folders. If you are running the radiosensitivity experiment scripts you will also need to have R installed with tidyverse.

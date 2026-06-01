@@ -2,7 +2,7 @@ import copy
 
 from sklearn.ensemble import RandomForestClassifier
 
-from pipeline import MLPipeline
+from architecture.pipeline import MLPipeline
 from .base_config import (save_processor, base_config, f1_selection, auprc_selection, auc_selection)
 
 random_forest_nested_CV_config = {
