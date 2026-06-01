@@ -142,6 +142,8 @@ class Pipeline:
                         self._fold_run(best_dir, best_train_df, _, best_test_df)
                 for gsc in self.config["grid_search_collators"]:
                     gsc({"gs_dirs": gs_dirs, "params": gs_params, "save_dir": self.run_dir})
+                if "external_datasets" in self.config:
+                    self._run_external_validation()
 
     def run_crossvalidation(self, load_data=True):
         """

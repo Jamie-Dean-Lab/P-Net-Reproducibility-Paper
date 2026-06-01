@@ -12,7 +12,7 @@ from keras.layers import (
 )
 from keras import Input, Model
 
-from GO.preprocess import build_GO_pnet_files
+from architecture.GO.preprocess import build_GO_pnet_files
 from architecture.layers_custom import *
 from architecture.callbacks_custom import TQDMCallback
 

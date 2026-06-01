@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from keras.models import Sequential
 
-from pnet_model import get_layer_maps, PNetArchitectureGenerator
+from architecture.pnet_model import get_layer_maps, PNetArchitectureGenerator
 
 # Anchor sys.path to the project root relative to this file's location
 _HERE = os.path.dirname(os.path.abspath(__file__))

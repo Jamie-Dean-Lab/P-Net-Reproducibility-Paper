@@ -43,6 +43,10 @@ from prostate_cancer_prediction.configs.sgd_logistic_regression_single_split_elm
     sgd_logistic_regression_single_split_elmarakeby_config
 from prostate_cancer_prediction.configs.sgd_logistic_regression_stratified_5_fold_CV import \
     sgd_logistic_regression_stratified_5_fold_CV_config
+from prostate_cancer_prediction.configs.pnet_external_validation_1 import \
+    pnet_external_validation_1_elmarakeby_config
+from prostate_cancer_prediction.configs.pnet_external_validation_2 import \
+    pnet_external_validation_2_elmarakeby_config
 
 from prostate_cancer_prediction.configs.pnet_network_order_variation import pnet_network_order_variation_configs
 
@@ -53,8 +57,11 @@ from prostate_cancer_prediction.configs.base_config import download_dir, run_dir
 from prostate_cancer_prediction.configs.pnet_single_split import n_hidden_layers
 from architecture.train import train
 from prostate_cancer_prediction.plot import plot
+from prostate_cancer_prediction.external_validation_preproces import generate_external_validation_labels, get_balanced_training_sets
 
 def run():
+    generate_external_validation_labels()
+    get_balanced_training_sets()
     configs = [
         # Single split
         # pnet_single_split_config,
@@ -90,14 +97,16 @@ def run():
         # sgd_logistic_regression_stratified_5_fold_CV_config
 
         # Stratified nested CV
-        pnet_nested_CV_config,
-        pnet_GO_nested_CV_config,
-        adaboost_nested_CV_config,
-        decision_tree_nested_CV_config,
-        linear_svm_nested_CV_config,
-        random_forest_nested_CV_config,
-        rbf_svm_nested_CV_config,
-        sgd_logistic_regression_nested_CV_config,
+        #pnet_nested_CV_config,
+        #pnet_GO_nested_CV_config,
+        #adaboost_nested_CV_config,
+        #decision_tree_nested_CV_config,
+        #linear_svm_nested_CV_config,
+        #random_forest_nested_CV_config,
+        #rbf_svm_nested_CV_config,
+        #sgd_logistic_regression_nested_CV_config,
+        pnet_external_validation_1_elmarakeby_config,
+        pnet_external_validation_2_elmarakeby_config
     ]
 
     for config in configs:
