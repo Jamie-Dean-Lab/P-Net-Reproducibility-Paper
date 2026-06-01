@@ -10,7 +10,7 @@ The code has been heavily refactored to allow input datasets to be more easily i
 
 ## Installation
 
-### Windows
+### Windows / Linux
 Recommended to install with some kind of environment managing software like conda
 
 ```
