@@ -9,12 +9,7 @@ from keras.models import Sequential
 
 from architecture.pnet_model import get_layer_maps, PNetArchitectureGenerator
 
-# Anchor sys.path to the project root relative to this file's location
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_PROJECT_ROOT = os.path.dirname(_HERE)
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
-
+from architecture.pnet_model import get_layer_maps, PNetArchitectureGenerator
 import architecture.coef_weights_utils as mcw
 
 
