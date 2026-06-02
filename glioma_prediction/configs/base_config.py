@@ -54,7 +54,7 @@ base_config = {
     "views": views,
     "view_alignment_method": "drop samples",
     "labels": [("tcga_labels_preprocessed.csv", 0)],
-    "use_validation_on_test": False,
+    "hold_out_validation_for_final_fit": False,
     "val_metric": {"f1": f1_selection, "auprc": auprc_selection, "auc": auc_selection},
     "hyperparam_selection_metric": "auc",
     "results_processors": [save_processor],

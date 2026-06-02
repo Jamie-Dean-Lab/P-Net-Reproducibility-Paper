@@ -62,7 +62,7 @@ base_config = {
     "train_samples":         train_samples,
     "val_samples":           val_samples,
     "test_samples":          test_samples,
-    "use_validation_on_test": False,
+    "hold_out_validation_for_final_fit": False,
     "val_metric":            {},
     "results_processors":    [],
     "rng_seed":              20080808,

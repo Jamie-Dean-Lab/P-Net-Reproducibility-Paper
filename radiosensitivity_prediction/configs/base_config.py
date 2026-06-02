@@ -65,7 +65,7 @@ base_config = {
     "stratified": False,
     "inner_kfolds": 5,
     "outer_kfolds": 5,
-    "use_validation_on_test": False,
+    "hold_out_validation_for_final_fit": False,
     "val_metric": {"r2": r2_selection},
     "hyperparam_selection_metric": "r2",
     "results_processors": [save_processor],

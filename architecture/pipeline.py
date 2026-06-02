@@ -128,7 +128,7 @@ class Pipeline:
                         os.mkdir(best_dir)
                     with open(f"{best_dir}/config.txt", "w") as f:
                         f.write("{" + self._sanitise_config(self.config) + "}")
-                    if self.config["use_validation_on_test"]:
+                    if self.config["hold_out_validation_for_final_fit"]:
                         self.fold_logger = self._get_logger("fold_logger", best_dir)
                         self._fold_run(best_dir, train_df, val_df, test_df)
                     else:
@@ -263,7 +263,7 @@ class Pipeline:
                         os.mkdir(best_dir)
                     with open(f"{best_dir}/config.txt", "w") as f:
                         f.write("{" + self._sanitise_config(self.config) + "}")
-                    if self.config["use_validation_on_test"]:
+                    if self.config["hold_out_validation_for_final_fit"]:
                         train_fold, val_fold = train_df.get_train_test_split(1 - self.config["validation_prop"],
                                                                              self.config["stratified"],
                                                                              self.config["tv_split_seed"])

@@ -104,7 +104,7 @@ def make_pipeline(tmp_dir, ds, config_overrides=None):
         "val_samples":            0.2,
         "tt_split_seed":          0,
         "tv_split_seed":          0,
-        "use_validation_on_test": False,
+        "hold_out_validation_for_final_fit": False,
         "validation_prop":        0.2,
         "stratified":             False,
         "inner_kfolds":           1,
@@ -393,7 +393,7 @@ class TestRunSingleSplitGridSearch(unittest.TestCase):
         self.p = make_pipeline(self.tmp.name, self.ds, {
             "grid_search":            gs,
             "val_metric":             {"auc": self.val_metric},
-            "use_validation_on_test": False,
+            "hold_out_validation_for_final_fit": False,
             "test_samples":           0.2,
         })
         self.p.run_single_split(load_data=False)
@@ -437,7 +437,7 @@ class TestRunSingleSplitGridSearch(unittest.TestCase):
                             f"GS fold {i}: preprocessor fitted on val — leakage!")
 
     def test_final_refit_train_larger_than_gs_train(self):
-        # use_validation_on_test=False merges val into train for the final run
+        # hold_out_validation_for_final_fit=False merges val into train for the final run
         gs_train    = ids_of(self.all_calls[0][0][0])
         final_train = ids_of(self.all_calls[2][0][0])
         self.assertGreater(len(final_train), len(gs_train),
@@ -454,7 +454,7 @@ class TestRunSingleSplitGridSearch(unittest.TestCase):
 
 
 class TestRunSingleSplitUseValidationOnTest(unittest.TestCase):
-    """use_validation_on_test=True — original split reused for final run."""
+    """hold_out_validation_for_final_fit=True — original split reused for final run."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -463,7 +463,7 @@ class TestRunSingleSplitUseValidationOnTest(unittest.TestCase):
         self.p = make_pipeline(self.tmp.name, self.ds, {
             "grid_search":            gs,
             "val_metric":             {"auc": MagicMock(return_value=0.9)},
-            "use_validation_on_test": True,
+            "hold_out_validation_for_final_fit": True,
             "test_samples":           0.2,
         })
         self.p.run_single_split(load_data=False)
@@ -660,7 +660,7 @@ class TestRunCrossvalidationGridSearch(unittest.TestCase):
             "outer_kfolds":           2,
             "grid_search":            gs,
             "val_metric":             {"auc": metric_fn},
-            "use_validation_on_test": False,
+            "hold_out_validation_for_final_fit": False,
             "grid_search_collators":  [self.gs_collator],
         })
         self.p.run_crossvalidation(load_data=False)
@@ -743,14 +743,14 @@ class TestRunSingleSplitLoadData(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# run_crossvalidation — use_validation_on_test branch
+# run_crossvalidation — hold_out_validation_for_final_fit branch
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestRunCrossvalidationUseValidationOnTest(unittest.TestCase):
     """
-    use_validation_on_test=True  → final refit uses get_train_test_split(1-prop, ...)
+    hold_out_validation_for_final_fit=True  → final refit uses get_train_test_split(1-prop, ...)
                                    so val fold is non-empty and train is a subset of outer train.
-    use_validation_on_test=False → final refit uses get_train_test_split(1, ...)
+    hold_out_validation_for_final_fit=False → final refit uses get_train_test_split(1, ...)
                                    so the entire outer train pool is used and val fold is empty.
     """
 
@@ -765,7 +765,7 @@ class TestRunCrossvalidationUseValidationOnTest(unittest.TestCase):
             "outer_kfolds": 2,
             "grid_search": gs,
             "val_metric": {"auc": MagicMock(return_value=0.8)},
-            "use_validation_on_test": use_val_on_test,
+            "hold_out_validation_for_final_fit": use_val_on_test,
             "validation_prop": 0.2,
         })
         p.run_crossvalidation(load_data=False)
@@ -779,21 +779,21 @@ class TestRunCrossvalidationUseValidationOnTest(unittest.TestCase):
         # Best refit calls are at index 1 and 3 (every other after the gs run)
         best_val_0 = calls[1][0][1]   # val fold of first outer fold's best refit
         self.assertGreater(len(best_val_0), 0,
-                           "use_validation_on_test=True: final refit val fold should be non-empty")
+                           "hold_out_validation_for_final_fit=True: final refit val fold should be non-empty")
 
     def test_use_val_false_final_refit_train_is_full_outer_train(self):
         _, calls = self._run(use_val_on_test=False)
         # gs train for outer fold 0 is call 0; best refit for outer fold 0 is call 1
         gs_train   = ids_of(calls[0][0][0])
         best_train = ids_of(calls[1][0][0])
-        # With validation_prop=0.2 and use_validation_on_test=False we call
+        # With validation_prop=0.2 and hold_out_validation_for_final_fit=False we call
         # get_train_test_split(1, ...) so best_train should equal the full outer train pool
         # i.e. it must be a superset of (or equal to) the gs train
         self.assertTrue(gs_train.issubset(best_train),
-                        "use_validation_on_test=False: final refit train should include all of gs train")
+                        "hold_out_validation_for_final_fit=False: final refit train should include all of gs train")
 
     def test_use_val_false_final_refit_train_larger_than_gs_train(self):
-        # use_validation_on_test=False merges val back into train for the final
+        # hold_out_validation_for_final_fit=False merges val back into train for the final
         # refit via get_train_test_split(1,...). The best refit train must therefore
         # be strictly larger than the gs train (which only used 1-validation_prop).
         # calls layout: [outer0_gs, outer0_best, outer1_gs, outer1_best]
@@ -864,7 +864,7 @@ class TestRunCrossvalidationInnerKFoldsWithGridSearch(unittest.TestCase):
             "outer_kfolds":           2,
             "grid_search":            gs,
             "val_metric":             {"auc": metric_fn},
-            "use_validation_on_test": False,
+            "hold_out_validation_for_final_fit": False,
             "fold_collators":         [self.fold_collator],
             "grid_search_collators":  [self.gs_collator],
         })
@@ -1371,7 +1371,7 @@ class TestRunCrossvalidationInnerOneFoldWithValMetric(unittest.TestCase):
             "outer_kfolds":           2,
             "grid_search":            gs,
             "val_metric":             {"auc": self.val_metric},
-            "use_validation_on_test": False,
+            "hold_out_validation_for_final_fit": False,
             "validation_prop":        0.2,
         })
         self.p.run_crossvalidation(load_data=False)
@@ -1566,7 +1566,7 @@ class TestFeatureSelectorGetFeaturesCalledAfterFit(unittest.TestCase):
 class TestRunSingleSplitMultipleValMetricsNoClobber(unittest.TestCase):
     """
     When multiple val_metrics are present, the best-refit loop iterates once
-    per metric. The use_validation_on_test=False branch reassigns local split
+    per metric. The hold_out_validation_for_final_fit=False branch reassigns local split
     variables — this test verifies that later metric iterations are not
     corrupted by earlier ones.
     """
@@ -1602,7 +1602,7 @@ class TestRunSingleSplitMultipleValMetricsNoClobber(unittest.TestCase):
                 "f1":    MagicMock(return_value=0.7),
                 "auprc": MagicMock(return_value=0.6),
             },
-            "use_validation_on_test": False,
+            "hold_out_validation_for_final_fit": False,
             "test_samples":           0.2,
         })
         self.p.run_single_split(load_data=False)
@@ -1696,7 +1696,7 @@ def make_ml_pipeline(tmp_dir, ds, config_overrides=None):
         "val_samples":            0.2,
         "tt_split_seed":          0,
         "tv_split_seed":          0,
-        "use_validation_on_test": False,
+        "hold_out_validation_for_final_fit": False,
         "validation_prop":        0.2,
         "stratified":             False,
         "inner_kfolds":           1,
