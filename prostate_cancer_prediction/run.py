@@ -49,7 +49,8 @@ from prostate_cancer_prediction.configs.pnet_external_validation_2 import \
     pnet_external_validation_2_elmarakeby_config
 
 from prostate_cancer_prediction.configs.pnet_network_order_variation import pnet_network_order_variation_configs
-from prostate_cancer_prediction.configs.pnet_10fold_CV_stability import pnet_10fold_CV_stability_config
+from prostate_cancer_prediction.configs.pnet_10_fold_CV_stability import pnet_10_fold_CV_stability_config
+from prostate_cancer_prediction.configs.pnet_GO_10_fold_CV_stability import pnet_GO_10_fold_CV_stability_config
 
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
@@ -57,7 +58,12 @@ sys.path.insert(0, project_root)
 from prostate_cancer_prediction.configs.base_config import download_dir, run_dir, wd, selected_genes
 from prostate_cancer_prediction.configs.pnet_single_split import n_hidden_layers
 from architecture.train import train
-from prostate_cancer_prediction.plot import plot
+from prostate_cancer_prediction.plotting.plot_nested_cv import plot_nested_CV
+from prostate_cancer_prediction.plotting.plot_stratified_5_fold_cv import plot_stratified_5_fold_CV
+from prostate_cancer_prediction.plotting.plot_external_validation import plot_external_validation
+from prostate_cancer_prediction.plotting.plot_single_split import plot_single_split_curves
+from prostate_cancer_prediction.plotting.plot_sankey import plot_sankey
+from prostate_cancer_prediction.plotting.plot_importance_stability import analyse_importance_stability
 from prostate_cancer_prediction.external_validation_preproces import generate_external_validation_labels, get_balanced_training_sets
 
 def run():
@@ -98,7 +104,9 @@ def run():
         # sgd_logistic_regression_stratified_5_fold_CV_config
 
         # Feature-importance stability: 10-fold CV, elmarakeby hyperparameters
-        #pnet_10fold_CV_stability_config,
+        #pnet_10_fold_CV_stability_config,
+        # Feature-importance stability: 10-fold CV, Our hyperparameters we found in nested CV
+        #pnet_GO_10_fold_CV_stability_config,
         #pnet_network_order_variation_configs,
 
         # Stratified nested CV
@@ -111,14 +119,40 @@ def run():
         # rbf_svm_nested_CV_config,
         # sgd_logistic_regression_nested_CV_config,
 
-        pnet_external_validation_1_elmarakeby_config,
-        pnet_external_validation_2_elmarakeby_config
+        #pnet_external_validation_1_elmarakeby_config,
+        #pnet_external_validation_2_elmarakeby_config
     ]
 
     for config in configs:
         train(config)
 
-    plot(wd, run_dir, selected_genes, n_hidden_layers)
+    figures_dir = os.path.join(wd, "figures")
+    os.makedirs(figures_dir, exist_ok=True)
+
+    #plot_nested_CV(run_dir, figures_dir)
+    # plot_stratified_5_fold_CV(run_dir, figures_dir)
+    # plot_external_validation(run_dir, figures_dir)
+
+    # Feature-importance stability (each run writes to its own subdirectory under
+    # figures/importance_stability/{run_id} so the two do not overwrite each other)
+    analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
+                                 run_id="pnet_10_fold_CV_stability",
+                                 pathway_names="architecture/Reactome/ReactomePathways.txt")
+    analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
+                                 run_id="pnet_GO_10_fold_CV_stability",
+                                 pathway_names="architecture/GO/go_id_name_map.tsv")
+
+    # Single-split ROC/PRC curves (original hyperparams with test+val combined,
+    # and our hyperparams with the splits kept separate):
+    # models_elmarakeby = ["pnet_single_split_elmarakeby", "decision_tree_single_split_elmarakeby"]
+    # models = ["pnet_single_split", "decision_tree_single_split"]
+    # plot_single_split_curves(run_dir, figures_dir, models_elmarakeby, tag="elmarakeby", concat_val=True)
+    # plot_single_split_curves(run_dir, figures_dir, models, concat_val=False)
+
+    # Sankey diagram of the P-NET-GO hierarchy:
+    # pnet_run_dir = f"{run_dir}/pnet_GO_single_split"
+    # dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
+    # plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
 
 if __name__ == "__main__":
     run()

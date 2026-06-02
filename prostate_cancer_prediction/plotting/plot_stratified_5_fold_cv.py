@@ -1,41 +1,10 @@
 import os
+
 import pandas as pd
-import numpy as np
 import seaborn as sns
+import matplotlib.pyplot as plt
 from matplotlib import ticker
 
-from prostate_cancer_prediction.plotting.plot_sankey import plot_sankey
-from prostate_cancer_prediction.plotting.plot_single_split import plot_single_split_curves
-
-from prostate_cancer_prediction.plotting.pnet_auprc import PlotAUPRC
-from prostate_cancer_prediction.plotting.pnet_roc import PlotROC
-from prostate_cancer_prediction.plotting.plot_nested_cv import plot_nested_CV
-import matplotlib.pyplot as plt
-
-from sklearn.metrics import confusion_matrix
-
-def plot_external_validation(run_dir, figures_dir):
-    met1 = pd.read_csv(f"{run_dir}/pnet_external_validation_1_elmarakeby/external_validation/Met500/predictions.csv", index_col=0)
-    primary1 = pd.read_csv(f"{run_dir}/pnet_external_validation_1_elmarakeby/external_validation/PRAD/predictions.csv", index_col=0)
-    combined1 = pd.concat([met1, primary1])
-    conf_mat1 = confusion_matrix(combined1["metastatic"], round(combined1["metastatic_pred"]), normalize="true")
-
-    met2 = pd.read_csv(f"{run_dir}/pnet_external_validation_2_elmarakeby/external_validation/Met500/predictions.csv", index_col=0)
-    primary2 = pd.read_csv(f"{run_dir}/pnet_external_validation_2_elmarakeby/external_validation/PRAD/predictions.csv", index_col=0)
-    combined2 = pd.concat([met2, primary2])
-    conf_mat2 = confusion_matrix(combined2["metastatic"], round(combined2["metastatic_pred"]), normalize="true")
-
-    conf_mat = (conf_mat1 + conf_mat2) / 2 * 100
-    labels = np.array([["TN: ", "FP: "],["FN: ", "TP: "]])
-    plt.imshow(conf_mat)
-    plt.xticks(ticks=[0,1], labels=["Localised", "Metastatic"])
-    plt.yticks(ticks=[], labels=[])
-    for i in range(2):
-        for j in range(2):
-            plt.text(i-0.25, j, f"{labels[i, j]}{round(conf_mat[i,j], 2)}%")
-    plt.colorbar()
-    plt.savefig(f"{figures_dir}/pnet_external_validation.jpg")
-    plt.close()
 
 def plot_stratified_5_fold_CV(run_dir, figures_dir):
     model_names = [
@@ -139,45 +108,3 @@ def plot_stratified_5_fold_CV(run_dir, figures_dir):
         plt.tight_layout()
         plt.savefig(os.path.join(figures_dir, f"stratified_5_fold_CV_{metric}.png"), dpi=300)
         plt.close()
-
-def plot(wd, run_dir, selected_genes, n_hidden_layers):
-    figures_dir = os.path.join(wd, "figures")
-    if not os.path.exists(figures_dir):
-        os.makedirs(figures_dir)
-
-    #Reproduce original: their hyperparams, test+val splits combined.
-    models_elmarakeby = ["pnet_single_split_elmarakeby",
-        "decision_tree_single_split_elmarakeby"]
-         #"linear_svm_single_split_elmarakeby",
-         #"rbf_svm_single_split_elmarakeby",
-         #"random_forest_single_split_elmarakeby",
-         #"adaboost_single_split_elmarakeby",
-         #"sgd_logistic_regression_single_split_elmarakeby"]
-
-    #Our hyperparams, test+val splits NOT combined.
-    models = ["pnet_single_split",
-                              "decision_tree_single_split"]
-                             # "linear_svm_single_split",
-                             # "rbf_svm_single_split",
-                             # "random_forest_single_split",
-                             # "adaboost_single_split",
-                             # "sgd_logistic_regression_single_split"]
-
-    #plot_single_split_curves(run_dir, figures_dir, models_elmarakeby, tag="elmarakeby", concat_val=True)
-    #plot_single_split_curves(run_dir, figures_dir, models, concat_val=False)
-
-    plot_nested_CV(run_dir, figures_dir)
-    #plot_external_validation(run_dir, figures_dir)
-
-    #fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
-    #plot_single_split_curves(run_dir, wd, figures_dir)
-    #plot_train_size_comparisons(run_dir, figures_dir)
-    # plt.tight_layout()
-    # plt.savefig(f"{wd}/figure_1.jpg")
-    # plt.close()
-    #pnet_run_dir = f"{run_dir}/pnet_GO_single_split"
-    #dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
-    #pp_relations = "architecture/Reactome/ReactomePathwaysRelation.txt"
-    #plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
-    #
-    # plot_stratified_5_fold_CV(run_dir, figures_dir)
