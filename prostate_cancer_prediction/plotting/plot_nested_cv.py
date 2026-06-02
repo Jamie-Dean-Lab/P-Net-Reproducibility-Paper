@@ -42,8 +42,8 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="auc"):
     current_palette = sns.color_palette(None, len(paper_model_order))
     my_pal = {m: current_palette[i] for i, m in enumerate(paper_model_order)}
 
-    fontsize = 8
-    fontproperties = {'family': 'Arial', 'weight': 'normal', 'size': 9}
+    fontsize = 16
+    fontproperties = {'family': 'Arial', 'weight': 'normal', 'size': 18}
     metric_cols = ["auc", "auprc", "f1", "accuracy", "precision", "recall"]
 
     all_data = []
@@ -80,8 +80,7 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="auc"):
 
     sns.set_style("whitegrid")
 
-    for metric in metric_cols:
-        fig, ax = plt.subplots(figsize=(8, 5))
+    def draw_metric(ax, metric):
         dd = combined[metric].copy()
         dd.columns = [models_display[c] for c in dd.columns]
 
@@ -111,12 +110,34 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="auc"):
         ax.set_xticklabels(ax.get_xticklabels(), rotation=30, horizontalalignment='right', fontsize=fontsize)
         ax.get_xaxis().set_minor_locator(ticker.AutoMinorLocator())
         ax.tick_params(axis='both', which='major', labelsize=fontsize)
+        # visible tick marks under each model name to associate label with box
+        ax.tick_params(axis='x', which='major', length=6, width=1.2, bottom=True)
         ax.minorticks_off()
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         ax.spines['bottom'].set_visible(False)
         ax.spines['left'].set_visible(False)
 
+    # Individual figure per metric
+    for metric in metric_cols:
+        fig, ax = plt.subplots(figsize=(8, 5))
+        draw_metric(ax, metric)
         plt.tight_layout()
         plt.savefig(os.path.join(figures_dir, f"nested_CV_{metric}.png"), dpi=300)
         plt.close()
+
+    # Combined figure with every metric as a labelled panel (a, b, c, ...)
+    n_cols = 2
+    n_rows = -(-len(metric_cols) // n_cols)  # ceil division
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(8 * n_cols, 5 * n_rows))
+    axes = axes.flatten()
+    for i, metric in enumerate(metric_cols):
+        ax = axes[i]
+        draw_metric(ax, metric)
+        ax.text(-0.08, 1.02, chr(ord('a') + i), transform=ax.transAxes,
+                fontsize=22, fontweight='bold', va='bottom', ha='right')
+    for j in range(len(metric_cols), len(axes)):
+        axes[j].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(os.path.join(figures_dir, "nested_CV_all.png"), dpi=300)
+    plt.close(fig)
