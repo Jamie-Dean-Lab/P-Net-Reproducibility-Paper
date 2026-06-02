@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 import seaborn as sns
 from matplotlib import ticker
 
@@ -10,6 +11,30 @@ from prostate_cancer_prediction.plotting.pnet_auprc import PlotAUPRC
 from prostate_cancer_prediction.plotting.pnet_roc import PlotROC
 import matplotlib.pyplot as plt
 
+from sklearn.metrics import confusion_matrix
+
+def plot_external_validation(run_dir, figures_dir):
+    met1 = pd.read_csv(f"{run_dir}/pnet_external_validation_1_elmarakeby/external_validation/Met500/predictions.csv", index_col=0)
+    primary1 = pd.read_csv(f"{run_dir}/pnet_external_validation_1_elmarakeby/external_validation/PRAD/predictions.csv", index_col=0)
+    combined1 = pd.concat([met1, primary1])
+    conf_mat1 = confusion_matrix(combined1["metastatic"], round(combined1["metastatic_pred"]), normalize="true")
+
+    met2 = pd.read_csv(f"{run_dir}/pnet_external_validation_2_elmarakeby/external_validation/Met500/predictions.csv", index_col=0)
+    primary2 = pd.read_csv(f"{run_dir}/pnet_external_validation_2_elmarakeby/external_validation/PRAD/predictions.csv", index_col=0)
+    combined2 = pd.concat([met2, primary2])
+    conf_mat2 = confusion_matrix(combined2["metastatic"], round(combined2["metastatic_pred"]), normalize="true")
+
+    conf_mat = (conf_mat1 + conf_mat2) / 2 * 100
+    labels = np.array([["TN: ", "FP: "],["FN: ", "TP: "]])
+    plt.imshow(conf_mat)
+    plt.xticks(ticks=[0,1], labels=["Localised", "Metastatic"])
+    plt.yticks(ticks=[], labels=[])
+    for i in range(2):
+        for j in range(2):
+            plt.text(i-0.25, j, f"{labels[i, j]}{round(conf_mat[i,j], 2)}%")
+    plt.colorbar()
+    plt.savefig(f"{figures_dir}/pnet_external_validation.jpg")
+    plt.close()
 
 def plot_stratified_5_fold_CV(run_dir, figures_dir):
     model_names = [
@@ -252,7 +277,8 @@ def plot(wd, run_dir, selected_genes, n_hidden_layers):
     #plot_single_split_curves(run_dir, figures_dir, models_elmarakeby, tag="elmarakeby", concat_val=True)
     #plot_single_split_curves(run_dir, figures_dir, models, concat_val=False)
 
-    plot_nested_CV(run_dir, figures_dir)
+    # plot_nested_CV(run_dir, figures_dir)
+    plot_external_validation(run_dir, figures_dir)
 
     #fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(7, 14))
     #plot_single_split_curves(run_dir, wd, figures_dir)

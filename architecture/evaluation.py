@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 from keras.models import Sequential
 
 from architecture.pnet_model import get_layer_maps, PNetArchitectureGenerator
+
+from architecture.pnet_model import get_layer_maps, PNetArchitectureGenerator
 import architecture.coef_weights_utils as mcw
 
 
