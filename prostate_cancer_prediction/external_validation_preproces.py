@@ -85,13 +85,13 @@ def generate_external_validation_labels():
     valid_cnv.T.to_csv("prostate_cancer_prediction/data/_database/prostate/external_validation/Met500/Met500_cnv_processed.csv")
     valid_mut.index = valid_mut.index.str.split(".").str[0]
     valid_mut.to_csv("prostate_cancer_prediction/data/_database/prostate/external_validation/Met500/Met500_mut_matrix_processed.csv")
-    pd.DataFrame(index=met500_samples, columns=["metastatic"]).fillna(1).to_csv("prostate_cancer_prediction/data/_database/prostate/external_validation/Met500/Met500_labels.csv")
+    pd.DataFrame({"metastatic": 1}, index=met500_samples).to_csv("prostate_cancer_prediction/data/_database/prostate/external_validation/Met500/Met500_labels.csv")
 
     # Process primary
     valid_cnv = pd.read_csv("prostate_cancer_prediction/data/_database/prostate/external_validation/PRAD/cnv_matrix.csv", index_col=0).fillna(0)
     valid_mut = pd.read_csv("prostate_cancer_prediction/data/_database/prostate/external_validation/PRAD/mut_matrix.csv", index_col=0).fillna(0)
     PRAD_samples = list(set(valid_cnv.index.to_list() + valid_mut.index.to_list()))
-    pd.DataFrame(index=PRAD_samples, columns=["metastatic"]).fillna(0).to_csv("prostate_cancer_prediction/data/_database/prostate/external_validation/PRAD/PRAD_labels.csv")
+    pd.DataFrame({"metastatic": 0}, index=PRAD_samples).to_csv("prostate_cancer_prediction/data/_database/prostate/external_validation/PRAD/PRAD_labels.csv")
 
 generate_external_validation_labels()
 
