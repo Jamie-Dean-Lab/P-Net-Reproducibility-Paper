@@ -13,7 +13,6 @@ train_size_samples = [
 
 _train_size_base = {
     "results_processors":    [save_processor, plot_history],
-    "use_validation_on_test": False,
     "val_metric":            {},
     "stratified":            True,
     "inner_kfolds":          5,

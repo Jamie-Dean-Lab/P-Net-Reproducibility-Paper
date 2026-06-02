@@ -11,7 +11,6 @@ random_forest_single_split_elmarakeby_config = {
     "task":                   "binary classification",
     "pipeline_class":         MLPipeline,
     "results_processors":     [save_processor],
-    "use_validation_on_test": True,
     "val_metric":             {"auc": auc_selection},
     "grid_search":            {"model_params": {
         f"bootstrap_{b}_depth_{d}_estimators_{n}": {

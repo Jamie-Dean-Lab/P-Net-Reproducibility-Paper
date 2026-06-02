@@ -41,7 +41,6 @@ dense_single_layer_train_size_variation_configs = [
         "model_params":       copy.deepcopy(_dense_model_params),
         "fitting_params":     copy.deepcopy(_dense_fitting_params),
         "results_processors": [save_processor],
-        "use_validation_on_test": False,
         "val_metric":         {},
         "stratified":         True,
         "inner_kfolds":       5,

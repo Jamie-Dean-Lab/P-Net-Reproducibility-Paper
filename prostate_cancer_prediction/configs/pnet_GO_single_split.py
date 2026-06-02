@@ -56,7 +56,6 @@ pnet_GO_single_split_config = {
                 pp_relations=_model_params_base["pp_relations"],
                 gp_relations=_model_params_base["gp_relations"])
     ],
-    "use_validation_on_test": True,
     "val_metric":             {"f1": f1_selection, "auprc": auprc_selection, "auc": auc_selection},
     "pipeline_class":         TFPipeline,
     "run_method":             "run_single_split",

@@ -11,7 +11,6 @@ decision_tree_single_split_config = {
     "task":                   "binary classification",
     "pipeline_class":         MLPipeline,
     "results_processors":     [save_processor],
-    "use_validation_on_test": True,
     "val_metric":             {"f1": f1_selection, "auprc": auprc_selection, "auc": auc_selection},
     "grid_search":            {"model_params": {
         f"ssplit_{s}_depth_{d}": {"min_samples_split": s, "max_depth": d, "class_weight": {0: 0.75, 1: 1.5}}

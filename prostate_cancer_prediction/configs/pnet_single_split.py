@@ -46,7 +46,6 @@ pnet_single_split_config = {
         "class_weight":       [[0.75, 1.5]] * (n_hidden_layers + 1),
     },
     "results_processors":     [save_processor, plot_history],
-    "use_validation_on_test": True,
     "val_metric":             {"f1": f1_selection, "auprc": auprc_selection, "auc": auc_selection},
     "pipeline_class":         TFPipeline,
     "run_method":             "run_single_split",

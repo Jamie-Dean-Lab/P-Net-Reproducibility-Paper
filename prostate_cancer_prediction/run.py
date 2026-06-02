@@ -49,6 +49,7 @@ from prostate_cancer_prediction.configs.pnet_external_validation_2 import \
     pnet_external_validation_2_elmarakeby_config
 
 from prostate_cancer_prediction.configs.pnet_network_order_variation import pnet_network_order_variation_configs
+from prostate_cancer_prediction.configs.pnet_10fold_CV_stability import pnet_10fold_CV_stability_config
 
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
@@ -96,15 +97,20 @@ def run():
         # rbf_svm_stratified_5_fold_CV_config,
         # sgd_logistic_regression_stratified_5_fold_CV_config
 
+        # Feature-importance stability: 10-fold CV, elmarakeby hyperparameters
+        #pnet_10fold_CV_stability_config,
+        #pnet_network_order_variation_configs,
+
         # Stratified nested CV
-        #pnet_nested_CV_config,
-        #pnet_GO_nested_CV_config,
-        #adaboost_nested_CV_config,
-        #decision_tree_nested_CV_config,
-        #linear_svm_nested_CV_config,
-        #random_forest_nested_CV_config,
-        #rbf_svm_nested_CV_config,
-        #sgd_logistic_regression_nested_CV_config,
+        # pnet_nested_CV_config,
+        # pnet_GO_nested_CV_config,
+        # adaboost_nested_CV_config,
+        # decision_tree_nested_CV_config,
+        # linear_svm_nested_CV_config,
+        # random_forest_nested_CV_config,
+        # rbf_svm_nested_CV_config,
+        # sgd_logistic_regression_nested_CV_config,
+
         pnet_external_validation_1_elmarakeby_config,
         pnet_external_validation_2_elmarakeby_config
     ]

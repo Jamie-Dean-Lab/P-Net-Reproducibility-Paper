@@ -62,7 +62,6 @@ pnet_external_validation_1_elmarakeby_config = {
                 pp_relations=_model_params["pp_relations"],
                 gp_relations=_model_params["gp_relations"])
     ],
-    "use_validation_on_test": True,
     "val_metric": {"auc": auc_selection},
     "pipeline_class": TFPipeline,
     "run_method": "run_single_split",

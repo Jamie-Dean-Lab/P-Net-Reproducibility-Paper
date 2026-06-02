@@ -10,7 +10,6 @@ shuffle_seeds = [203928, 84954, 603492, 1023924, 72832934]
 
 _train_size_base = {
     "results_processors":    [save_processor, plot_history],
-    "use_validation_on_test": False,
     "val_metric":            {},
     "stratified":            True,
     "inner_kfolds":          5,
