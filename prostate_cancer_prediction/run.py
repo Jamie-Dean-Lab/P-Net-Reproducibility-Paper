@@ -20,6 +20,7 @@ from prostate_cancer_prediction.configs.linear_svm_stratified_5_fold_CV import l
 from prostate_cancer_prediction.configs.pnet_GO_nested_CV import pnet_GO_nested_CV_config
 from prostate_cancer_prediction.configs.pnet_GO_single_split import pnet_GO_single_split_config
 from prostate_cancer_prediction.configs.pnet_nested_CV import pnet_nested_CV_config
+from prostate_cancer_prediction.configs.pnet_network_order_fixed_seed import pnet_network_order_fixed_seed_configs
 from prostate_cancer_prediction.configs.pnet_single_split import pnet_single_split_config
 from prostate_cancer_prediction.configs.pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config
 from prostate_cancer_prediction.configs.pnet_stratified_5_fold_CV import pnet_stratified_5_fold_CV_config
@@ -64,6 +65,7 @@ from prostate_cancer_prediction.plotting.plot_external_validation import plot_ex
 from prostate_cancer_prediction.plotting.plot_single_split import plot_single_split_curves
 from prostate_cancer_prediction.plotting.plot_sankey import plot_sankey
 from prostate_cancer_prediction.plotting.plot_importance_stability import analyse_importance_stability
+from prostate_cancer_prediction.plotting.plot_network_order_variation import plot_network_order_variation
 from prostate_cancer_prediction.external_validation_preproces import generate_external_validation_labels, get_balanced_training_sets
 
 def run():
@@ -107,7 +109,9 @@ def run():
         #pnet_10_fold_CV_stability_config,
         # Feature-importance stability: 10-fold CV, Our hyperparameters we found in nested CV
         #pnet_GO_10_fold_CV_stability_config,
-        #pnet_network_order_variation_configs,
+
+        #*pnet_network_order_variation_configs,
+        #*pnet_network_order_fixed_seed_configs,
 
         # Stratified nested CV
         # pnet_nested_CV_config,
@@ -129,18 +133,22 @@ def run():
     figures_dir = os.path.join(wd, "figures")
     os.makedirs(figures_dir, exist_ok=True)
 
+    # Distribution of each test metric across the network-order variation runs
+    plot_network_order_variation(run_dir, figures_dir,
+                                 run_prefix="pnet_network_order_variation", split="test")
+
     #plot_nested_CV(run_dir, figures_dir)
     # plot_stratified_5_fold_CV(run_dir, figures_dir)
     # plot_external_validation(run_dir, figures_dir)
 
     # Feature-importance stability (each run writes to its own subdirectory under
     # figures/importance_stability/{run_id} so the two do not overwrite each other)
-    analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
-                                 run_id="pnet_10_fold_CV_stability",
-                                 pathway_names="architecture/Reactome/ReactomePathways.txt")
-    analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
-                                 run_id="pnet_GO_10_fold_CV_stability",
-                                 pathway_names="architecture/GO/go_id_name_map.tsv")
+    # analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
+    #                              run_id="pnet_10_fold_CV_stability",
+    #                              pathway_names="architecture/Reactome/ReactomePathways.txt")
+    # analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
+    #                              run_id="pnet_GO_10_fold_CV_stability",
+    #                              pathway_names="architecture/GO/go_id_name_map.tsv")
 
     # Single-split ROC/PRC curves (original hyperparams with test+val combined,
     # and our hyperparams with the splits kept separate):

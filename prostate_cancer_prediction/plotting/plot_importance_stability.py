@@ -69,6 +69,8 @@ def _stability_table(wide, top_k):
     table = pd.DataFrame({
         "topk_frequency":  topk_member.sum(axis=1).astype(int),
         "n_folds_present": wide.notna().sum(axis=1).astype(int),
+        "median_rank":     ranks.median(axis=1),
+        "iqr_rank":        ranks.quantile(0.75, axis=1) - ranks.quantile(0.25, axis=1),
         "mean_rank":       ranks.mean(axis=1),
         "std_rank":        ranks.std(axis=1),
         "best_rank":       ranks.min(axis=1),
@@ -77,8 +79,9 @@ def _stability_table(wide, top_k):
         "std_importance":  wide.std(axis=1),
         "var_importance":  wide.var(axis=1),
     })
-    # consensus order: most frequently in the top-K, ties broken by best mean rank
-    table = table.sort_values(["topk_frequency", "mean_rank"],
+    # consensus order: most frequently in the top-K, ties broken by best median
+    # rank (rank is skewed across folds, so the median is more robust than the mean)
+    table = table.sort_values(["topk_frequency", "median_rank"],
                               ascending=[False, True])
     return table, ranks, topk_member
 
@@ -178,7 +181,11 @@ def _plot_top_importance(wide, table, display, top_k, out_dir, label_col=None):
 
 
 def _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=None):
-    """Save a figure of mean +/- 1 SD rank for the top-K consensus features.
+    """Save a figure of median rank with IQR (Q1-Q3) for the top-K features.
+
+    Rank is bounded, discrete and typically right-skewed across folds, so the
+    median and inter-quartile range describe its spread more faithfully than
+    mean +/- SD (which can place whiskers below rank 1).
     """
     top = table.head(top_k)
     feats = list(top.index)
@@ -186,26 +193,29 @@ def _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=None):
 
     order = feats[::-1]                 # reverse so rank 1 is at the top of the axis
     sub = ranks.loc[order]              # feature x fold ranks
-    means = sub.mean(axis=1).to_numpy()
-    stds = sub.std(axis=1).to_numpy()
+    medians = sub.median(axis=1).to_numpy()
+    q1 = sub.quantile(0.25, axis=1).to_numpy()
+    q3 = sub.quantile(0.75, axis=1).to_numpy()
+    # asymmetric whiskers: distance from the median out to each quartile
+    xerr = np.vstack([medians - q1, q3 - medians])
     y = np.arange(len(order))
 
     fig, ax = plt.subplots(figsize=(8, max(3.5, 0.5 * len(order))))
 
-    # individual per-fold ranks (shows the actual variance, not just the SD bar)
+    # individual per-fold ranks (shows the actual spread, not just the IQR bar)
     for yi, f in zip(y, order):
         fold_vals = sub.loc[f].dropna().to_numpy()
         ax.scatter(fold_vals, np.full(len(fold_vals), yi),
                    color="0.65", s=14, zorder=2)
 
-    # mean +/- 1 SD across folds
-    ax.errorbar(means, y, xerr=stds, fmt="o", color="C0", capsize=3,
-                markersize=5, lw=1.2, zorder=3, label="mean +/- 1 SD across folds")
+    # median with IQR (Q1-Q3) across folds
+    ax.errorbar(medians, y, xerr=xerr, fmt="o", color="C0", capsize=3,
+                markersize=5, lw=1.2, zorder=3, label="median +/- IQR across folds")
 
     ax.set_yticks(y)
     ax.set_yticklabels([label_of[f] for f in order], fontsize=7)
     ax.set_xlabel("rank within fold (1 = most important)")
-    ax.set_title(f"{display}: top-{top_k} rank (mean & variance across folds)")
+    ax.set_title(f"{display}: top-{top_k} rank (median & IQR across folds)")
     ax.set_xlim(left=0)
     ax.legend(fontsize=7, loc="lower right")
     ax.margins(y=0.02)
@@ -226,7 +236,7 @@ def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
       * {layer}_top{K}_membership.png  -- top-K membership frequency bars
       * {layer}_spearman.png           -- pairwise Spearman heatmap of rankings
       * {layer}_top{K}_importance.png  -- mean +/- SD importance of the top-K features
-      * {layer}_top{K}_rank.png        -- mean +/- SD rank of the top-K features
+      * {layer}_top{K}_rank.png        -- median & IQR rank of the top-K features
       * stability_summary.csv          -- one row per layer (mean Spearman)
     """
     out_dir = f"{figures_dir}/importance_stability/{run_id}"
@@ -272,7 +282,7 @@ def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
         print(f"  features: {len(table)}, folds used: {n_used}")
         print(f"  mean pairwise Spearman: {mean_spear:.3f}")
         print(f"  features in top-{top_k} of ALL folds: {n_in_all}")
-        cols = (["name"] if label_col else []) + ["topk_frequency", "mean_rank", "std_rank", "mean_importance", "std_importance"]
+        cols = (["name"] if label_col else []) + ["topk_frequency", "median_rank", "iqr_rank", "mean_importance", "std_importance"]
         print(f"  top consensus features:\n{table.head(top_k)[cols].to_string()}")
 
         _plot_topk_membership(table, display, top_k, out_dir, label_col=label_col)
