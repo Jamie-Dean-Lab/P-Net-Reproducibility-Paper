@@ -6,7 +6,7 @@ from keras.callbacks import LearningRateScheduler
 
 from architecture.pipeline import TFPipeline
 from architecture.pnet_model import compile_pnet
-from architecture.callbacks_custom import step_decay_part
+from architecture.callbacks_custom import step_decay
 from architecture.evaluation import plot_history, get_deeplift_global
 from .base_config import (base_config, data_dir, f1_selection, auprc_selection,
                           auc_selection, save_processor, train_samples, val_samples, test_samples, selected_genes)
@@ -15,6 +15,8 @@ from prostate_cancer_prediction.preprocess import mut_binary, cnv_amp, cnv_del
 from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, accuracy_score, precision_score, recall_score
 
 n_hidden_layers = 5
+
+step_decay_part = partial(step_decay, init_lr=1e-3, drop=0.25, epochs_drop=10)
 
 _model_params = {
     "pathway_dataset": "reactome",
@@ -55,12 +57,7 @@ pnet_external_validation_1_elmarakeby_config = {
     },
     "results_processors": [
         save_processor,
-        plot_history,
-        partial(get_deeplift_global,
-                n_hidden_layers=n_hidden_layers,
-                pathway_dataset=_model_params["pathway_dataset"],
-                pp_relations=_model_params["pp_relations"],
-                gp_relations=_model_params["gp_relations"])
+        plot_history
     ],
     "val_metric": {"auc": auc_selection},
     "pipeline_class": TFPipeline,

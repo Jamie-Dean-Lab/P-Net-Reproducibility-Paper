@@ -6,10 +6,13 @@ from keras.callbacks import LearningRateScheduler
 
 from architecture.pipeline import TFPipeline
 from architecture.pnet_model import compile_pnet
+from architecture.callbacks_custom import step_decay
 from evaluation import plot_history, get_deeplift_global
-from .base_config import base_config, step_decay_part, save_processor, selected_genes
+from .base_config import base_config, save_processor, selected_genes
 
 n_hidden_layers = 5
+
+step_decay_part = partial(step_decay, init_lr=1e-3, drop=0.5, epochs_drop=25)
 
 _model_params_base = {
     "pathway_dataset":        "go",

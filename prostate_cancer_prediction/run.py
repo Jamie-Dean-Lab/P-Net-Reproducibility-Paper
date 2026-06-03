@@ -123,8 +123,8 @@ def run():
         # rbf_svm_nested_CV_config,
         # sgd_logistic_regression_nested_CV_config,
 
-        #pnet_external_validation_1_elmarakeby_config,
-        #pnet_external_validation_2_elmarakeby_config
+        pnet_external_validation_1_elmarakeby_config,
+        pnet_external_validation_2_elmarakeby_config
     ]
 
     for config in configs:
@@ -134,12 +134,12 @@ def run():
     os.makedirs(figures_dir, exist_ok=True)
 
     # Distribution of each test metric across the network-order variation runs
-    plot_network_order_variation(run_dir, figures_dir,
-                                 run_prefix="pnet_network_order_variation", split="test")
+    # plot_network_order_variation(run_dir, figures_dir,
+    #                              run_prefix="pnet_network_order_variation", split="test")
 
     #plot_nested_CV(run_dir, figures_dir)
     # plot_stratified_5_fold_CV(run_dir, figures_dir)
-    # plot_external_validation(run_dir, figures_dir)
+    plot_external_validation(run_dir, figures_dir)
 
     # Feature-importance stability (each run writes to its own subdirectory under
     # figures/importance_stability/{run_id} so the two do not overwrite each other)

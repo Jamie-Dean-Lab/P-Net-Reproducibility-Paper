@@ -6,12 +6,14 @@ from keras.callbacks import LearningRateScheduler
 
 from architecture.pipeline import TFPipeline
 from architecture.pnet_model import compile_pnet
-from architecture.callbacks_custom import step_decay_part
+from architecture.callbacks_custom import step_decay
 from architecture.evaluation import plot_history, get_deeplift_global
 from .base_config import (base_config, data_dir, f1_selection, auprc_selection,
                           auc_selection, save_processor, train_samples, val_samples, test_samples, selected_genes)
 
 n_hidden_layers = 5
+
+step_decay_part = partial(step_decay, init_lr=1e-3, drop=0.25, epochs_drop=50)
 
 _model_params = {
     "pathway_dataset": "reactome",

@@ -1,6 +1,5 @@
 import lifelines
 import pandas as pd
-from functools import partial
 from scipy.stats import pearsonr, spearmanr
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, explained_variance_score, \
     root_mean_squared_error
@@ -8,7 +7,6 @@ from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, e
 from architecture.data_utils import ConcatMultiViewDataset
 from architecture.pipeline import IdentityProcessor
 from architecture.evaluation import save_results, save_supervised_result, collate_grid_search, collate_aggregate_results
-from architecture.callbacks_custom import step_decay
 
 import os
 
@@ -32,8 +30,6 @@ views = [
     ("gexpr", "ccle_gene_expression_preprocessed.csv", selected_genes, 0, lambda x: x, lambda x: x),
     ("methylation", "methylation_preprocessed.csv", selected_genes, 0, lambda x: x, lambda x: x),
 ]
-
-step_decay_part = partial(step_decay, init_lr=0.001, drop=0.5, epochs_drop=25)
 
 r2_selection = lambda x: r2_score(x["val_df"].ys, x["val_preds"])
 
