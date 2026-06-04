@@ -5,7 +5,6 @@ import pandas as pd
 from keras.callbacks import Callback
 from tqdm import tqdm
 import math
-from functools import partial
 
 def step_decay(epoch, init_lr, drop, epochs_drop):
                 initial_lrate = init_lr
@@ -13,13 +12,6 @@ def step_decay(epoch, init_lr, drop, epochs_drop):
                     drop, math.floor((1 + epoch) / epochs_drop)
                 )
                 return lrate
-
-step_decay_part = partial(
-    step_decay,
-    init_lr=0.001,
-    drop=0.25,
-    epochs_drop=50,
-)
 
 class TQDMCallback(Callback):
     def __init__(self, total_epochs):

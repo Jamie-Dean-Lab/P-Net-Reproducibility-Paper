@@ -6,12 +6,15 @@ from keras.callbacks import LearningRateScheduler
 
 from architecture.pipeline import TFPipeline
 from architecture.pnet_model import compile_pnet
-from architecture.callbacks_custom import step_decay_part
+from architecture.callbacks_custom import step_decay
 from architecture.evaluation import plot_history, get_deeplift_global
-from .base_config import (base_config, f1_selection, auprc_selection,
-                          auc_selection, save_processor, selected_genes)
+from .base_config import save_processor, selected_genes
+from .nested_CV_base_config import nested_CV_base_config
 
 n_hidden_layers = 5
+
+learning_rate = 1e-3
+step_decay_part = partial(step_decay, init_lr=learning_rate, drop=0.25, epochs_drop=50)
 
 
 _model_params_base = {
@@ -31,15 +34,14 @@ _model_params_base = {
         "dropout_testing":        False,
         "loss":                   [{"class_name": "BinaryCrossentropy", "config": {"from_logits": False}}] * (n_hidden_layers + 1),
         "loss_weights":           [2, 7, 20, 54, 148, 400],
-        "optimizer":              {"class_name": "Adam", "config": {"learning_rate": 1e-3}},
+        "optimizer":              {"class_name": "Adam", "config": {"learning_rate": learning_rate}},
         "map_seed":               42
 }
 
 pnet_GO_nested_CV_config = {
-    **copy.deepcopy(base_config),
+    **copy.deepcopy(nested_CV_base_config),
     "run_id":                 "pnet_GO_nested_CV",
     "model":                  compile_pnet,
-    "task":                   "binary classification",
     "fitting_params": {
         "epochs":             300,
         "batch":              50,
@@ -58,12 +60,7 @@ pnet_GO_nested_CV_config = {
                 pp_relations=_model_params_base["pp_relations"],
                 gp_relations=_model_params_base["gp_relations"])
     ],
-    "val_metric":             {"f1": f1_selection, "auprc": auprc_selection, "auc": auc_selection},
     "pipeline_class":         TFPipeline,
-    "run_method":             "run_crossvalidation",
-    "stratified":              True,
-    "inner_kfolds":            5,
-    "outer_kfolds":            5,
     "grid_search": {
         "model_params": {
             f"h_reg_{h}_o_reg_{o}": {**_model_params_base,
@@ -74,7 +71,4 @@ pnet_GO_nested_CV_config = {
         },
     }
 }
-del pnet_GO_nested_CV_config["train_samples"]
-del pnet_GO_nested_CV_config["val_samples"]
-del pnet_GO_nested_CV_config["test_samples"]
 

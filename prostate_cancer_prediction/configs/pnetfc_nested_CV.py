@@ -30,7 +30,7 @@ _model_params_base = {
         "h_bias_initializer":     ["lecun_uniform"] * (n_hidden_layers + 1),
         "h_bias_constraints":     [None] * (n_hidden_layers + 1),
         "batch_normal":           False,
-        "sparse":                 True,
+        "sparse":                 False,
         "dropout_testing":        False,
         "loss":                   [{"class_name": "BinaryCrossentropy", "config": {"from_logits": False}}] * (n_hidden_layers + 1),
         "loss_weights":           [2, 7, 20, 54, 148, 400],
@@ -38,9 +38,9 @@ _model_params_base = {
         "map_seed":               42
 }
 
-pnet_nested_CV_config = {
+pnetfc_nested_CV_config = {
     **copy.deepcopy(nested_CV_base_config),
-    "run_id":                 "pnet_nested_CV",
+    "run_id":                 "pnetfc_nested_CV",
     "model":                  compile_pnet,
     "fitting_params": {
         "epochs":             300,
@@ -71,4 +71,3 @@ pnet_nested_CV_config = {
         },
     }
 }
-

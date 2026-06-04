@@ -808,7 +808,7 @@ class TestGetModalHyperparams(unittest.TestCase):
         pd.DataFrame(stamped).to_csv(os.path.join(tmp, "results.csv"))
         p = make_pipeline({
             "grid_search": grid or self._GRID,
-            "hyperparam_selection_metric": selection_metric,
+            "ext_validation_hyperparam_selection_metric": selection_metric,
             "val_metric": {"auc": MagicMock(), "f1": MagicMock()},
         })
         p.run_dir = tmp
@@ -910,9 +910,57 @@ class TestGetModalHyperparams(unittest.TestCase):
         finally:
             shutil.rmtree(tmp)
 
-    def test_falls_back_to_first_val_metric_key_when_no_explicit_config(self):
-        # No hyperparam_selection_metric in config; first key of val_metric ("f1")
-        # is used as the default, so "a" (f1 rows) wins over "b" (auc rows).
+    def test_single_metric_used_when_no_selection_metric_configured(self):
+        # Only one metric is present in results.csv, so selection is unambiguous
+        # even without ext_validation_hyperparam_selection_metric configured.
+        rows = [
+            {"test_fold": "test_0", "hyperparams": "a", "metric": "auc"},
+            {"test_fold": "test_1", "hyperparams": "a", "metric": "auc"},
+            {"test_fold": "test_2", "hyperparams": "b", "metric": "auc"},
+        ]
+        tmp = tempfile.mkdtemp()
+        pd.DataFrame(rows).to_csv(os.path.join(tmp, "results.csv"))
+        p = make_pipeline({
+            "grid_search": self._GRID,
+            "val_metric": {"auc": MagicMock(), "f1": MagicMock()},
+            # ext_validation_hyperparam_selection_metric intentionally absent
+        })
+        p.run_dir = tmp
+        try:
+            self.assertEqual(p._get_modal_hyperparams(), self._params_for("a"))
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_single_metric_ignores_mismatched_selection_metric(self):
+        # Only "auc" rows exist; even though a different selection metric is
+        # configured, the single available metric is used.
+        rows = [
+            {"test_fold": "test_0", "hyperparams": "b", "metric": "auc"},
+            {"test_fold": "test_1", "hyperparams": "b", "metric": "auc"},
+        ]
+        p, tmp = self._pipeline_with_results(rows, selection_metric="f1")
+        try:
+            self.assertEqual(p._get_modal_hyperparams(), self._params_for("b"))
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_raises_when_selection_metric_absent_from_results(self):
+        # Multiple metrics present (f1, auc) but the configured selection metric
+        # ("recall") is not among them → a ValueError is raised.
+        rows = [
+            {"test_fold": "test_0", "hyperparams": "a", "metric": "f1"},
+            {"test_fold": "test_1", "hyperparams": "b", "metric": "auc"},
+        ]
+        p, tmp = self._pipeline_with_results(rows, selection_metric="recall")
+        try:
+            with self.assertRaises(ValueError):
+                p._get_modal_hyperparams()
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_raises_when_multiple_metrics_and_no_selection_metric(self):
+        # Two metrics present (f1, auc) and no ext_validation_hyperparam_selection_metric
+        # configured → the choice is ambiguous, so a ValueError is raised.
         rows = [
             {"test_fold": "test_0", "hyperparams": "a", "metric": "f1"},
             {"test_fold": "test_1", "hyperparams": "a", "metric": "f1"},
@@ -924,11 +972,12 @@ class TestGetModalHyperparams(unittest.TestCase):
         p = make_pipeline({
             "grid_search": self._GRID,
             "val_metric": {"f1": MagicMock(), "auc": MagicMock()},
-            # hyperparam_selection_metric intentionally absent
+            # ext_validation_hyperparam_selection_metric intentionally absent
         })
         p.run_dir = tmp
         try:
-            self.assertEqual(p._get_modal_hyperparams(), self._params_for("a"))
+            with self.assertRaises(ValueError):
+                p._get_modal_hyperparams()
         finally:
             shutil.rmtree(tmp)
 

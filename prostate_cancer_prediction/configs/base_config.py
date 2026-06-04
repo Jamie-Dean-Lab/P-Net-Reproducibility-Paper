@@ -4,21 +4,27 @@ from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, ac
 from architecture.data_utils import ConcatMultiViewDataset
 from architecture.pipeline import IdentityProcessor
 from architecture.evaluation import save_results, save_supervised_result, collate_grid_search, collate_aggregate_results
-from prostate_cancer_prediction.preprocess import mut_binary, cnv_amp, cnv_del
+from prostate_cancer_prediction.feature_encoders import mut_binary, cnv_amp, cnv_del
+from prostate_cancer_prediction.preprocess import Preprocessor
 
 import os
 
 wd = "prostate_cancer_prediction"
 download_dir = f"{wd}/data"
 data_dir = f"{download_dir}/_database"
+prostate_dir = f"{data_dir}/prostate"
 run_dir = f"{wd}/runs"
+_PREPROCESSING_SENTINEL = f"{prostate_dir}/processed/response_paper_external_validation_1.csv"
 
-if not os.path.exists(download_dir):
-    with open(f"{wd}/download_data.py") as file:
-        exec(file.read())
+_preprocessor = Preprocessor(prostate_dir)
+_preprocessor.download_data()
 
 if not os.path.exists(run_dir):
     os.mkdir(run_dir)
+
+if not os.path.exists(_PREPROCESSING_SENTINEL):
+    print("External-validation data not found — running preprocessing pipeline...")
+    _preprocessor.run_all()
 
 selected_genes = set(pd.read_csv(f"{data_dir}/genes/tcga_prostate_expressed_genes_and_cancer_genes.csv")["genes"])
 hugo_genes = set(pd.read_csv(f"{data_dir}/genes/HUGO_genes/protein-coding_gene_with_coordinate_minimal.txt",

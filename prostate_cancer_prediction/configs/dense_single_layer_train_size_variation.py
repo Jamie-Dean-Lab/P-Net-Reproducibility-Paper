@@ -1,15 +1,20 @@
 import copy
+from functools import partial
+
 from keras.regularizers import L2
 from keras.callbacks import LearningRateScheduler
 
 from architecture.pipeline import TFPipeline
-from architecture.callbacks_custom import step_decay_part
+from architecture.callbacks_custom import step_decay
 from architecture.evaluation import collate_folds
 from architecture.dense_model import compile_dense
 from .base_config import (base_config, val_samples, save_processor)
 from .pnet_train_size_variation import train_size_samples
 
 n_hidden_layers = 5
+
+learning_rate = 1e-3
+step_decay_part = partial(step_decay, init_lr=learning_rate, drop=0.25, epochs_drop=50)
 
 _dense_fitting_params = {
     "epochs":             300,
@@ -28,7 +33,7 @@ _dense_model_params = {
     "h_reg":          (L2, {"l2": 1e-3}),
     "n_weights":      71009,
     "loss":           {"class_name": "BinaryCrossentropy", "config": {"from_logits": False}},
-    "optimizer":      {"class_name": "Adam", "config": {"learning_rate": 1e-3}},
+    "optimizer":      {"class_name": "Adam", "config": {"learning_rate": learning_rate}},
 }
 
 dense_single_layer_train_size_variation_configs = [

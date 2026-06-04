@@ -20,11 +20,13 @@ from prostate_cancer_prediction.configs.linear_svm_stratified_5_fold_CV import l
 from prostate_cancer_prediction.configs.pnet_GO_nested_CV import pnet_GO_nested_CV_config
 from prostate_cancer_prediction.configs.pnet_GO_single_split import pnet_GO_single_split_config
 from prostate_cancer_prediction.configs.pnet_nested_CV import pnet_nested_CV_config
+from prostate_cancer_prediction.configs.pnetfc_nested_CV import pnetfc_nested_CV_config
 from prostate_cancer_prediction.configs.pnet_network_order_fixed_seed import pnet_network_order_fixed_seed_configs
 from prostate_cancer_prediction.configs.pnet_single_split import pnet_single_split_config
 from prostate_cancer_prediction.configs.pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config
 from prostate_cancer_prediction.configs.pnet_stratified_5_fold_CV import pnet_stratified_5_fold_CV_config
 from prostate_cancer_prediction.configs.pnet_train_size_variation import pnet_train_size_variation_configs
+from prostate_cancer_prediction.configs.pnetfc_stratified_5_fold_CV import pnetfc_stratified_5_fold_CV_config
 from prostate_cancer_prediction.configs.pnetfc_train_size_variation import pnetfc_train_size_variation_configs
 from prostate_cancer_prediction.configs.random_forest_nested_CV import random_forest_nested_CV_config
 from prostate_cancer_prediction.configs.random_forest_single_split import random_forest_single_split_config
@@ -66,11 +68,7 @@ from prostate_cancer_prediction.plotting.plot_single_split import plot_single_sp
 from prostate_cancer_prediction.plotting.plot_sankey import plot_sankey
 from prostate_cancer_prediction.plotting.plot_importance_stability import analyse_importance_stability
 from prostate_cancer_prediction.plotting.plot_network_order_variation import plot_network_order_variation
-from prostate_cancer_prediction.external_validation_preproces import generate_external_validation_labels, get_balanced_training_sets
-
 def run():
-    generate_external_validation_labels()
-    get_balanced_training_sets()
     configs = [
         # Single split
         # pnet_single_split_config,
@@ -97,7 +95,9 @@ def run():
         # *dense_single_layer_train_size_variation_configs,
 
         # Stratified 5 fold CV
+        #todo check pnetfc hyperparams
         # pnet_stratified_5_fold_CV_config,
+        # pnetfc_stratified_5_fold_CV_config,
         # decision_tree_stratified_5_fold_CV_config,
         # adaboost_stratified_5_fold_CV_config,
         # linear_svm_stratified_5_fold_CV_config,
@@ -115,6 +115,7 @@ def run():
 
         # Stratified nested CV
         # pnet_nested_CV_config,
+        # pnetfc_nested_CV_config,
         # pnet_GO_nested_CV_config,
         # adaboost_nested_CV_config,
         # decision_tree_nested_CV_config,
@@ -123,8 +124,8 @@ def run():
         # rbf_svm_nested_CV_config,
         # sgd_logistic_regression_nested_CV_config,
 
-        #pnet_external_validation_1_elmarakeby_config,
-        #pnet_external_validation_2_elmarakeby_config
+        # pnet_external_validation_1_elmarakeby_config,
+        # pnet_external_validation_2_elmarakeby_config
     ]
 
     for config in configs:
@@ -134,12 +135,12 @@ def run():
     os.makedirs(figures_dir, exist_ok=True)
 
     # Distribution of each test metric across the network-order variation runs
-    plot_network_order_variation(run_dir, figures_dir,
-                                 run_prefix="pnet_network_order_variation", split="test")
+    # plot_network_order_variation(run_dir, figures_dir,
+    #                              run_prefix="pnet_network_order_variation", split="test")
 
-    #plot_nested_CV(run_dir, figures_dir)
+    plot_nested_CV(run_dir, figures_dir)
     # plot_stratified_5_fold_CV(run_dir, figures_dir)
-    # plot_external_validation(run_dir, figures_dir)
+    #plot_external_validation(run_dir, figures_dir)
 
     # Feature-importance stability (each run writes to its own subdirectory under
     # figures/importance_stability/{run_id} so the two do not overwrite each other)

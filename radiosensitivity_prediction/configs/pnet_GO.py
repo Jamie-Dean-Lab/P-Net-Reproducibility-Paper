@@ -6,10 +6,14 @@ from keras.callbacks import LearningRateScheduler
 
 from architecture.pipeline import TFPipeline
 from architecture.pnet_model import compile_pnet
+from architecture.callbacks_custom import step_decay
 from evaluation import plot_history, get_deeplift_global
-from .base_config import base_config, step_decay_part, save_processor, selected_genes
+from .base_config import base_config, save_processor, selected_genes
 
 n_hidden_layers = 5
+
+learning_rate = 1e-3
+step_decay_part = partial(step_decay, init_lr=learning_rate, drop=0.5, epochs_drop=25)
 
 _model_params_base = {
     "pathway_dataset":        "go",
@@ -28,7 +32,7 @@ _model_params_base = {
     "dropout_testing": False,
     "loss": ["MeanSquaredError"] * (n_hidden_layers + 1),
     "loss_weights": [2, 7, 20, 54, 148, 400],
-    "optimizer": {"class_name": "Adam", "config": {"learning_rate": 1e-3}},
+    "optimizer": {"class_name": "Adam", "config": {"learning_rate": learning_rate}},
     "map_seed": 42
 }
 

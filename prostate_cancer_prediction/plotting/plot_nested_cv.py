@@ -76,11 +76,76 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="auc"):
     combined = pd.concat(all_data, axis=1)
     combined.columns = combined.columns.swaplevel(0, 1)
 
-    flierprops = dict(marker='o', markersize=1, alpha=0.7)
-
     sns.set_style("whitegrid")
 
     def draw_metric(ax, metric):
+        dd = combined[metric].copy()
+        dd.columns = [models_display[c] for c in dd.columns]
+
+        # With only 5 outer folds per model, show every fold as a point and
+        # summarise with mean +/- SD rather than a boxplot (whose quartiles
+        # collapse on ties for such small n).
+        means = dd.mean()
+        stds = dd.std()
+        order = list(means.sort_values().index)
+        avg = means['P-NET']
+
+        dd_long = dd.melt()
+
+        # individual outer-fold scores
+        sns.stripplot(
+            ax=ax,
+            x="variable",
+            y="value",
+            hue="variable",
+            data=dd_long,
+            order=order,
+            palette=my_pal,
+            legend=False,
+            size=7,
+            alpha=0.8,
+            jitter=0.15,
+            edgecolor="black",
+            linewidth=0.5,
+        )
+
+        # mean +/- SD overlay
+        x_pos = list(range(len(order)))
+        ax.errorbar(
+            x_pos,
+            means[order].values,
+            yerr=stds[order].values,
+            fmt="_",
+            markersize=20,
+            markeredgewidth=2,
+            color="black",
+            capsize=4,
+            elinewidth=1.2,
+            zorder=10,
+        )
+
+        ax.axhline(avg, ls='--', linewidth=1)
+        # Auto-scale the y-axis to the data (with a margin) so points/error bars
+        # never fall off the bottom; capped at 1.0 since these are scores.
+        ax.autoscale(enable=True, axis='y')
+        ax.margins(y=0.08)
+        ax.set_ylim(top=min(ax.get_ylim()[1], 1.02))
+        ax.set_ylabel(metric_display[metric], fontproperties)
+        ax.set_xlabel('')
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=30, horizontalalignment='right', fontsize=fontsize)
+        ax.get_xaxis().set_minor_locator(ticker.AutoMinorLocator())
+        ax.tick_params(axis='both', which='major', labelsize=fontsize)
+        # visible tick marks under each model name to associate label with box
+        ax.tick_params(axis='x', which='major', length=6, width=1.2, bottom=True)
+        ax.minorticks_off()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+
+    def draw_metric_boxplot(ax, metric):
+        # Original boxplot rendering, kept for reference / reverting. To use,
+        # call this instead of draw_metric in the figure loops below.
         dd = combined[metric].copy()
         dd.columns = [models_display[c] for c in dd.columns]
 
@@ -100,7 +165,7 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="auc"):
             palette=my_pal,
             legend=False,
             linewidth=1,
-            flierprops=flierprops
+            showfliers=False
         )
 
         ax.axhline(avg, ls='--', linewidth=1)
