@@ -65,7 +65,7 @@ class Preprocessor:
         self.processed_dir = self.data_dir / "processed"
         self.met500_dir = self.external_dir / "Met500"
         self.prad_dir = self.external_dir / "PRAD"
-        self.combined_dir = self.external_dir / "Combined"
+        self.combined_dir = self.external_dir / "combined"
 
     def download_data(self):
         """Download and extract the _database archive from Zenodo if not present."""

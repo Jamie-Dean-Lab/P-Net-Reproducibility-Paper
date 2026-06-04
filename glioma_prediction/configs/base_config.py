@@ -56,7 +56,7 @@ base_config = {
     "labels": [("tcga_labels_preprocessed.csv", 0)],
     "hold_out_validation_for_final_fit": False,
     "val_metric": {"f1": f1_selection, "auprc": auprc_selection, "auc": auc_selection},
-    "hyperparam_selection_metric": "auc",
+    "ext_validation_hyperparam_selection_metric": "auc",
     "results_processors": [save_processor],
     "rng_seed": 20080808,
     "tt_split_seed": 20080808,

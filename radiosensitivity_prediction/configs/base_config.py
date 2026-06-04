@@ -63,7 +63,7 @@ base_config = {
     "outer_kfolds": 5,
     "hold_out_validation_for_final_fit": False,
     "val_metric": {"r2": r2_selection},
-    "hyperparam_selection_metric": "r2",
+    "ext_validation_hyperparam_selection_metric": "r2",
     "results_processors": [save_processor],
     "grid_search": [],
     "fold_collators": [],

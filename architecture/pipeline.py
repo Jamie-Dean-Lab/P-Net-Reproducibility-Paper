@@ -337,7 +337,7 @@ class Pipeline:
         pass
 
     def _get_modal_hyperparams(self):
-        metric = self.config.get("hyperparam_selection_metric") or next(iter(self.config["val_metric"]))
+        metric = self.config.get("ext_validation_hyperparam_selection_metric") or next(iter(self.config["val_metric"]))
         df = pd.read_csv(f"{self.run_dir}/results.csv", index_col=0)
         df = df[df["metric"] == metric]
         fold_choices = df[["test_fold", "hyperparams"]].drop_duplicates(subset="test_fold")

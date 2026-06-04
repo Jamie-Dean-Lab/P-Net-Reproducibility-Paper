@@ -70,7 +70,7 @@ base_config = {
     "stratified": False,
     "hold_out_validation_for_final_fit": False,
     "val_metric": {"f1": f1_selection},
-    "hyperparam_selection_metric": "f1",
+    "ext_validation_hyperparam_selection_metric": "f1",
     "results_processors": [save_processor],
     "grid_search": [],
     "fold_collators": [],

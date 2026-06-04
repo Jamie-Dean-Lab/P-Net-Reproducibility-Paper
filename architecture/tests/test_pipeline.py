@@ -808,7 +808,7 @@ class TestGetModalHyperparams(unittest.TestCase):
         pd.DataFrame(stamped).to_csv(os.path.join(tmp, "results.csv"))
         p = make_pipeline({
             "grid_search": grid or self._GRID,
-            "hyperparam_selection_metric": selection_metric,
+            "ext_validation_hyperparam_selection_metric": selection_metric,
             "val_metric": {"auc": MagicMock(), "f1": MagicMock()},
         })
         p.run_dir = tmp
@@ -911,7 +911,7 @@ class TestGetModalHyperparams(unittest.TestCase):
             shutil.rmtree(tmp)
 
     def test_falls_back_to_first_val_metric_key_when_no_explicit_config(self):
-        # No hyperparam_selection_metric in config; first key of val_metric ("f1")
+        # No ext_validation_hyperparam_selection_metric in config; first key of val_metric ("f1")
         # is used as the default, so "a" (f1 rows) wins over "b" (auc rows).
         rows = [
             {"test_fold": "test_0", "hyperparams": "a", "metric": "f1"},
@@ -924,7 +924,7 @@ class TestGetModalHyperparams(unittest.TestCase):
         p = make_pipeline({
             "grid_search": self._GRID,
             "val_metric": {"f1": MagicMock(), "auc": MagicMock()},
-            # hyperparam_selection_metric intentionally absent
+            # ext_validation_hyperparam_selection_metric intentionally absent
         })
         p.run_dir = tmp
         try:
