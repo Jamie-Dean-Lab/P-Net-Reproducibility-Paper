@@ -68,11 +68,7 @@ from prostate_cancer_prediction.plotting.plot_single_split import plot_single_sp
 from prostate_cancer_prediction.plotting.plot_sankey import plot_sankey
 from prostate_cancer_prediction.plotting.plot_importance_stability import analyse_importance_stability
 from prostate_cancer_prediction.plotting.plot_network_order_variation import plot_network_order_variation
-from prostate_cancer_prediction.external_validation_preproces import generate_external_validation_labels, get_balanced_training_sets
-
 def run():
-    generate_external_validation_labels()
-    get_balanced_training_sets()
     configs = [
         # Single split
         # pnet_single_split_config,

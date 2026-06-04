@@ -2,7 +2,7 @@ import unittest
 import pandas as pd
 import numpy as np
 
-from prostate_cancer_prediction.preprocess import mut_binary, cnv_del, cnv_amp
+from prostate_cancer_prediction.feature_encoders import mut_binary, cnv_del, cnv_amp
 
 
 class TestMutBinary(unittest.TestCase):

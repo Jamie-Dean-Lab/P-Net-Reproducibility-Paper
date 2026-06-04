@@ -9,7 +9,7 @@ from architecture.pipeline import IdentityProcessor
 from architecture.evaluation import save_results, save_supervised_result, collate_grid_search, collate_aggregate_results
 
 
-from prostate_cancer_prediction.preprocess import mut_binary, cnv_del, cnv_amp
+from prostate_cancer_prediction.feature_encoders import mut_binary, cnv_del, cnv_amp
 
 wd = "glioma_prediction"
 data_dir = f"{wd}/data"
