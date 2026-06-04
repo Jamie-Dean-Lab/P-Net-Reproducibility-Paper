@@ -99,6 +99,7 @@ def run():
         # *dense_single_layer_train_size_variation_configs,
 
         # Stratified 5 fold CV
+        #todo check pnetfc hyperparams
         # pnet_stratified_5_fold_CV_config,
         # pnetfc_stratified_5_fold_CV_config,
         # decision_tree_stratified_5_fold_CV_config,
