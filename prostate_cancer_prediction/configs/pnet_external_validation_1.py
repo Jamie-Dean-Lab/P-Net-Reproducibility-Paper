@@ -16,7 +16,8 @@ from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, ac
 
 n_hidden_layers = 5
 
-step_decay_part = partial(step_decay, init_lr=1e-3, drop=0.25, epochs_drop=10)
+learning_rate = 1e-3
+step_decay_part = partial(step_decay, init_lr=learning_rate, drop=0.25, epochs_drop=10)
 
 _model_params = {
     "pathway_dataset": "reactome",
@@ -35,7 +36,7 @@ _model_params = {
     "dropout_testing": False,
     "loss": [{"class_name": "BinaryCrossentropy", "config": {"from_logits": False}}] * (n_hidden_layers + 1),
     "loss_weights": [2, 7, 20, 54, 148, 400],
-    "optimizer": {"class_name": "Adam", "config": {"learning_rate": 1e-3}},
+    "optimizer": {"class_name": "Adam", "config": {"learning_rate": learning_rate}},
     "map_seed": 42
 }
 

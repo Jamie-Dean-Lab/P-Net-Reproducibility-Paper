@@ -6,6 +6,7 @@ from keras.regularizers import L2
 from architecture.evaluation import plot_history, get_deeplift_global
 from .base_config import save_processor
 from .pnet_10_fold_CV_stability import pnet_10_fold_CV_stability_config
+from .pnet_single_split_elmarakeby import learning_rate
 
 n_hidden_layers = 5
 
@@ -28,7 +29,7 @@ _go_model_params = {
     "dropout_testing":        False,
     "loss":                   [{"class_name": "BinaryCrossentropy", "config": {"from_logits": False}}] * (n_hidden_layers + 1),
     "loss_weights":           [2, 7, 20, 54, 148, 400],
-    "optimizer":              {"class_name": "Adam", "config": {"learning_rate": 1e-3}},
+    "optimizer":              {"class_name": "Adam", "config": {"learning_rate": learning_rate}},
     "map_seed":               42
 }
 

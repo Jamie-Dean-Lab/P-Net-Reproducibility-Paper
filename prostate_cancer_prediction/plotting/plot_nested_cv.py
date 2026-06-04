@@ -125,7 +125,11 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="auc"):
         )
 
         ax.axhline(avg, ls='--', linewidth=1)
-        ax.set_ylim([0.4, 1.05])
+        # Auto-scale the y-axis to the data (with a margin) so points/error bars
+        # never fall off the bottom; capped at 1.0 since these are scores.
+        ax.autoscale(enable=True, axis='y')
+        ax.margins(y=0.08)
+        ax.set_ylim(top=min(ax.get_ylim()[1], 1.02))
         ax.set_ylabel(metric_display[metric], fontproperties)
         ax.set_xlabel('')
         ax.set_xticklabels(ax.get_xticklabels(), rotation=30, horizontalalignment='right', fontsize=fontsize)

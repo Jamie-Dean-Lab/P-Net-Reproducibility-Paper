@@ -7,14 +7,15 @@ from keras.callbacks import LearningRateScheduler
 from architecture.pipeline import TFPipeline
 from architecture.pnet_model import compile_pnet
 from architecture.callbacks_custom import step_decay
-from architecture.evaluation import plot_history
+from architecture.evaluation import plot_history, get_deeplift_global
 from .base_config import (base_config, f1_selection, auprc_selection,
-                          auc_selection, save_processor)
+                          auc_selection, save_processor, selected_genes)
 
 n_hidden_layers = 5
 
 learning_rate = 1e-3
 step_decay_part = partial(step_decay, init_lr=learning_rate, drop=0.25, epochs_drop=50)
+
 
 _model_params_base = {
         "pathway_dataset":        "reactome",
@@ -29,7 +30,7 @@ _model_params_base = {
         "h_bias_initializer":     ["lecun_uniform"] * (n_hidden_layers + 1),
         "h_bias_constraints":     [None] * (n_hidden_layers + 1),
         "batch_normal":           False,
-        "sparse":                 True,
+        "sparse":                 False,
         "dropout_testing":        False,
         "loss":                   [{"class_name": "BinaryCrossentropy", "config": {"from_logits": False}}] * (n_hidden_layers + 1),
         "loss_weights":           [2, 7, 20, 54, 148, 400],
@@ -37,10 +38,11 @@ _model_params_base = {
         "map_seed":               42
 }
 
-pnet_single_split_config = {
+pnetfc_nested_CV_config = {
     **copy.deepcopy(base_config),
-    "run_id":                 "pnet_single_split",
+    "run_id":                 "pnetfc_nested_CV",
     "model":                  compile_pnet,
+    "task":                   "binary classification",
     "fitting_params": {
         "epochs":             300,
         "batch":              50,
@@ -50,10 +52,21 @@ pnet_single_split_config = {
         "shuffle_samples":    True,
         "class_weight":       [[0.75, 1.5]] * (n_hidden_layers + 1),
     },
-    "results_processors":     [save_processor, plot_history],
+    "results_processors": [
+        save_processor,
+        plot_history,
+        partial(get_deeplift_global,
+                n_hidden_layers=n_hidden_layers,
+                pathway_dataset=_model_params_base["pathway_dataset"],
+                pp_relations=_model_params_base["pp_relations"],
+                gp_relations=_model_params_base["gp_relations"])
+    ],
     "val_metric":             {"f1": f1_selection, "auprc": auprc_selection, "auc": auc_selection},
     "pipeline_class":         TFPipeline,
-    "run_method":             "run_single_split",
+    "run_method":             "run_crossvalidation",
+    "stratified":              True,
+    "inner_kfolds":            5,
+    "outer_kfolds":            5,
     "grid_search": {
         "model_params": {
             f"h_reg_{h}_o_reg_{o}": {**_model_params_base,
@@ -64,3 +77,6 @@ pnet_single_split_config = {
         },
     }
 }
+del pnetfc_nested_CV_config["train_samples"]
+del pnetfc_nested_CV_config["val_samples"]
+del pnetfc_nested_CV_config["test_samples"]
