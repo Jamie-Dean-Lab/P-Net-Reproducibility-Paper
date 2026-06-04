@@ -8,8 +8,8 @@ from architecture.pipeline import TFPipeline
 from architecture.pnet_model import compile_pnet
 from architecture.callbacks_custom import step_decay
 from architecture.evaluation import plot_history, get_deeplift_global
-from .base_config import (base_config, f1_selection, auprc_selection,
-                          auc_selection, save_processor, selected_genes)
+from .base_config import save_processor, selected_genes
+from .nested_CV_base_config import nested_CV_base_config
 
 n_hidden_layers = 5
 
@@ -39,10 +39,9 @@ _model_params_base = {
 }
 
 pnetfc_nested_CV_config = {
-    **copy.deepcopy(base_config),
+    **copy.deepcopy(nested_CV_base_config),
     "run_id":                 "pnetfc_nested_CV",
     "model":                  compile_pnet,
-    "task":                   "binary classification",
     "fitting_params": {
         "epochs":             300,
         "batch":              50,
@@ -61,12 +60,7 @@ pnetfc_nested_CV_config = {
                 pp_relations=_model_params_base["pp_relations"],
                 gp_relations=_model_params_base["gp_relations"])
     ],
-    "val_metric":             {"f1": f1_selection, "auprc": auprc_selection, "auc": auc_selection},
     "pipeline_class":         TFPipeline,
-    "run_method":             "run_crossvalidation",
-    "stratified":              True,
-    "inner_kfolds":            5,
-    "outer_kfolds":            5,
     "grid_search": {
         "model_params": {
             f"h_reg_{h}_o_reg_{o}": {**_model_params_base,
@@ -77,6 +71,3 @@ pnetfc_nested_CV_config = {
         },
     }
 }
-del pnetfc_nested_CV_config["train_samples"]
-del pnetfc_nested_CV_config["val_samples"]
-del pnetfc_nested_CV_config["test_samples"]
