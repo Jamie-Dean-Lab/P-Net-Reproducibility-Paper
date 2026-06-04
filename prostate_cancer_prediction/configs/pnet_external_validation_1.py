@@ -12,7 +12,8 @@ from .base_config import (base_config, data_dir, f1_selection, auprc_selection,
                           auc_selection, save_processor, train_samples, val_samples, test_samples, selected_genes)
 
 from prostate_cancer_prediction.feature_encoders import mut_binary, cnv_amp, cnv_del
-from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, accuracy_score, precision_score, recall_score
+from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, accuracy_score, precision_score, \
+    recall_score
 
 n_hidden_layers = 5
 
@@ -64,28 +65,33 @@ pnet_external_validation_1_elmarakeby_config = {
     "pipeline_class": TFPipeline,
     "run_method": "run_single_split",
     "grid_search": {
-            "model_params": {
-                f"h_reg_{h}_o_reg_{o}": {**_model_params,
-                                         "h_reg": [(L2, {"l2": h})] * (n_hidden_layers + 1),
-                                         "o_reg": [(L2, {"l2": o})] * (n_hidden_layers + 1)}
-                for h in [1e-3]
-                for o in [1e-2]
-            },
+        "model_params": {
+            f"h_reg_{h}_o_reg_{o}": {**_model_params,
+                                     "h_reg": [(L2, {"l2": h})] * (n_hidden_layers + 1),
+                                     "o_reg": [(L2, {"l2": o})] * (n_hidden_layers + 1)}
+            for h in [1e-3]
+            for o in [1e-2]
         },
+    },
+    "ext_validation_hyperparam_selection_metric": "auc",
     "external_datasets": [
         {
             "tag": "Met500",
             "views": [
-                ("mut_important", "../external_validation/Met500/Met500_mut_matrix_processed.csv", selected_genes, 0, mut_binary, lambda x: x),
-                ("cnv_amp", "../external_validation/Met500/Met500_cnv_processed.csv", selected_genes, 0, cnv_amp, lambda x: x),
-                ("cnv_del", "../external_validation/Met500/Met500_cnv_processed.csv", selected_genes, 0, cnv_del, lambda x: x),
+                ("mut_important", "../external_validation/Met500/Met500_mut_matrix_processed.csv", selected_genes, 0,
+                 mut_binary, lambda x: x),
+                ("cnv_amp", "../external_validation/Met500/Met500_cnv_processed.csv", selected_genes, 0, cnv_amp,
+                 lambda x: x),
+                ("cnv_del", "../external_validation/Met500/Met500_cnv_processed.csv", selected_genes, 0, cnv_del,
+                 lambda x: x),
             ],
             "labels": [("../external_validation/Met500/Met500_labels.csv", 0)],
         },
         {
             "tag": "PRAD",
             "views": [
-                ("mut_important", "../external_validation/PRAD/mut_matrix.csv", selected_genes, 0, mut_binary, lambda x: x),
+                ("mut_important", "../external_validation/PRAD/mut_matrix.csv", selected_genes, 0, mut_binary,
+                 lambda x: x),
                 ("cnv_amp", "../external_validation/PRAD/cnv_matrix.csv", selected_genes, 0, cnv_amp, lambda x: x),
                 ("cnv_del", "../external_validation/PRAD/cnv_matrix.csv", selected_genes, 0, cnv_del, lambda x: x),
             ],
@@ -93,11 +99,11 @@ pnet_external_validation_1_elmarakeby_config = {
         }
     ],
     "external_validation_metrics": {
-        "auc":       roc_auc_score,
-        "auprc":     average_precision_score,
-        "f1":        lambda ys, preds: f1_score(ys, (preds > 0.5).astype(int)),
-        "accuracy":  lambda ys, preds: accuracy_score(ys, (preds > 0.5).astype(int)),
+        "auc": roc_auc_score,
+        "auprc": average_precision_score,
+        "f1": lambda ys, preds: f1_score(ys, (preds > 0.5).astype(int)),
+        "accuracy": lambda ys, preds: accuracy_score(ys, (preds > 0.5).astype(int)),
         "precision": lambda ys, preds: precision_score(ys, (preds > 0.5).astype(int)),
-        "recall":    lambda ys, preds: recall_score(ys, (preds > 0.5).astype(int)),
+        "recall": lambda ys, preds: recall_score(ys, (preds > 0.5).astype(int)),
     },
 }

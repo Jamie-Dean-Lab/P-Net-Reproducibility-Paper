@@ -337,8 +337,27 @@ class Pipeline:
         pass
 
     def _get_modal_hyperparams(self):
-        metric = self.config.get("ext_validation_hyperparam_selection_metric") or next(iter(self.config["val_metric"]))
         df = pd.read_csv(f"{self.run_dir}/results.csv", index_col=0)
+
+        available_metrics = df["metric"].unique()
+        selection_metric = self.config.get("ext_validation_hyperparam_selection_metric")
+        if len(available_metrics) == 1:
+            # Only one metric recorded, so the choice is unambiguous.
+            metric = available_metrics[0]
+        elif selection_metric:
+            if selection_metric not in available_metrics:
+                raise ValueError(
+                    f"ext_validation_hyperparam_selection_metric '{selection_metric}' is not "
+                    f"present in results.csv; available metrics are {sorted(available_metrics)}."
+                )
+            metric = selection_metric
+        else:
+            raise ValueError(
+                f"results.csv contains multiple metrics ({sorted(available_metrics)}); set "
+                "'ext_validation_hyperparam_selection_metric' to choose which one to use for "
+                "external-validation hyperparameter selection."
+            )
+
         df = df[df["metric"] == metric]
         fold_choices = df[["test_fold", "hyperparams"]].drop_duplicates(subset="test_fold")
         modes = fold_choices["hyperparams"].mode()
