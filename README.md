@@ -1,10 +1,11 @@
 # P-Net-Reproducibility-Paper
 
-This is the implementation of P-NET (a Biologically Informed Neural Network). The code was written by Haitham A Elmarakeby et al. in “Biologically informed deep neural network for prostate cancer discover" (paper link: https://www.nature.com/articles/s41586-021-03922-4) and adapted to work for Python 3. It is used for three tasks:
+This is the implementation of P-NET (a Biologically Informed Neural Network). The code was written by Haitham A Elmarakeby et al. in “Biologically informed deep neural network for prostate cancer discover" (paper link: https://www.nature.com/articles/s41586-021-03922-4) and adapted to work for Python 3. It is used for four tasks:
 
 1. Prostate Cancer Classification (primary or metastatic) - reproducibility of the results outlined in the paper
 2. Tissue type classification - using the adult GTEx dataset
 3. Radiosensitivity Prediction - using 511 cell lines from the CCLE dataset
+4. Low grade glioma vs GBM classification - using the TCGA Lower Grade Glioma and Glioblastoma (GBMLGG) dataset.
 
 The code has been heavily refactored to allow input datasets to be more easily integrated for experiments beyond the original Prostate Cancer Classification task. Issues around reproducibility of results have also been fixed and the pipeline and configuration has been cleaned up to ensure that settings within the configuration files will influence each run where previously sometimes there was overriding of parameters hidden in the pipeline. The pipeline has also been designed to be more extensible, allowing users to write their own functions to be inserted at different stages of the pipeline for the purposes of experiments and are described below
 
@@ -59,11 +60,13 @@ All code pertaining to P-Net and supporting pipeline can be found in the archite
 6. coef_weights_utils.py - functions to help with extracting coefficients and outputs from the tensorflow model layers for the purpose of deeplift / explainability. Mostly unchanged from original P-Net repository
 7. deepexplain - folder containing deepexplain / deeplift code. Mostly unchanged from original P-Net repository
 8. Reactome - folder containing the reactome data used by P-Net. Unchanged from the original P-Net repository
-9. evaluation.py - contains functions that are attached to the results_processors variable in the configuration file to allow flexibility in what kinds of evaluations to perform on each run e.g AUC, accuracy, F1, train history, deeplift etc.
-10. pnet_config.py - template configuration file with values set to what was specified in the P-Net paper (which is not necessarily the same as in the original P-Net github repository). Gives an idea of what is available for configuration and what are expected inputs
+9. GO - folder containing a Gene Ontology hierarchy and gene sets, offering an alternative to Reactome for constructing the P-Net masks (used by the pnet_GO experiment configs). preprocess.py builds the hierarchy, gene-set, and id-map files from the source CX file.
+10. evaluation.py - contains functions that are attached to the results_processors variable in the configuration file to allow flexibility in what kinds of evaluations to perform on each run e.g AUC, accuracy, F1, train history, deeplift etc.
+11. dense_model.py - constructs a plain fully-connected (dense) TensorFlow network used as a non-biologically-informed baseline against P-Net.
+12. train.py - small helper that takes a config, instantiates its pipeline_class, and invokes the configured run_method. This is the entry point each experiment's configs are passed through.
 
 ### Usage
-The code is meant to be used by importing / copying the pnet_config.py file and editing it to suit your experiment needs. There are a few config options that are experiment specific and listed below
+Each experiment folder contains a `configs/` directory holding a `base_config.py` with the shared settings for that task plus one config file per model/experiment (e.g. `adaboost.py`, `pnet.py`), and a `run.py` that imports the desired configs and passes each to `architecture.train.train`. To set up a new experiment, copy an existing config, spread in the relevant `base_config`, and edit it to suit your needs. There are a few config options that are experiment specific and listed below
 1. run_id - specifies the tag for the current experiment run
 2. data_dir - path to the folder containing all the data for the experiments
 3. run_dir - path to the folder you wish to store all the outputs of your experiments
@@ -88,4 +91,4 @@ The pipeline was designed to let users customise different steps in the model de
 3. results_processors - a list of functions that are run after a model for a training run has been completed. This can be various metrics, plotting training history, saving model weights etc.
    
 #### Grid search
-Grid searching can be done by specifying the desired parameters to gridsearch over in a dictionary where each config item that you want to gridsearch over is a key in the dictionary and the value is a dictionary of the parameters to be searched. The keys of the inner dictionary are just identifiers for that particular parameter setting and the value is the actual value you want to gridsearch over. You then use construct_gs_params on this dictionary and assign the output to grid_search variable in the config
+Grid searching is configured by assigning a dictionary to the `grid_search` variable in the config, where each config item that you want to gridsearch over is a key in the dictionary and the value is a dictionary of the parameters to be searched. The keys of the inner dictionary are just identifiers for that particular parameter setting and the value is the actual value you want to gridsearch over. The pipeline automatically expands this into the full grid (via `construct_gs_params`) at run time.
