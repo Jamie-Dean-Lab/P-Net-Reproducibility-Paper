@@ -11,7 +11,7 @@ from architecture.evaluation import plot_history, get_deeplift_global
 from .base_config import (base_config, data_dir, f1_selection, auprc_selection,
                           auc_selection, save_processor, train_samples, val_samples, test_samples, selected_genes)
 
-from prostate_cancer_prediction.feature_encoders import mut_binary, cnv_amp, cnv_del
+from prostate_cancer_prediction.feature_encoders import mut_binary, cnv_amp, cnv_del, cnv_signed, cnv
 from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, accuracy_score, precision_score, \
     recall_score
 
@@ -19,6 +19,11 @@ n_hidden_layers = 5
 
 learning_rate = 1e-3
 step_decay_part = partial(step_decay, init_lr=learning_rate, drop=0.25, epochs_drop=10)
+
+_views = [
+    ("mut_important", "P1000_final_analysis_set_cross_important_only.csv", selected_genes, 0, mut_binary, lambda x: x),
+    ("cnv", "P1000_data_CNA_paper.csv", selected_genes, 0, cnv, lambda x: x),
+]
 
 _model_params = {
     "pathway_dataset": "reactome",
@@ -43,6 +48,7 @@ _model_params = {
 
 pnet_external_validation_1_elmarakeby_config = {
     **copy.deepcopy(base_config),
+    "views": _views,
     "run_id": "pnet_external_validation_1_elmarakeby",
     "model": compile_pnet,
     "model_params": _model_params,
@@ -80,10 +86,8 @@ pnet_external_validation_1_elmarakeby_config = {
             "views": [
                 ("mut_important", "../external_validation/Met500/Met500_mut_matrix_processed.csv", selected_genes, 0,
                  mut_binary, lambda x: x),
-                ("cnv_amp", "../external_validation/Met500/Met500_cnv_processed.csv", selected_genes, 0, cnv_amp,
-                 lambda x: x),
-                ("cnv_del", "../external_validation/Met500/Met500_cnv_processed.csv", selected_genes, 0, cnv_del,
-                 lambda x: x),
+                ("cnv", "../external_validation/Met500/Met500_cnv_processed.csv", selected_genes, 0, cnv_signed,
+                 lambda x: x)
             ],
             "labels": [("../external_validation/Met500/Met500_labels.csv", 0)],
         },
@@ -92,8 +96,7 @@ pnet_external_validation_1_elmarakeby_config = {
             "views": [
                 ("mut_important", "../external_validation/PRAD/mut_matrix.csv", selected_genes, 0, mut_binary,
                  lambda x: x),
-                ("cnv_amp", "../external_validation/PRAD/cnv_matrix.csv", selected_genes, 0, cnv_amp, lambda x: x),
-                ("cnv_del", "../external_validation/PRAD/cnv_matrix.csv", selected_genes, 0, cnv_del, lambda x: x),
+                ("cnv", "../external_validation/PRAD/cnv_matrix.csv", selected_genes, 0, cnv_signed, lambda x: x),
             ],
             "labels": [("../external_validation/PRAD/PRAD_labels.csv", 0)],
         }

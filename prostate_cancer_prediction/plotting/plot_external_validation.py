@@ -14,17 +14,24 @@ def plot_external_validation(run_dir, figures_dir):
     met2 = pd.read_csv(f"{run_dir}/pnet_external_validation_2_elmarakeby/external_validation/Met500/predictions.csv", index_col=0)
     primary2 = pd.read_csv(f"{run_dir}/pnet_external_validation_2_elmarakeby/external_validation/PRAD/predictions.csv", index_col=0)
 
-    # Average prediction scores before thresholding, then concatenate datasets
-    met_preds  = (met1["metastatic_pred"] + met2["metastatic_pred"]) / 2
+    # Average prediction scores before thresholding
+    met_preds = (met1["metastatic_pred"] + met2["metastatic_pred"]) / 2
     prad_preds = (primary1["metastatic_pred"] + primary2["metastatic_pred"]) / 2
-    all_preds  = pd.concat([met_preds, prad_preds])
-    all_true   = pd.concat([met1["metastatic"], primary1["metastatic"]])
 
-    conf_mat = confusion_matrix(all_true, (all_preds > 0.5).astype(int), normalize="true") * 100
+    met_binary = (met_preds > 0.5).astype(int)
+    prad_binary = (prad_preds > 0.5).astype(int)
+
+    # Reproduce their approach: one row per dataset, [pred==False count, pred==True count]
+    primary_row = np.array([sum(prad_binary == 0), sum(prad_binary == 1)])
+    mets_row = np.array([sum(met_binary == 0), sum(met_binary == 1)])
+
+    cm = np.array([primary_row, mets_row])
+    # Normalise each dataset independently (row-wise)
+    cm = 100. * cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
 
     fig = plt.figure(figsize=(4, 4))
     ax = fig.subplots(1, 1)
-    _plot_confusion_matrix(ax, conf_mat)
+    _plot_confusion_matrix(ax, cm)
     plt.savefig(f"{figures_dir}/pnet_external_validation.jpg", dpi=200)
     plt.close()
 
