@@ -1,22 +1,13 @@
 import copy
 
-from keras.regularizers import L2
-
 from architecture.evaluation import plot_history
 from .base_config import save_processor
-from .pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config, n_hidden_layers
+from .pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config
 
 # Network-order variation: keep the train/val/test split and all hyperparameters
 # fixed, and fix the network construction seed (map_seed) and input variable order (shuffle_seed) to verify
 # that there is no variance in the results.
 seeds = [42, 42, 42, 42, 42]
-
-_model_params = {
-    **copy.deepcopy(pnet_single_split_elmarakeby_config["model_params"]),
-    "sparse": True,
-    "h_reg":  [(L2, {"l2": 1e-3})] * (n_hidden_layers + 1),
-    "o_reg":  [(L2, {"l2": 1e-2})] * (n_hidden_layers + 1),
-}
 
 pnet_network_order_fixed_seed_configs = [
     {
@@ -26,7 +17,10 @@ pnet_network_order_fixed_seed_configs = [
         "grid_search":        [],
         "val_metric":         {},
         "run_method":         "run_single_split",
-        "model_params":       {**copy.deepcopy(_model_params), "map_seed": seed},
+        "model_params": {
+            **copy.deepcopy(pnet_single_split_elmarakeby_config["model_params"]),
+            "map_seed": seed,
+        },
         "shuffle_seed": seed
     }
     for i, seed in enumerate(seeds)

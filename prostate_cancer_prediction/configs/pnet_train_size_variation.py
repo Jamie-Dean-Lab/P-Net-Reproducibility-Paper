@@ -17,6 +17,7 @@ _train_size_base = {
     "stratified":            True,
     "inner_kfolds":          5,
     "fold_collators":        [collate_folds],
+    "grid_search":           [],
     "grid_search_collators": [],
     "pipeline_class":        TFPipeline,
 }
@@ -28,10 +29,7 @@ pnet_train_size_variation_configs = [
         "run_id":                        f"pnet_train_size_variation_{i}",
         "train_samples":                 ts,
         "val_samples": [],
-        "model_params": {
-            **copy.deepcopy(pnet_single_split_elmarakeby_config["model_params"]),
-            "sparse": True,
-        },
+        # Sparse P-NET with the default elmarakeby hyperparameters (inherited).
         "run_method": "run_crossvalidation"
     }
     for i, ts in enumerate(train_size_samples)
