@@ -2,7 +2,9 @@ import unittest
 import pandas as pd
 import numpy as np
 
-from prostate_cancer_prediction.feature_encoders import mut_binary, cnv_del, cnv_amp, cnv, cnv_signed
+from prostate_cancer_prediction.feature_encoders import (
+    mut_binary, cnv_del, cnv_amp, cnv, cnv_signed, cnv_amp_from_signed, cnv_del_from_signed,
+)
 
 
 class TestMutBinary(unittest.TestCase):
@@ -283,6 +285,66 @@ class TestCnvSigned(unittest.TestCase):
         result = cnv_signed(df)
         expected = pd.DataFrame({"gene1": [-1.0, 1.0], "gene2": [1.0, -1.0]})
         pd.testing.assert_frame_equal(result, expected)
+
+
+class TestCnvAmpFromSigned(unittest.TestCase):
+
+    def test_amplification_becomes_one(self):
+        df = pd.DataFrame({"gene1": [1.0]})
+        result = cnv_amp_from_signed(df)
+        self.assertEqual(result.iloc[0, 0], 1.0)
+
+    def test_deletion_becomes_zero(self):
+        df = pd.DataFrame({"gene1": [-1.0]})
+        result = cnv_amp_from_signed(df)
+        self.assertEqual(result.iloc[0, 0], 0.0)
+
+    def test_zero_unchanged(self):
+        df = pd.DataFrame({"gene1": [0.0]})
+        result = cnv_amp_from_signed(df)
+        self.assertEqual(result.iloc[0, 0], 0.0)
+
+    def test_mixed_values(self):
+        df = pd.DataFrame({"gene1": [-1.0, 0.0, 1.0]})
+        result = cnv_amp_from_signed(df)
+        expected = pd.DataFrame({"gene1": [0.0, 0.0, 1.0]})
+        pd.testing.assert_frame_equal(result, expected)
+
+    def test_does_not_mutate_input(self):
+        df = pd.DataFrame({"gene1": [-1.0, 0.0, 1.0]})
+        original = df.copy()
+        cnv_amp_from_signed(df)
+        pd.testing.assert_frame_equal(df, original)
+
+
+class TestCnvDelFromSigned(unittest.TestCase):
+
+    def test_deletion_becomes_one(self):
+        df = pd.DataFrame({"gene1": [-1.0]})
+        result = cnv_del_from_signed(df)
+        self.assertEqual(result.iloc[0, 0], 1.0)
+
+    def test_amplification_becomes_zero(self):
+        df = pd.DataFrame({"gene1": [1.0]})
+        result = cnv_del_from_signed(df)
+        self.assertEqual(result.iloc[0, 0], 0.0)
+
+    def test_zero_unchanged(self):
+        df = pd.DataFrame({"gene1": [0.0]})
+        result = cnv_del_from_signed(df)
+        self.assertEqual(result.iloc[0, 0], 0.0)
+
+    def test_mixed_values(self):
+        df = pd.DataFrame({"gene1": [-1.0, 0.0, 1.0]})
+        result = cnv_del_from_signed(df)
+        expected = pd.DataFrame({"gene1": [1.0, 0.0, 0.0]})
+        pd.testing.assert_frame_equal(result, expected)
+
+    def test_does_not_mutate_input(self):
+        df = pd.DataFrame({"gene1": [-1.0, 0.0, 1.0]})
+        original = df.copy()
+        cnv_del_from_signed(df)
+        pd.testing.assert_frame_equal(df, original)
 
 
 class TestSymmetry(unittest.TestCase):

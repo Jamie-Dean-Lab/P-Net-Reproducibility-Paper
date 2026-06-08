@@ -30,9 +30,6 @@ _model_params = {
     "h_bias_constraints": [None] * (n_hidden_layers + 1),
     "batch_normal": False,
     "sparse": True,
-    # Default regularisation (the hyperparameters from our nested CV). These make
-    # _model_params a complete, runnable spec so downstream configs can inherit it
-    # without re-specifying h_reg/o_reg. The grid_search below overrides them.
     "h_reg": [(L2, {"l2": 1e-3})] * (n_hidden_layers + 1),
     "o_reg": [(L2, {"l2": 1e-2})] * (n_hidden_layers + 1),
     "dropout_testing": False,

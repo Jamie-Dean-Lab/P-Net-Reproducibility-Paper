@@ -14,6 +14,8 @@ import numpy as np
 import pandas as pd
 import requests
 
+from prostate_cancer_prediction.feature_encoders import cnv as cnv_encode
+
 ZENODO_DATABASE_URL = "https://zenodo.org/records/10775529/files/_database.zip?download=1"
 
 # Met500 prostate samples that also appear in the primary cohort. This overlap
@@ -111,9 +113,15 @@ class Preprocessor:
         """
         self.combined_dir.mkdir(parents=True, exist_ok=True)
 
+        # Met500 CNV is in raw {-2,-1,0,1,2} format; collapse it to the signed
+        # {-1,0,1} indicator (high-level events only) so it matches the PRAD CNV
+        # matrix, which is already in that format. Encoding the combined matrix
+        # instead would zero out the already-collapsed PRAD values, so the two
+        # cohorts must be encoded separately.
         cnv = self._combine_matrices(
             self.met500_dir / "Met500_cnv_processed.csv",
             self.prad_dir / "cnv_matrix.csv",
+            met500_encoder=cnv_encode,
         )
         mut = self._combine_matrices(
             self.met500_dir / "Met500_mut_matrix_processed.csv",
@@ -128,12 +136,15 @@ class Preprocessor:
         mut.to_csv(self.combined_dir / "mut_combined.csv")
         labels.to_csv(self.combined_dir / "labels_combined.csv")
 
-    def _combine_matrices(self, met500_path, prad_path):
+    def _combine_matrices(self, met500_path, prad_path, met500_encoder=lambda x: x):
         """Stack two sample-indexed matrices row-wise, taking the union of columns.
 
         Genes present in only one cohort are filled with 0 for the other's samples.
+        ``met500_encoder`` is applied to the Met500 matrix before concatenation
+        (e.g. to collapse its raw CNV values to the signed indicator the PRAD
+        matrix is already in); the PRAD matrix is left untouched.
         """
-        met500 = self._read_matrix(met500_path)
+        met500 = met500_encoder(self._read_matrix(met500_path))
         prad = self._read_matrix(prad_path)
         return pd.concat([met500, prad], axis=0).fillna(0)
 

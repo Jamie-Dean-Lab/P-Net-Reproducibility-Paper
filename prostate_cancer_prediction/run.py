@@ -54,6 +54,7 @@ from prostate_cancer_prediction.configs.pnet_external_validation_2 import \
 from prostate_cancer_prediction.configs.pnet_network_order_variation import pnet_network_order_variation_configs
 from prostate_cancer_prediction.configs.pnet_10_fold_CV_stability import pnet_10_fold_CV_stability_config
 from prostate_cancer_prediction.configs.pnet_GO_10_fold_CV_stability import pnet_GO_10_fold_CV_stability_config
+from prostate_cancer_prediction.plotting.plot_train_size_variations import plot_train_size_comparisons
 
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
@@ -118,14 +119,14 @@ def run():
         # pnetfc_nested_CV_config,
         # pnet_GO_nested_CV_config,
         # adaboost_nested_CV_config,
-        # decision_tree_nested_CV_config,
+         decision_tree_nested_CV_config,
         # linear_svm_nested_CV_config,
         # random_forest_nested_CV_config,
         # rbf_svm_nested_CV_config,
         # sgd_logistic_regression_nested_CV_config,
 
-        # pnet_external_validation_1_elmarakeby_config,
-        # pnet_external_validation_2_elmarakeby_config
+         # pnet_external_validation_1_elmarakeby_config,
+         # pnet_external_validation_2_elmarakeby_config
     ]
 
     for config in configs:
@@ -133,12 +134,13 @@ def run():
 
     figures_dir = os.path.join(wd, "figures")
     os.makedirs(figures_dir, exist_ok=True)
+    #plot_train_size_comparisons(run_dir, figures_dir)
 
     # Distribution of each test metric across the network-order variation runs
     # plot_network_order_variation(run_dir, figures_dir,
     #                              run_prefix="pnet_network_order_variation", split="test")
 
-    plot_nested_CV(run_dir, figures_dir)
+    #plot_nested_CV(run_dir, figures_dir)
     # plot_stratified_5_fold_CV(run_dir, figures_dir)
     #plot_external_validation(run_dir, figures_dir)
 

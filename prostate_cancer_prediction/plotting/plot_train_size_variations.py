@@ -6,30 +6,29 @@ from enum import Enum
 from scipy.stats import ttest_ind
 
 
-
 class FigureComparativeAnalysisConfiguration(Enum):
     plot_size = (10, 7)
 
-    pnet_auc_color  = 'blue'
+    pnet_auc_color = 'blue'
     dense_auc_color = 'orange'
 
-    marker      = "."
+    marker = "."
     marker_size = 14
 
-    pnet_label  = 'P-NET'
+    pnet_label = 'P-NET'
     dense_label = 'Dense'
 
     legend_fontsize = 12
-    legend_frame    = False
+    legend_frame = False
 
-    top_spine_visibility    = False
+    top_spine_visibility = False
     bottom_spine_visibility = True
-    left_spine_visibility   = True
-    right_spine_visibility  = False
+    left_spine_visibility = True
+    right_spine_visibility = False
 
     spine_thickness = 1
-    tick_size       = 14
-    label_size      = 14
+    tick_size = 14
+    label_size = 14
 
 
 # Fixed limits for metrics that are well-behaved on [0, 1];
@@ -37,41 +36,42 @@ class FigureComparativeAnalysisConfiguration(Enum):
 METRICS = ["auc", "auprc", "f1", "accuracy", "precision", "recall"]
 
 METRICS_Y_LIMITS = {
-    "auc":       (0.4, 1.0),
-    "auprc":     (0.4, 1.0),
-    "f1":        None,
-    "accuracy":  None,
+    "auc": (0.4, 1.0),
+    "auprc": (0.4, 1.0),
+    "f1": None,
+    "accuracy": None,
     "precision": None,
-    "recall":    None,
+    "recall": None,
 }
+
 
 class ComparativeAnalysis:
 
     def __init__(self, results):
         self.results = results
-        self.config  = FigureComparativeAnalysisConfiguration
+        self.config = FigureComparativeAnalysisConfiguration
 
     def process_results(self):
-        self.number_of_samples         = np.array(self.results['number_of_samples'])
-        self.pnet_auc                  = np.array(self.results['pnet_auc'])
-        self.dense_auc                 = np.array(self.results['dense_auc'])
-        self.pnet_lower_bound          = np.array(self.results['pnet_lower_bound'])
-        self.pnet_upper_bound          = np.array(self.results['pnet_upper_bound'])
-        self.dense_lower_bound         = np.array(self.results['dense_lower_bound'])
-        self.dense_upper_bound         = np.array(self.results['dense_upper_bound'])
+        self.number_of_samples = np.array(self.results['number_of_samples'])
+        self.pnet_auc = np.array(self.results['pnet_auc'])
+        self.dense_auc = np.array(self.results['dense_auc'])
+        self.pnet_lower_bound = np.array(self.results['pnet_lower_bound'])
+        self.pnet_upper_bound = np.array(self.results['pnet_upper_bound'])
+        self.dense_lower_bound = np.array(self.results['dense_lower_bound'])
+        self.dense_upper_bound = np.array(self.results['dense_upper_bound'])
         self.statistically_significant = np.array(self.results['statistically_significant'])
 
     def compute_xticks(self):
         maximum_x_value = max(self.number_of_samples)
         minimum_x_value = min(self.number_of_samples)
-        space   = int((maximum_x_value - minimum_x_value) / len(self.number_of_samples)) + 1
+        space = int((maximum_x_value - minimum_x_value) / len(self.number_of_samples)) + 1
         x_ticks = range(minimum_x_value, maximum_x_value, space)
         return x_ticks
 
     def compute_xtickslabels(self):
         # number_of_samples and statistically_significant are both in sorted
         # n_samples order (guaranteed by _aggregate_train_size and _compute_stats)
-        significance   = ['*' if sig else 'NS' for sig in self.statistically_significant]
+        significance = ['*' if sig else 'NS' for sig in self.statistically_significant]
         x_ticks_labels = [
             str(nb_sample) + '\n' + sig
             for nb_sample, sig in zip(self.number_of_samples, significance)
@@ -113,9 +113,9 @@ class ComparativeAnalysis:
     def plot(self, ax, title, ylabel='AUC', y_limit=(0.4, 1.0), dense_label=None):
         self.process_results()
 
-        x_ticks              = self.compute_xticks()
+        x_ticks = self.compute_xticks()
         y_ticks, y_tick_lbls = self.compute_yticks_and_ytickslabels()
-        x_ticks_labels       = self.compute_xtickslabels()
+        x_ticks_labels = self.compute_xtickslabels()
 
         ax.set_title(title, loc="left", fontdict={"fontsize": 14, "fontweight": "bold"})
 
@@ -167,8 +167,8 @@ def _load_train_size_results(run_dir, prefix, metric="auc"):
             f"{run_dir}/{exp_dir}/test_0/cv_0/fold_summaries.csv", index_col=0
         )
         n_samples = (
-            pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_0/train_results.csv").shape[0]
-            + pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_0/val_results.csv").shape[0]
+                pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_0/train_results.csv").shape[0]
+                + pd.read_csv(f"{run_dir}/{exp_dir}/test_0/cv_0/fold_0/val_results.csv").shape[0]
         )
         data = data.loc[data["split"] == "val", [metric_col, "fold"]]
         data = data.rename(columns={metric_col: "response_metric"})
@@ -205,35 +205,35 @@ def _build_comparison_results(pnet_df, other_df, stats):
         "both dataframes must be sorted by n_samples before calling this function."
     )
     return {
-        "number_of_samples":         pnet_df["n_samples"].to_numpy(),
-        "pnet_auc":                  pnet_df["mean"].to_numpy(),
-        "pnet_lower_bound":          (pnet_df["mean"] - pnet_df["std"]).to_numpy(),
-        "pnet_upper_bound":          (pnet_df["mean"] + pnet_df["std"]).to_numpy(),
-        "dense_auc":                 other_df["mean"].to_numpy(),
-        "dense_lower_bound":         (other_df["mean"] - other_df["std"]).to_numpy(),
-        "dense_upper_bound":         (other_df["mean"] + other_df["std"]).to_numpy(),
+        "number_of_samples": pnet_df["n_samples"].to_numpy(),
+        "pnet_auc": pnet_df["mean"].to_numpy(),
+        "pnet_lower_bound": (pnet_df["mean"] - pnet_df["std"]).to_numpy(),
+        "pnet_upper_bound": (pnet_df["mean"] + pnet_df["std"]).to_numpy(),
+        "dense_auc": other_df["mean"].to_numpy(),
+        "dense_lower_bound": (other_df["mean"] - other_df["std"]).to_numpy(),
+        "dense_upper_bound": (other_df["mean"] + other_df["std"]).to_numpy(),
         "statistically_significant": np.array(stats),
     }
 
 
 def plot_train_size_comparisons(run_dir, figures_dir, metrics=METRICS):
     for metric in metrics:
-        pnet_results   = _load_train_size_results(run_dir, "pnet_train_size_variation", metric)
+        pnet_results = _load_train_size_results(run_dir, "pnet_train_size_variation", metric)
         pnetfc_results = _load_train_size_results(run_dir, "pnetfc_train_size_variation", metric)
-        dense_results  = _load_train_size_results(run_dir, "dense_single_layer_train_size_variation", metric)
+        dense_results = _load_train_size_results(run_dir, "dense_single_layer_train_size_variation", metric)
 
         # compute stats before aggregation (need per-fold values for t-test),
         # sorted() in _compute_stats ensures order matches _aggregate_train_size
-        pnet_dense_stats  = _compute_stats(pnet_results, dense_results)
+        pnet_dense_stats = _compute_stats(pnet_results, dense_results)
         pnet_pnetfc_stats = _compute_stats(pnet_results, pnetfc_results)
 
         # aggregate after stats — both will be sorted by n_samples
-        pnet_results   = _aggregate_train_size(pnet_results)
+        pnet_results = _aggregate_train_size(pnet_results)
         pnetfc_results = _aggregate_train_size(pnetfc_results)
-        dense_results  = _aggregate_train_size(dense_results)
+        dense_results = _aggregate_train_size(dense_results)
 
         y_limit = METRICS_Y_LIMITS[metric]
-        ylabel  = metric.upper()
+        ylabel = metric.upper()
 
         plots = [
             (

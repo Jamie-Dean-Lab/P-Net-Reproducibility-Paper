@@ -11,7 +11,7 @@ from architecture.evaluation import plot_history, get_deeplift_global
 from .base_config import (base_config, data_dir, f1_selection, auprc_selection,
                           auc_selection, save_processor, train_samples, val_samples, test_samples, selected_genes)
 
-from prostate_cancer_prediction.feature_encoders import mut_binary, cnv_amp, cnv_del, cnv
+from prostate_cancer_prediction.feature_encoders import mut_binary, cnv
 from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, accuracy_score, precision_score, \
     recall_score
 

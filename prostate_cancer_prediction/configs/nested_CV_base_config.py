@@ -4,7 +4,7 @@ from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, ac
     recall_score
 
 from .base_config import base_config, f1_selection, auprc_selection, auc_selection, selected_genes
-from ..feature_encoders import mut_binary, cnv_amp, cnv_del
+from ..feature_encoders import mut_binary, cnv_amp_from_signed, cnv_del_from_signed
 
 # Common settings shared by every nested cross-validation config (both the
 # sklearn baselines and the P-NET variants). Model-specific keys (model,
@@ -22,12 +22,15 @@ nested_CV_base_config = {
     "external_datasets": [
         {
             "tag": "combined",
+            # cnv_combined.csv is already collapsed to the signed {-1,0,1} indicator
+            # (Met500 encoded in preprocessing, PRAD natively), so the amp/del blocks
+            # are extracted with the signed-aware encoders.
             "views": [
                 ("mut_important", "../external_validation/combined/mut_combined.csv", selected_genes, 0,
                  mut_binary, lambda x: x),
-                ("cnv_amp", "../external_validation/combined/cnv_combined.csv", selected_genes, 0, cnv_amp,
+                ("cnv_amp", "../external_validation/combined/cnv_combined.csv", selected_genes, 0, cnv_amp_from_signed,
                  lambda x: x),
-                ("cnv_del", "../external_validation/combined/cnv_combined.csv", selected_genes, 0, cnv_del,
+                ("cnv_del", "../external_validation/combined/cnv_combined.csv", selected_genes, 0, cnv_del_from_signed,
                  lambda x: x),
             ],
             "labels": [("../external_validation/combined/labels_combined.csv", 0)],

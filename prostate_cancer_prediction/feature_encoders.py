@@ -94,3 +94,41 @@ def cnv_signed(x: pd.DataFrame):
     x[x > 1.] = 1.
     x[x < 0.] = -1.
     return x
+
+
+def cnv_amp_from_signed(x: pd.DataFrame):
+    """
+    Extract amplifications from already-collapsed signed CNV ({-1, 0, 1}) as a
+    binary {0, 1} indicator (amplification -> 1, otherwise 0). This is the signed
+    counterpart of cnv_amp: use it when the input has already been collapsed to
+    the signed indicator (e.g. the combined external-validation matrix). Applying
+    the raw cnv_amp to such data would instead drop the single-level +1 values and
+    zero everything out.
+
+    args:
+        x (DataFrame) : input DataFrame containing signed CNV data
+
+    returns:
+        DataFrame : a new DataFrame with the encoding applied (input is not modified)
+    """
+    x = x.copy()
+    x[x < 0.0] = 0.0
+    return x
+
+
+def cnv_del_from_signed(x: pd.DataFrame):
+    """
+    Extract deletions from already-collapsed signed CNV ({-1, 0, 1}) as a binary
+    {0, 1} indicator (deletion -> 1, otherwise 0). Signed counterpart of cnv_del
+    (see cnv_amp_from_signed).
+
+    args:
+        x (DataFrame) : input DataFrame containing signed CNV data
+
+    returns:
+        DataFrame : a new DataFrame with the encoding applied (input is not modified)
+    """
+    x = x.copy()
+    x[x > 0.0] = 0.0
+    x[x < 0.0] = 1.0
+    return x
