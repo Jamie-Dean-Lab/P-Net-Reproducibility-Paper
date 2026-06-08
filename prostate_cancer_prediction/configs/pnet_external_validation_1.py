@@ -11,7 +11,7 @@ from architecture.evaluation import plot_history, get_deeplift_global
 from .base_config import (base_config, data_dir, f1_selection, auprc_selection,
                           auc_selection, save_processor, train_samples, val_samples, test_samples, selected_genes)
 
-from prostate_cancer_prediction.feature_encoders import mut_binary, cnv_amp, cnv_del, cnv_signed, cnv
+from prostate_cancer_prediction.feature_encoders import mut_binary, cnv_amp, cnv_del, cnv
 from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, accuracy_score, precision_score, \
     recall_score
 
@@ -86,7 +86,9 @@ pnet_external_validation_1_elmarakeby_config = {
             "views": [
                 ("mut_important", "../external_validation/Met500/Met500_mut_matrix_processed.csv", selected_genes, 0,
                  mut_binary, lambda x: x),
-                ("cnv", "../external_validation/Met500/Met500_cnv_processed.csv", selected_genes, 0, cnv_signed,
+                # Met500_cnv_processed.csv contains single and double amplification/deletion, so treat it identically to primary dataset.
+                # (collapse to 3 values (+1,0,-1).
+                ("cnv", "../external_validation/Met500/Met500_cnv_processed.csv", selected_genes, 0, cnv,
                  lambda x: x)
             ],
             "labels": [("../external_validation/Met500/Met500_labels.csv", 0)],
@@ -96,7 +98,8 @@ pnet_external_validation_1_elmarakeby_config = {
             "views": [
                 ("mut_important", "../external_validation/PRAD/mut_matrix.csv", selected_genes, 0, mut_binary,
                  lambda x: x),
-                ("cnv", "../external_validation/PRAD/cnv_matrix.csv", selected_genes, 0, cnv_signed, lambda x: x),
+                # cnv_matrix.csv has already been collapsed to 3 levels (+1,0,-1), no preprocessing necessary.
+                ("cnv", "../external_validation/PRAD/cnv_matrix.csv", selected_genes, 0, lambda x: x, lambda x: x),
             ],
             "labels": [("../external_validation/PRAD/PRAD_labels.csv", 0)],
         }
