@@ -11,10 +11,8 @@ linear_svm_single_split_elmarakeby_config = {
     "task":                   "binary classification",
     "pipeline_class":         MLPipeline,
     "results_processors":     [save_processor],
-    "val_metric":             {"auc": auc_selection},
-    "grid_search":            {"model_params": {
-        f"c_{c}": {"kernel": "linear", "probability": True, "C": c, "class_weight": {0: 0.75, 1: 1.5}}
-        for c in [0.1]
-    }},
+    "model_params":           {"kernel": "linear", "probability": True, "C": 0.1, "class_weight": {0: 0.75, 1: 1.5}},
+    "val_metric":             {},
+    "grid_search":            [],
     "run_method":             "run_single_split"
 }

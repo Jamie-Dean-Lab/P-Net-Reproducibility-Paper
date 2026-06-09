@@ -6,10 +6,8 @@ from keras.callbacks import LearningRateScheduler
 
 from architecture.pipeline import TFPipeline
 from architecture.callbacks_custom import step_decay
-from architecture.evaluation import collate_folds
 from architecture.dense_model import compile_dense
-from .base_config import (base_config, val_samples, save_processor)
-from .pnet_train_size_variation import train_size_samples
+from .base_config import base_config, save_processor
 
 # The single-layer dense model has one output, so the class-weight list (and the
 # replicated targets in fit) must have length n_hidden_layers + 1 == 1. This must
@@ -39,23 +37,15 @@ _dense_model_params = {
     "optimizer":      {"class_name": "Adam", "config": {"learning_rate": learning_rate}},
 }
 
-dense_single_layer_train_size_variation_configs = [
-    {
-        **copy.deepcopy(base_config),
-        "run_id":             f"dense_single_layer_train_size_variation_{i}",
-        "train_samples":      ts,
-        "val_samples": [],
-        "model":              compile_dense,
-        "model_params":       copy.deepcopy(_dense_model_params),
-        "fitting_params":     copy.deepcopy(_dense_fitting_params),
-        "results_processors": [save_processor],
-        "val_metric":         {},
-        "stratified":         True,
-        "inner_kfolds":       5,
-        "fold_collators":     [collate_folds],
-        "grid_search_collators": [],
-        "pipeline_class":     TFPipeline,
-        "run_method": "run_crossvalidation"
-    }
-    for i, ts in enumerate(train_size_samples)
-]
+dense_single_layer_single_split_elmarakeby_config = {
+    **copy.deepcopy(base_config),
+    "run_id":             "dense_single_layer_single_split_elmarakeby",
+    "model":              compile_dense,
+    "model_params":       copy.deepcopy(_dense_model_params),
+    "fitting_params":     copy.deepcopy(_dense_fitting_params),
+    "results_processors": [save_processor],
+    "val_metric":         {},
+    "grid_search":        [],
+    "pipeline_class":     TFPipeline,
+    "run_method":         "run_single_split"
+}

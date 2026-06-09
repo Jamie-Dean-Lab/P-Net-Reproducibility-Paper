@@ -11,10 +11,8 @@ decision_tree_single_split_elmarakeby_config = {
     "task":                   "binary classification",
     "pipeline_class":         MLPipeline,
     "results_processors":     [save_processor],
-    "val_metric":             {"auc": auc_selection},
-    "grid_search":            {"model_params": {
-        f"ssplit_{s}_depth_{d}": {"min_samples_split": s, "max_depth": d, "class_weight": {0: 0.75, 1: 1.5}}
-        for s in [10] for d in [10]
-    }},
+    "model_params":           {"min_samples_split": 10, "max_depth": 10, "class_weight": {0: 0.75, 1: 1.5}},
+    "val_metric":             {},
+    "grid_search":            [],
     "run_method":             "run_single_split"
 }

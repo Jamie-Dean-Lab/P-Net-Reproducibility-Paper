@@ -62,16 +62,8 @@ pnet_single_split_elmarakeby_config = {
                 pp_relations=_model_params["pp_relations"],
                 gp_relations=_model_params["gp_relations"])
     ],
-    "val_metric": {"auc": auc_selection},
+    "val_metric": {},
     "pipeline_class": TFPipeline,
     "run_method": "run_single_split",
-    "grid_search": {
-            "model_params": {
-                f"h_reg_{h}_o_reg_{o}": {**_model_params,
-                                         "h_reg": [(L2, {"l2": h})] * (n_hidden_layers + 1),
-                                         "o_reg": [(L2, {"l2": o})] * (n_hidden_layers + 1)}
-                for h in [1e-3]
-                for o in [1e-2]
-            },
-        }
+    "grid_search": []
 }

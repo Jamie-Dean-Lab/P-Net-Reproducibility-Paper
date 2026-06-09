@@ -11,10 +11,8 @@ adaboost_single_split_elmarakeby_config = {
     "task":                   "binary classification",
     "pipeline_class":         MLPipeline,
     "results_processors":     [save_processor],
-    "val_metric":             {"auc": auc_selection},
-    "grid_search":            {"model_params": {
-        f"lr_{l}_estimators_{n}": {"learning_rate": l, "n_estimators": n}
-        for l in [0.1] for n in [50]
-    }},
+    "model_params":           {"learning_rate": 0.1, "n_estimators": 50},
+    "val_metric":             {},
+    "grid_search":            [],
     "run_method":             "run_single_split"
 }

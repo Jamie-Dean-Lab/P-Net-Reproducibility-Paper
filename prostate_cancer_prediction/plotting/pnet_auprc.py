@@ -48,7 +48,8 @@ class FigureAUPRCConfiguration(Enum):
     """
     plot_size = (7, 7)
 
-    plot_colors = ['magenta', 'red', 'blue', 'green', 'orange', 'purple', 'brown', 'yellow']
+    plot_colors = ['magenta', 'red', 'blue', 'green', 'orange', 'purple', 'brown', 'yellow',
+                   'cyan', 'black', 'gold', 'teal']
 
     top_spine_visibility = False
     bottom_spine_visibility = True

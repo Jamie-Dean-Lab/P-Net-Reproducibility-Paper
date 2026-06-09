@@ -11,12 +11,9 @@ sgd_logistic_regression_single_split_elmarakeby_config = {
     "task":                   "binary classification",
     "pipeline_class":         MLPipeline,
     "results_processors":     [save_processor],
-    "val_metric":             {"auc": auc_selection},
-    "grid_search":            {"model_params": {
-        f"alpha_{a}_penalty_{p}": {
-            "alpha": a, "penalty": p, "class_weight": {0: 0.75, 1: 1.5}, "loss": "log_loss"
-        }
-        for a in [0.01] for p in ["l2"]
-    }},
+    "model_params":           {"alpha": 0.01, "penalty": "l2", "class_weight": {0: 0.75, 1: 1.5},
+                               "loss": "log_loss"},
+    "val_metric":             {},
+    "grid_search":            [],
     "run_method":             "run_single_split"
 }

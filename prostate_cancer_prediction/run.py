@@ -12,6 +12,12 @@ from prostate_cancer_prediction.configs.decision_tree_stratified_5_fold_CV impor
     decision_tree_stratified_5_fold_CV_config
 from prostate_cancer_prediction.configs.dense_single_layer_train_size_variation import \
     dense_single_layer_train_size_variation_configs
+from prostate_cancer_prediction.configs.dense_single_layer_single_split import \
+    dense_single_layer_single_split_config
+from prostate_cancer_prediction.configs.dense_single_layer_nested_CV import \
+    dense_single_layer_nested_CV_config
+from prostate_cancer_prediction.configs.dense_single_layer_single_split_elmarakeby import \
+    dense_single_layer_single_split_elmarakeby_config
 from prostate_cancer_prediction.configs.linear_svm_nested_CV import linear_svm_nested_CV_config
 from prostate_cancer_prediction.configs.linear_svm_single_split import linear_svm_single_split_config
 from prostate_cancer_prediction.configs.linear_svm_single_split_elmarakeby import \
@@ -26,6 +32,8 @@ from prostate_cancer_prediction.configs.pnet_single_split import pnet_single_spl
 from prostate_cancer_prediction.configs.pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config
 from prostate_cancer_prediction.configs.pnet_stratified_5_fold_CV import pnet_stratified_5_fold_CV_config
 from prostate_cancer_prediction.configs.pnet_train_size_variation import pnet_train_size_variation_configs
+from prostate_cancer_prediction.configs.pnetfc_single_split import pnetfc_single_split_config
+from prostate_cancer_prediction.configs.pnetfc_single_split_elmarakeby import pnetfc_single_split_elmarakeby_config
 from prostate_cancer_prediction.configs.pnetfc_stratified_5_fold_CV import pnetfc_stratified_5_fold_CV_config
 from prostate_cancer_prediction.configs.pnetfc_train_size_variation import pnetfc_train_size_variation_configs
 from prostate_cancer_prediction.configs.random_forest_nested_CV import random_forest_nested_CV_config
@@ -71,7 +79,7 @@ from prostate_cancer_prediction.plotting.plot_importance_stability import analys
 from prostate_cancer_prediction.plotting.plot_network_order_variation import plot_network_order_variation
 def run():
     configs = [
-        # Single split
+        # Single split, including grid search.
         # pnet_single_split_config,
         # decision_tree_single_split_config,
         # linear_svm_single_split_config,
@@ -79,21 +87,25 @@ def run():
         # random_forest_single_split_config,
         # adaboost_single_split_config,
         # sgd_logistic_regression_single_split_config,
+        # dense_single_layer_single_split_config,
+        # pnetfc_single_split_config,
         # pnet_GO_single_split_config
 
         # Single split, using hyperparams from original paper.
-        # pnet_single_split_elmarakeby_config,
-        # decision_tree_single_split_elmarakeby_config,
-        # linear_svm_single_split_elmarakeby_config,
-        # rbf_svm_single_split_elmarakeby_config,
-        # random_forest_single_split_elmarakeby_config,
-        # adaboost_single_split_elmarakeby_config,
-        # sgd_logistic_regression_single_split_elmarakeby_config,
+        #  pnet_single_split_elmarakeby_config,
+        #   decision_tree_single_split_elmarakeby_config,
+        #  linear_svm_single_split_elmarakeby_config,
+        #  rbf_svm_single_split_elmarakeby_config,
+        #  random_forest_single_split_elmarakeby_config,
+        #   adaboost_single_split_elmarakeby_config,
+        #  sgd_logistic_regression_single_split_elmarakeby_config,
+        #  dense_single_layer_single_split_elmarakeby_config,
+        #  pnetfc_single_split_elmarakeby_config,
 
         # Train size variation
-        # *pnet_train_size_variation_configs,
-        # *pnetfc_train_size_variation_configs,
-        # *dense_single_layer_train_size_variation_configs,
+        #  *pnet_train_size_variation_configs,
+        #  *pnetfc_train_size_variation_configs,
+        #  *dense_single_layer_train_size_variation_configs,
 
         # Stratified 5 fold CV
         #todo check pnetfc hyperparams
@@ -117,9 +129,10 @@ def run():
         # Stratified nested CV
         # pnet_nested_CV_config,
         # pnetfc_nested_CV_config,
+        # dense_single_layer_nested_CV_config,
         # pnet_GO_nested_CV_config,
-        # adaboost_nested_CV_config,
-         decision_tree_nested_CV_config,
+         #adaboost_nested_CV_config,
+        #decision_tree_nested_CV_config,
         # linear_svm_nested_CV_config,
         # random_forest_nested_CV_config,
         # rbf_svm_nested_CV_config,
@@ -154,11 +167,12 @@ def run():
     #                              pathway_names="architecture/GO/go_id_name_map.tsv")
 
     # Single-split ROC/PRC curves (original hyperparams with test+val combined,
-    # and our hyperparams with the splits kept separate):
-    # models_elmarakeby = ["pnet_single_split_elmarakeby", "decision_tree_single_split_elmarakeby"]
-    # models = ["pnet_single_split", "decision_tree_single_split"]
-    # plot_single_split_curves(run_dir, figures_dir, models_elmarakeby, tag="elmarakeby", concat_val=True)
-    # plot_single_split_curves(run_dir, figures_dir, models, concat_val=False)
+    # and our hyperparams with the splits kept separate). The model lists for each
+    # block live in plot_single_split.py.
+
+    # Test and val results combined here, as done by Elmarakeby et al.
+    plot_single_split_curves(run_dir, figures_dir, tag="elmarakeby", concat_val=True)
+    # plot_single_split_curves(run_dir, figures_dir, concat_val=False)
 
     # Sankey diagram of the P-NET-GO hierarchy:
     # pnet_run_dir = f"{run_dir}/pnet_GO_single_split"

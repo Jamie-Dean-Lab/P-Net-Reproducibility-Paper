@@ -11,10 +11,9 @@ rbf_svm_single_split_elmarakeby_config = {
     "task":                   "binary classification",
     "pipeline_class":         MLPipeline,
     "results_processors":     [save_processor],
-    "val_metric":             {"auc": auc_selection},
-    "grid_search":            {"model_params": {
-        f"c_{c}_g_{g}": {"kernel": "rbf", "probability": True, "C": c, "class_weight": {0: 0.75, 1: 1.5}, "gamma": g}
-        for c in [100] for g in [0.001]
-    }},
+    "model_params":           {"kernel": "rbf", "probability": True, "C": 100,
+                               "class_weight": {0: 0.75, 1: 1.5}, "gamma": 0.001},
+    "val_metric":             {},
+    "grid_search":            [],
     "run_method":             "run_single_split"
 }
