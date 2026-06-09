@@ -29,20 +29,19 @@ import seaborn as sns
 from scipy.stats import spearmanr
 
 
-def _load_fold_importance(run_dir, run_id, layer_key, value_col, n_folds,
-                          best_metric, connected_only):
-    """Load one importance column from every outer fold into a wide table.
+def _load_fold_importance(fold_dirs, layer_key, value_col, connected_only, unit="fold"):
+    """Load one importance column from every fold directory into a wide table.
 
-    Returns a DataFrame indexed by feature with one column per fold
-    ('fold_{i}') holding the absolute `value_col`. Missing fold files are
-    skipped with a warning.
+    `fold_dirs` is a list of directories, each expected to contain a
+    `feature_importance_{layer_key}.csv`. Returns a DataFrame indexed by feature
+    with one column per repeat ('{unit}_{i}', e.g. 'fold_0' or 'run_0') holding
+    the absolute `value_col`. Missing files are skipped with a warning.
     """
     series_by_fold = {}
-    for i in range(n_folds):
-        path = (f"{run_dir}/{run_id}/test_{i}/best_{best_metric}/"
-                f"feature_importance_{layer_key}.csv")
+    for i, fold_dir in enumerate(fold_dirs):
+        path = f"{fold_dir}/feature_importance_{layer_key}.csv"
         if not os.path.exists(path):
-            print(f"  [warn] missing {path} -- skipping fold {i}")
+            print(f"  [warn] missing {path} -- skipping {unit} {i}")
             continue
         df = pd.read_csv(path, index_col=0)
         if value_col not in df.columns:
@@ -53,11 +52,10 @@ def _load_fold_importance(run_dir, run_id, layer_key, value_col, n_folds,
             # genes connected to >=1 pathway (degree>0); equivalent to the
             # link_weights[1].index filter plot_sankey applies to gene selection
             s = s[df["coef_graph"] > 0]
-        series_by_fold[f"fold_{i}"] = s
+        series_by_fold[f"{unit}_{i}"] = s
     if not series_by_fold:
         raise FileNotFoundError(
-            f"No feature_importance_{layer_key}.csv found under "
-            f"{run_dir}/{run_id}/test_*/best_{best_metric}/")
+            f"No feature_importance_{layer_key}.csv found in any of: {fold_dirs}")
     return pd.DataFrame(series_by_fold)
 
 
@@ -107,14 +105,14 @@ def _offdiag_mean(square_df):
     return np.nanmean(a[mask])
 
 
-def _plot_topk_membership(table, display, top_k, out_dir, label_col=None, top_n=20):
+def _plot_topk_membership(table, display, top_k, out_dir, label_col=None, top_n=20, unit="fold"):
     """Save top-K membership frequency bars for the consensus features."""
     top = table.head(top_n).iloc[::-1]  # reverse so rank 1 sits at the top of barh
     labels = top[label_col] if label_col else top.index
 
     fig, ax = plt.subplots(figsize=(7, max(4.0, 0.38 * len(top))))
 
-    # how many folds place each consensus feature in the top-K,
+    # how many repeats place each consensus feature in the top-K,
     # coloured by mean rank (darker = better average rank)
     rng = top["mean_rank"].max() - top["mean_rank"].min()
     norm = (top["mean_rank"] - top["mean_rank"].min()) / (rng + 1e-9)
@@ -122,8 +120,8 @@ def _plot_topk_membership(table, display, top_k, out_dir, label_col=None, top_n=
             color=plt.cm.viridis_r(norm))
     ax.set_yticks(range(len(top)))
     ax.set_yticklabels(labels, fontsize=7)
-    ax.set_xlabel(f"# folds with feature in top-{top_k}")
-    ax.set_title(f"{display}: top-{top_k} membership across folds")
+    ax.set_xlabel(f"# {unit}s with feature in top-{top_k}")
+    ax.set_title(f"{display}: top-{top_k} membership across {unit}s")
 
     fig.tight_layout()
     fig.savefig(f"{out_dir}/{display}_top{top_k}_membership.png", dpi=200)
@@ -143,7 +141,7 @@ def _plot_pairwise_spearman(spear, display, out_dir):
     plt.close(fig)
 
 
-def _plot_top_importance(wide, table, display, top_k, out_dir, label_col=None):
+def _plot_top_importance(wide, table, display, top_k, out_dir, label_col=None, unit="fold"):
     """Save a figure of mean +/- 1 SD importance for the top-K consensus features.
     """
     top = table.head(top_k)
@@ -164,14 +162,14 @@ def _plot_top_importance(wide, table, display, top_k, out_dir, label_col=None):
         ax.scatter(fold_vals, np.full(len(fold_vals), yi),
                    color="0.65", s=14, zorder=2)
 
-    # mean +/- 1 SD across folds
+    # mean +/- 1 SD across repeats
     ax.errorbar(means, y, xerr=stds, fmt="o", color="C3", capsize=3,
-                markersize=5, lw=1.2, zorder=3, label="mean +/- 1 SD across folds")
+                markersize=5, lw=1.2, zorder=3, label=f"mean +/- 1 SD across {unit}s")
 
     ax.set_yticks(y)
     ax.set_yticklabels([label_of[f] for f in order], fontsize=7)
     ax.set_xlabel("DeepLIFT importance score")
-    ax.set_title(f"{display}: top-{top_k} importance (mean & variance across folds)")
+    ax.set_title(f"{display}: top-{top_k} importance (mean & variance across {unit}s)")
     ax.legend(fontsize=7, loc="lower right")
     ax.margins(y=0.02)
 
@@ -180,10 +178,10 @@ def _plot_top_importance(wide, table, display, top_k, out_dir, label_col=None):
     plt.close(fig)
 
 
-def _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=None):
+def _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=None, unit="fold"):
     """Save a figure of median rank with IQR (Q1-Q3) for the top-K features.
 
-    Rank is bounded, discrete and typically right-skewed across folds, so the
+    Rank is bounded, discrete and typically right-skewed across repeats, so the
     median and inter-quartile range describe its spread more faithfully than
     mean +/- SD (which can place whiskers below rank 1).
     """
@@ -208,14 +206,14 @@ def _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=None):
         ax.scatter(fold_vals, np.full(len(fold_vals), yi),
                    color="0.65", s=14, zorder=2)
 
-    # median with IQR (Q1-Q3) across folds
+    # median with IQR (Q1-Q3) across repeats
     ax.errorbar(medians, y, xerr=xerr, fmt="o", color="C0", capsize=3,
-                markersize=5, lw=1.2, zorder=3, label="median +/- IQR across folds")
+                markersize=5, lw=1.2, zorder=3, label=f"median +/- IQR across {unit}s")
 
     ax.set_yticks(y)
     ax.set_yticklabels([label_of[f] for f in order], fontsize=7)
-    ax.set_xlabel("rank within fold (1 = most important)")
-    ax.set_title(f"{display}: top-{top_k} rank (median & IQR across folds)")
+    ax.set_xlabel(f"rank within {unit} (1 = most important)")
+    ax.set_title(f"{display}: top-{top_k} rank (median & IQR across {unit}s)")
     ax.set_xlim(left=0)
     ax.legend(fontsize=7, loc="lower right")
     ax.margins(y=0.02)
@@ -226,10 +224,21 @@ def _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=None):
 
 
 def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
-                                 run_id="pnet_10_fold_CV_stability",
+                                 run_id,
                                  top_k=10, best_metric="auc", n_folds=10,
-                                 pathway_names="architecture/Reactome/ReactomePathways.txt"):
+                                 pathway_names="architecture/Reactome/ReactomePathways.txt",
+                                 fold_dirs=None, unit="fold"):
     """Run the full stability analysis and write CSVs + figures.
+
+    `fold_dirs` is the list of directories holding each repeat's
+    `feature_importance_*.csv`. When omitted it defaults to the cross-validation
+    layout ({run_dir}/{run_id}/test_{i}/best_{best_metric} for i in range(n_folds));
+    pass it explicitly to analyse a set of separate single-split runs instead (e.g.
+    the network-order variation runs). `run_id` only names the output subdirectory.
+
+    `unit` is the noun used for each repeat in figure labels and the Spearman
+    heatmap tick labels: "fold" for cross-validation folds (default), or "run" for
+    the network-order variation runs (fixed split, only the network seed varies).
 
     Outputs to {figures_dir}/importance_stability/{run_id}/:
       * {layer}_stability.csv          -- per-feature metrics (consensus-ordered)
@@ -239,6 +248,10 @@ def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
       * {layer}_top{K}_rank.png        -- median & IQR rank of the top-K features
       * stability_summary.csv          -- one row per layer (mean Spearman)
     """
+    if fold_dirs is None:
+        fold_dirs = [f"{run_dir}/{run_id}/test_{i}/best_{best_metric}"
+                     for i in range(n_folds)]
+
     out_dir = f"{figures_dir}/importance_stability/{run_id}"
     os.makedirs(out_dir, exist_ok=True)
 
@@ -259,8 +272,8 @@ def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
     for layer_key, value_col, display, connected_only in layers:
         print(f"\n=== {display} ({layer_key}, ranked by '{value_col}') ===")
         try:
-            wide = _load_fold_importance(run_dir, run_id, layer_key, value_col,
-                                         n_folds, best_metric, connected_only)
+            wide = _load_fold_importance(fold_dirs, layer_key, value_col,
+                                         connected_only, unit=unit)
         except (FileNotFoundError, KeyError) as e:
             print(f"  {e}")
             continue
@@ -279,16 +292,16 @@ def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
         mean_spear = _offdiag_mean(spear)
         n_in_all = int((table["topk_frequency"] == n_used).sum())
 
-        print(f"  features: {len(table)}, folds used: {n_used}")
+        print(f"  features: {len(table)}, {unit}s used: {n_used}")
         print(f"  mean pairwise Spearman: {mean_spear:.3f}")
-        print(f"  features in top-{top_k} of ALL folds: {n_in_all}")
+        print(f"  features in top-{top_k} of ALL {unit}s: {n_in_all}")
         cols = (["name"] if label_col else []) + ["topk_frequency", "median_rank", "iqr_rank", "mean_importance", "std_importance"]
         print(f"  top consensus features:\n{table.head(top_k)[cols].to_string()}")
 
-        _plot_topk_membership(table, display, top_k, out_dir, label_col=label_col)
+        _plot_topk_membership(table, display, top_k, out_dir, label_col=label_col, unit=unit)
         _plot_pairwise_spearman(spear, display, out_dir)
-        _plot_top_importance(wide, table, display, top_k, out_dir, label_col=label_col)
-        _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=label_col)
+        _plot_top_importance(wide, table, display, top_k, out_dir, label_col=label_col, unit=unit)
+        _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=label_col, unit=unit)
 
         summary_rows.append({
             "layer": display,

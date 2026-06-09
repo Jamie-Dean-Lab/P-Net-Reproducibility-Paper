@@ -16,6 +16,8 @@ from prostate_cancer_prediction.configs.dense_single_layer_single_split import \
     dense_single_layer_single_split_config
 from prostate_cancer_prediction.configs.dense_single_layer_nested_CV import \
     dense_single_layer_nested_CV_config
+from prostate_cancer_prediction.configs.dense_single_layer_stratified_5_fold_CV import \
+    dense_single_layer_stratified_5_fold_CV_config
 from prostate_cancer_prediction.configs.dense_single_layer_single_split_elmarakeby import \
     dense_single_layer_single_split_elmarakeby_config
 from prostate_cancer_prediction.configs.linear_svm_nested_CV import linear_svm_nested_CV_config
@@ -25,6 +27,7 @@ from prostate_cancer_prediction.configs.linear_svm_single_split_elmarakeby impor
 from prostate_cancer_prediction.configs.linear_svm_stratified_5_fold_CV import linear_svm_stratified_5_fold_CV_config
 from prostate_cancer_prediction.configs.pnet_GO_nested_CV import pnet_GO_nested_CV_config
 from prostate_cancer_prediction.configs.pnet_GO_single_split import pnet_GO_single_split_config
+from prostate_cancer_prediction.configs.pnet_GO_stratified_5_fold_CV import pnet_GO_stratified_5_fold_CV_config
 from prostate_cancer_prediction.configs.pnet_nested_CV import pnet_nested_CV_config
 from prostate_cancer_prediction.configs.pnetfc_nested_CV import pnetfc_nested_CV_config
 from prostate_cancer_prediction.configs.pnet_network_order_fixed_seed import pnet_network_order_fixed_seed_configs
@@ -67,7 +70,7 @@ from prostate_cancer_prediction.plotting.plot_train_size_variations import plot_
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
-from prostate_cancer_prediction.configs.base_config import download_dir, run_dir, wd, selected_genes
+from prostate_cancer_prediction.configs.base_config import download_dir, run_dir, wd, selected_genes, figures_dir
 from prostate_cancer_prediction.configs.pnet_single_split import n_hidden_layers
 from architecture.train import train
 from prostate_cancer_prediction.plotting.plot_nested_cv import plot_nested_CV
@@ -88,7 +91,7 @@ def run():
         # adaboost_single_split_config,
         # sgd_logistic_regression_single_split_config,
         # dense_single_layer_single_split_config,
-        # pnetfc_single_split_config,
+        #pnetfc_single_split_config,
         # pnet_GO_single_split_config
 
         # Single split, using hyperparams from original paper.
@@ -105,12 +108,14 @@ def run():
         # Train size variation
         #  *pnet_train_size_variation_configs,
         #  *pnetfc_train_size_variation_configs,
-        #  *dense_single_layer_train_size_variation_configs,
+        # *dense_single_layer_train_size_variation_configs,
 
         # Stratified 5 fold CV
-        #todo check pnetfc hyperparams
-        # pnet_stratified_5_fold_CV_config,
-        # pnetfc_stratified_5_fold_CV_config,
+        #todo check pnet_GO hyperparams. everything else uses Elmarakeby's params.
+         #pnet_stratified_5_fold_CV_config,
+         #pnetfc_stratified_5_fold_CV_config,
+         #pnet_GO_stratified_5_fold_CV_config,
+        # dense_single_layer_stratified_5_fold_CV_config,
         # decision_tree_stratified_5_fold_CV_config,
         # adaboost_stratified_5_fold_CV_config,
         # linear_svm_stratified_5_fold_CV_config,
@@ -124,7 +129,7 @@ def run():
         #pnet_GO_10_fold_CV_stability_config,
 
         #*pnet_network_order_variation_configs,
-        #*pnet_network_order_fixed_seed_configs,
+       # *pnet_network_order_fixed_seed_configs,
 
         # Stratified nested CV
         # pnet_nested_CV_config,
@@ -145,12 +150,11 @@ def run():
     for config in configs:
         train(config)
 
-    figures_dir = os.path.join(wd, "figures")
-    os.makedirs(figures_dir, exist_ok=True)
     #plot_train_size_comparisons(run_dir, figures_dir)
 
     # Distribution of each test metric across the network-order variation runs
-    # plot_network_order_variation(run_dir, figures_dir,
+    #
+    #plot_network_order_variation(run_dir, figures_dir,
     #                              run_prefix="pnet_network_order_variation", split="test")
 
     #plot_nested_CV(run_dir, figures_dir)
@@ -162,9 +166,21 @@ def run():
     # analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
     #                              run_id="pnet_10_fold_CV_stability",
     #                              pathway_names="architecture/Reactome/ReactomePathways.txt")
-    # analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
+     #analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
     #                              run_id="pnet_GO_10_fold_CV_stability",
     #                              pathway_names="architecture/GO/go_id_name_map.tsv")
+
+    # Feature-importance stability across the network-order variation runs: each
+    # variation is a separate single-split run dir (only the network construction
+    # seed differs), so importances are loaded straight from those dirs via fold_dirs
+    # rather than from CV folds.
+    analyse_importance_stability(
+        run_dir, figures_dir, n_hidden_layers,
+        run_id="pnet_network_order_variation",
+        fold_dirs=[f"{run_dir}/pnet_network_order_variation_{i}"
+                   for i in range(len(pnet_network_order_variation_configs))],
+        unit="run",
+        pathway_names="architecture/Reactome/ReactomePathways.txt")
 
     # Single-split ROC/PRC curves (original hyperparams with test+val combined,
     # and our hyperparams with the splits kept separate). The model lists for each

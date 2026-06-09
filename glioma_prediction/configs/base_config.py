@@ -14,8 +14,12 @@ from prostate_cancer_prediction.feature_encoders import mut_binary, cnv_del, cnv
 wd = "glioma_prediction"
 data_dir = f"{wd}/data"
 run_dir = f"{wd}/runs"
+figures_dir = os.path.join(wd, "figures")
 
 os.makedirs(run_dir, exist_ok=True)
+
+if not os.path.exists(figures_dir):
+    os.makedirs(figures_dir, exist_ok=True)
 
 if not os.path.exists(os.path.join(data_dir, "tcga_labels_preprocessed.csv")):
     from pathlib import Path

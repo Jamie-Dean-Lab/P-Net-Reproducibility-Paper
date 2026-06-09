@@ -15,10 +15,14 @@ from radiosensitivity_prediction.preprocess import Preprocessor
 wd = "radiosensitivity_prediction"
 data_dir = f"{wd}/data"
 run_dir = f"{wd}/runs"
+figures_dir = os.path.join(wd, "figures")
 _PREPROCESSING_SENTINEL = "nci60_rnaseq_preprocessed.csv"
 
 if not os.path.exists(run_dir):
     os.mkdir(run_dir)
+
+if not os.path.exists(figures_dir):
+    os.makedirs(figures_dir, exist_ok=True)
 
 if not os.path.exists(os.path.join(data_dir, _PREPROCESSING_SENTINEL)):
     print("Preprocessed data not found — running preprocessing pipeline...")

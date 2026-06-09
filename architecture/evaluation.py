@@ -370,8 +370,8 @@ def get_link_weights_df_(model, features, layer_names):
     return link_weights_df
 
 
-def get_deeplift_global(results, n_hidden_layers, pathway_dataset, pp_relations, gp_relations):
-    if not os.path.basename(results["save_dir"]).startswith("best_"):
+def get_deeplift_global(results, n_hidden_layers, pathway_dataset, pp_relations, gp_relations, always_run=False):
+    if not os.path.basename(results["save_dir"]).startswith("best_") and not always_run:
         return
     print("Computing DeepLIFT global importance scores")
 

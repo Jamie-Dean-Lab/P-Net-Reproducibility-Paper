@@ -14,6 +14,8 @@ download_dir = f"{wd}/data"
 data_dir = f"{download_dir}/_database"
 prostate_dir = f"{data_dir}/prostate"
 run_dir = f"{wd}/runs"
+figures_dir = os.path.join(wd, "figures")
+
 _PREPROCESSING_SENTINEL = f"{prostate_dir}/processed/response_paper_external_validation_1.csv"
 
 _preprocessor = Preprocessor(prostate_dir)
@@ -21,6 +23,9 @@ _preprocessor.download_data()
 
 if not os.path.exists(run_dir):
     os.mkdir(run_dir)
+
+if not os.path.exists(figures_dir):
+    os.makedirs(figures_dir, exist_ok=True)
 
 if not os.path.exists(_PREPROCESSING_SENTINEL):
     print("External-validation data not found — running preprocessing pipeline...")

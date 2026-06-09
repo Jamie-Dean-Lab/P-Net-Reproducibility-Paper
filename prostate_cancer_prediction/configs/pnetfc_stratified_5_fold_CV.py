@@ -15,8 +15,5 @@ pnetfc_stratified_5_fold_CV_config = {
     "model_params": {
         **copy.deepcopy(pnet_single_split_elmarakeby_config["model_params"]),
         "sparse": False,
-        #TODO need to verify these are correct params from our nested CV
-        "h_reg": [(L2, {"l2": 1e-3})] * (n_hidden_layers + 1),
-        "o_reg": [(L2, {"l2": 1e-2})] * (n_hidden_layers + 1),
     },
 }
