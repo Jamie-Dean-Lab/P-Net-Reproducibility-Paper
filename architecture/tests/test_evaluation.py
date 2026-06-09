@@ -47,8 +47,10 @@ for _fn in [
 
 arch_stub = types.ModuleType("architecture")
 arch_stub.coef_weights_utils = mcw_stub
+arch_stub.pnet_model = pnet_stub
 sys.modules["architecture"] = arch_stub
 sys.modules["architecture.coef_weights_utils"] = mcw_stub
+sys.modules["architecture.pnet_model"] = pnet_stub
 
 import matplotlib
 matplotlib.use("Agg")
