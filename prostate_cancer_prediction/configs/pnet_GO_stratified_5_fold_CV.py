@@ -15,6 +15,6 @@ pnet_GO_stratified_5_fold_CV_config = {
     "model_params": {
         **copy.deepcopy(_model_params_base),
         "h_reg": [(L2, {"l2": 1e-3})] * (n_hidden_layers + 1),
-        "o_reg": [(L2, {"l2": 1e-2})] * (n_hidden_layers + 1),
+        "o_reg": [(L2, {"l2": 1e-5})] * (n_hidden_layers + 1),
     },
 }
