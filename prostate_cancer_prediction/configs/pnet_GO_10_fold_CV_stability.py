@@ -46,14 +46,13 @@ pnet_GO_10_fold_CV_stability_config = {
                 pp_relations=_go_model_params["pp_relations"],
                 gp_relations=_go_model_params["gp_relations"])
     ],
-    #Using the modal hyperparameters from our nested CV experiment.
     "grid_search": {
         "model_params": {
             f"h_reg_{h}_o_reg_{o}": {**_go_model_params,
                                      "h_reg": [(L2, {"l2": h})] * (n_hidden_layers + 1),
                                      "o_reg": [(L2, {"l2": o})] * (n_hidden_layers + 1)}
             for h in [1e-3]
-            for o in [1e-3]
+            for o in [1e-5]
         },
     }
 }
