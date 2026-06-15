@@ -17,7 +17,7 @@ from radiosensitivity_prediction.configs.base_config import wd, run_dir, data_di
 from radiosensitivity_prediction.configs.pnet import pnet_config
 from radiosensitivity_prediction.configs.dense import dense_config
 from radiosensitivity_prediction.configs.kernel_regression import krr_config
-from architecture.train import train
+from architecture.train import run_pipeline
 
 
 def run():
@@ -36,7 +36,7 @@ def run():
     ]
 
     for config in configs:
-        train(config)
+        run_pipeline(config)
 
     # significance_test(run_dir, wd)
 

@@ -15,7 +15,7 @@ from glioma_prediction.configs.xgb import xgb_config
 from glioma_prediction.configs.sgd_logistic_regression import sgd_logistic_regression_config
 from glioma_prediction.configs.adaboost import adaboost_config
 from glioma_prediction.configs.lgbm import lgbm_config
-from architecture.train import train
+from architecture.train import run_pipeline
 
 
 def run():
@@ -34,7 +34,7 @@ def run():
     ]
 
     for config in configs:
-        train(config)
+        run_pipeline(config)
 
 
 if __name__ == "__main__":

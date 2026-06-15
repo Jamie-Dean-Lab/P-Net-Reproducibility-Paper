@@ -1,3 +1,3 @@
-def train(config):
+def run_pipeline(config):
     pipeline = config["pipeline_class"](config)
     getattr(pipeline, config["run_method"])()
