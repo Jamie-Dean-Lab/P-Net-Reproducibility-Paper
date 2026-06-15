@@ -72,7 +72,7 @@ sys.path.insert(0, project_root)
 
 from prostate_cancer_prediction.configs.base_config import download_dir, run_dir, wd, selected_genes, figures_dir
 from prostate_cancer_prediction.configs.pnet_single_split import n_hidden_layers
-from architecture.train import run_pipeline
+from architecture.run_pipeline import run_pipeline
 from prostate_cancer_prediction.plotting.plot_nested_cv import plot_nested_CV
 from prostate_cancer_prediction.plotting.plot_stratified_5_fold_cv import plot_stratified_5_fold_CV
 from prostate_cancer_prediction.plotting.plot_external_validation import plot_external_validation

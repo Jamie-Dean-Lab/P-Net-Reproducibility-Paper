@@ -16,7 +16,7 @@ from tissue_type_classification.configs.random_forest import random_forest_confi
 from tissue_type_classification.configs.rbf_svm import rbf_svm_config
 from tissue_type_classification.configs.sgd_logistic_regression import sgd_logistic_regression_config
 from tissue_type_classification.configs.xgb import xgb_config
-from architecture.train import run_pipeline
+from architecture.run_pipeline import run_pipeline
 
 
 def run():
