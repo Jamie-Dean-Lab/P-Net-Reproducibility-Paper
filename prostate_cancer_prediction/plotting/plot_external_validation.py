@@ -32,7 +32,7 @@ def plot_external_validation(run_dir, figures_dir):
     fig = plt.figure(figsize=(4, 4))
     ax = fig.subplots(1, 1)
     _plot_confusion_matrix(ax, cm)
-    plt.savefig(f"{figures_dir}/pnet_external_validation.jpg", dpi=200)
+    plt.savefig(f"{figures_dir}/pnet_external_validation.png", dpi=300)
     plt.close()
 
 
@@ -53,11 +53,15 @@ def _plot_confusion_matrix(ax, conf_mat):
     cax.yaxis.set_ticks_position("right")
     cb.outline.set_visible(False)
 
-    thresh = cm.max() / 2.
     for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        # Pick text colour from the actual cell luminance so it stays legible
+        # regardless of how imshow autoscales the colormap (white text on a pale
+        # cell was the previous problem).
+        r, g, b, _ = im.cmap(im.norm(cm[i, j]))
+        luminance = 0.299 * r + 0.587 * g + 0.114 * b
         ax.text(j, i, "{}: {:.2f}%".format(labels[i, j], cm[i, j]),
                 horizontalalignment="center",
-                color="white" if cm[i, j] > thresh else "black", fontsize=12)
+                color="white" if luminance < 0.5 else "black", fontsize=12)
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -68,11 +72,3 @@ def _plot_confusion_matrix(ax, conf_mat):
     ax.set_xticks(tick_marks)
     ax.set_xticklabels(classes, rotation=0)
     ax.set_yticks([])
-
-    ax2 = divider.append_axes("bottom", size="5%", pad=0.6)
-    ax2.spines["top"].set_visible(False)
-    ax2.spines["right"].set_visible(False)
-    ax2.spines["left"].set_visible(False)
-    ax2.spines["bottom"].set_visible(False)
-    ax2.set_yticks([])
-    ax2.set_xticks([])

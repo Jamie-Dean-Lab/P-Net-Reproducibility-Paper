@@ -131,8 +131,8 @@ def run():
         # *pnet_network_order_variation_configs,
         # *pnet_network_order_fixed_seed_configs,
         #
-        # pnet_external_validation_1_elmarakeby_config,
-        # pnet_external_validation_2_elmarakeby_config,
+        #pnet_external_validation_1_elmarakeby_config,
+        #pnet_external_validation_2_elmarakeby_config,
 
         # Stratified nested CV
         # pnet_nested_CV_config,
@@ -156,7 +156,9 @@ def run():
     # Single-split ROC/PRC curves (Elmarakeby et al.'s hyperparameters, test and validation splits combined).
     #plot_single_split_curves(run_dir, figures_dir, tag="elmarakeby", concat_val=True)
 
-    plot_train_size_comparisons(run_dir, figures_dir)
+    #plot_train_size_comparisons(run_dir, figures_dir)
+
+    plot_external_validation(run_dir, figures_dir)
 
     # Sankey diagram of the P-NET-GO hierarchy:
     # pnet_run_dir = f"{run_dir}/pnet_GO_single_split"
