@@ -7,7 +7,8 @@ import plotly.graph_objects as go
 
 
 
-def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings):
+def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
+                short_name_csv=None):
     """
     Generates a Sankey diagram visualising the P-Net model's feature importance flow
     from input genomic features through gene and pathway layers to the outcome node.
@@ -27,7 +28,7 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
     concatenates them after adjustment.
 
     Node y-positions are computed from flow values (max of incoming/outgoing), with
-    residual nodes forced to the bottom of each layer. Output saved as PDF, PNG, HTML.
+    residual nodes forced to the bottom of each layer. Output saved as PNG and HTML.
     """
 
     # load pre-computed DeepLIFT importance scores saved by get_deeplift_global()
@@ -57,6 +58,18 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
     pathwaynames = pd.read_csv(dataset_id_mappings, sep="\t", index_col=0, header=None)
     pathwaynames.columns = ["name", "species"]
     id_to_name = pathwaynames["name"].to_dict()
+
+    # optional full-pathway-name -> shortened-name overrides for display labels.
+    # CSV columns: [full name, short name]; header=None tolerates a header row
+    # (it just becomes an entry that never matches a real pathway name).
+    short_names = {}
+    if short_name_csv is not None and os.path.exists(short_name_csv):
+        sn = pd.read_csv(short_name_csv, header=None, usecols=[0, 1])
+        short_names = {str(full).strip(): str(short).strip()
+                       for full, short in zip(sn.iloc[:, 0], sn.iloc[:, 1])}
+        print(f"  loaded {len(short_names)} pathway name overrides from {short_name_csv}")
+    elif short_name_csv is not None:
+        print(f"  WARNING: short_name_csv not found ({short_name_csv}); using full pathway names")
 
     # number of top nodes to show per layer
     # [genes, h1_pathways, h2_pathways, h3_pathways, h4_pathways, h5_pathways, h6_pathways]
@@ -391,7 +404,9 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
         elif node_id.startswith("others"):
             all_node_labels.append("residual")
         else:
-            all_node_labels.append(id_to_name.get(node_id, node_id))
+            full = id_to_name.get(node_id, node_id)
+            # use the shortened name if one was supplied for this pathway
+            all_node_labels.append(short_names.get(full, full))
 
     # -------------------------------------------------------------------
     # 6. encode edges as integer source/target indices for plotly
@@ -455,26 +470,25 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
     # -------------------------------------------------------------------
     print(f"\n--- Section 7: Node positions ---")
 
-    # replicate original's x position logic exactly:
-    #   layer 0 -> 0.01, layer 1 -> 0.08, layer 2 -> 0.14
-    #   layers 3..7 -> np.linspace(0.14, 1, 6, endpoint=False)[1:]
-    #   (linspace gives 6 values from 0.14 to ~0.98; skip index 0 = 0.14 already used)
-    xs_linspace = np.linspace(0.14, 1, 6, endpoint=False)
-    print(f"  linspace x values (layers 3+): {xs_linspace[1:].tolist()}")
+    # input and gene layers stay packed on the left (matching the original figure):
+    #   layer 0 -> 0.01, layer 1 -> 0.08
+    # the pathway hidden layers (layer 2 .. last hidden) are then spread evenly
+    # across the remaining width up to 0.9, so the final hidden layer sits just
+    # before the outcome node rather than leaving a gap. This adapts to the actual
+    # number of hidden layers instead of assuming a fixed count.
     x_positions_map = {
         0: 0.01,
         1: 0.08,
-        2: 0.14,
     }
-    for i, x_val in enumerate(xs_linspace[1:]):
-        x_positions_map[i + 3] = float(x_val)  # layers 3, 4, 5, 6, 7
-    print(f"  x_positions_map: { {k: round(v, 4) for k, v in sorted(x_positions_map.items())} }")
-
-    # root layer uses the last entry in the map (layer 7 = last pathway + 1)
-    # original sets root x via the linspace loop which covers up to layer 7,
-    # so root_layer (=8) falls back — we explicitly set it to 0.99 to match plotly's
-    # right-edge convention (original rescales x to [0.01, 0.98] in get_data_trace)
+    pathway_layers = list(range(2, root_layer))  # layer 2 .. last hidden layer
+    pathway_xs = np.linspace(0.14, 0.9, len(pathway_layers))
+    for layer_idx, x_val in zip(pathway_layers, pathway_xs):
+        x_positions_map[layer_idx] = float(x_val)
+    # nudge the final hidden layer slightly left so it isn't crowded against the outcome
+    x_positions_map[root_layer - 1] -= 0.05
+    # outcome node pinned at the right edge (plotly rescales x to [0.01, 0.98])
     x_positions_map[root_layer] = 0.99
+    print(f"  x_positions_map: { {k: round(v, 4) for k, v in sorted(x_positions_map.items())} }")
 
     n_nodes = len(all_node_labels)
 
@@ -554,7 +568,9 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
         # colour important nodes with Reds gradient: darkest = most important (top)
         important_nodes = [n for n in nodes if not n.startswith("others") and n != "root"]
         n = len(important_nodes)
-        colour_idx = np.linspace(1.0, 0.0, n)  # 1.0=dark, 0.0=light
+        # 1.0=dark, lower bound kept at 0.35 (not 0.0) so the lightest node is
+        # still a visible red rather than washing out against the white background
+        colour_idx = np.linspace(1.0, 0.35, n)
         for j, node_id in enumerate(important_nodes):
             key = (layer_idx, node_id)
             if key in node_to_idx:
@@ -601,17 +617,19 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
 
     # -------------------------------------------------------------------
     # 9. render and save
-    #    two outputs matching original:
-    #    - static PDF/PNG at 600px width (scale=5 for high-res PNG)
-    #    - interactive HTML at 1200px width with larger font
+    #    two outputs:
+    #    - static PNG (scale=5 for high-res)
+    #    - interactive HTML at larger size with bigger font
     # -------------------------------------------------------------------
     print(f"\n--- Section 9: Render ---")
     print(f"  Total nodes: {len(all_node_labels)}")
     print(f"  Total edges: {len(diagram_source)}")
 
     scale = 1.0
-    width = 600. / scale
-    height = 0.5 * width / scale
+    # Larger canvas spreads columns horizontally and rows vertically so node
+    # labels have room — Plotly has no auto-declutter for Sankey text.
+    width = 1100. / scale
+    height = 0.65 * width / scale
 
     data_trace = dict(
         type='sankey',
@@ -620,7 +638,7 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
         orientation="h",         # left to right flow
         valueformat=".0f",
         node=dict(
-            pad=2,               # minimal padding between nodes
+            pad=14,              # vertical gap between nodes — keeps stacked labels apart
             thickness=10,        # node bar width in pixels
             line=dict(color="white", width=0.5),
             label=all_node_labels,
@@ -640,13 +658,15 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
         height=height,
         width=width,
         margin=dict(l=0, r=0, b=0.1, t=8),
-        font=dict(size=6, family='Arial')
+        font=dict(size=9, family='Arial')
     )
 
+    # prefix outputs with the run directory name, e.g. pnet_single_split_elmarakeby_sankey.png
+    prefix = os.path.basename(os.path.normpath(pnet_run_dir))
+
     fig = go.Figure(dict(data=[data_trace], layout=layout))
-    fig.write_image(f"{figures_dir}/sankey.pdf", scale=1, width=width, height=height, format='pdf')
-    fig.write_image(f"{figures_dir}/sankey.png", scale=5, width=width, height=height, format='png')
-    print(f"  Saved sankey.pdf and sankey.png")
+    fig.write_image(f"{figures_dir}/{prefix}_sankey.png", scale=5, width=width, height=height, format='png')
+    print(f"  Saved {prefix}_sankey.png")
 
     # interactive HTML at larger size for exploration
     scale = 0.5
@@ -659,6 +679,6 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
         font=dict(size=12, family='Arial')
     )
     fig_html = go.Figure(dict(data=[data_trace], layout=layout_html))
-    fig_html.write_html(f"{figures_dir}/sankey.html")
-    print(f"  Saved sankey.html")
+    fig_html.write_html(f"{figures_dir}/{prefix}_sankey.html")
+    print(f"  Saved {prefix}_sankey.html")
     print(f"=== plot_sankey complete ===\n")

@@ -60,7 +60,8 @@ pnet_single_split_elmarakeby_config = {
                 n_hidden_layers=n_hidden_layers,
                 pathway_dataset=_model_params["pathway_dataset"],
                 pp_relations=_model_params["pp_relations"],
-                gp_relations=_model_params["gp_relations"])
+                gp_relations=_model_params["gp_relations"],
+                always_run=True)
     ],
     "val_metric": {},
     "pipeline_class": TFPipeline,
