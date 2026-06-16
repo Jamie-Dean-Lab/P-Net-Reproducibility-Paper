@@ -175,14 +175,11 @@ def run():
     #            short_name_csv=pathway_short_names, format_pathway_names=True,
     #            output_prefix="pnet_GO_single_split")
 
-    plot_stratified_5_fold_CV(run_dir, figures_dir)
-
+    #plot_stratified_5_fold_CV(run_dir, figures_dir)
 
 
     # Distribution of each test metric across the network-order variation runs
-    #
-    # plot_network_order_variation(run_dir, figures_dir,
-    #                              run_prefix="pnet_network_order_variation", split="test")
+    plot_network_order_variation(run_dir, figures_dir, run_prefix="pnet_network_order_variation", split="test")
 
     # plot_nested_CV(run_dir, figures_dir)
     #
