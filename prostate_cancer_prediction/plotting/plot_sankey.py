@@ -1,4 +1,5 @@
 import os
+import re
 
 import numpy as np
 import pandas as pd
@@ -8,7 +9,7 @@ import plotly.graph_objects as go
 
 
 def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
-                short_name_csv=None):
+                short_name_csv=None, format_pathway_names=False, output_prefix=None):
     """
     Generates a Sankey diagram visualising the P-Net model's feature importance flow
     from input genomic features through gene and pathway layers to the outcome node.
@@ -405,8 +406,34 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
             all_node_labels.append("residual")
         else:
             full = id_to_name.get(node_id, node_id)
-            # use the shortened name if one was supplied for this pathway
-            all_node_labels.append(short_names.get(full, full))
+            if full in short_names:
+                # curated short name takes priority and is used as-is
+                label = short_names[full]
+            elif format_pathway_names:
+                # GO-style names like 'mitotic_sister_chromatid_segregation' ->
+                # 'Mitotic sister chromatid segregation' (underscores to spaces,
+                # first letter capitalised; rest left intact to preserve acronyms)
+                label = full.replace("_", " ")
+                label = label[:1].upper() + label[1:]
+                # abbreviate long words to save horizontal space; each is applied
+                # in both its capitalised (start-of-label) and lowercase forms so
+                # the trailing full stop is consistent wherever the word appears
+                abbreviations = {
+                    "regulation": "reg.",
+                    "transcription": "trans.",
+                    "positive": "pos.",
+                    "negative": "neg.",
+                    "morphogenesis": "morph.",
+                    "organophosphate": "organo.",
+                    "macromolecule": "macro.",
+                    "biosynthetic": "bio.",
+                }
+                for word, abbr in abbreviations.items():
+                    label = re.sub(rf"\b{word.capitalize()}\b", abbr.capitalize(), label)
+                    label = re.sub(rf"\b{word}\b", abbr, label)
+            else:
+                label = full
+            all_node_labels.append(label)
 
     # -------------------------------------------------------------------
     # 6. encode edges as integer source/target indices for plotly
@@ -662,7 +689,8 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     )
 
     # prefix outputs with the run directory name, e.g. pnet_single_split_elmarakeby_sankey.png
-    prefix = os.path.basename(os.path.normpath(pnet_run_dir))
+    # (override via output_prefix when the run dir ends in a sub-folder like 'best_auc')
+    prefix = output_prefix or os.path.basename(os.path.normpath(pnet_run_dir))
 
     fig = go.Figure(dict(data=[data_trace], layout=layout))
     fig.write_image(f"{figures_dir}/{prefix}_sankey.png", scale=5, width=width, height=height, format='png')

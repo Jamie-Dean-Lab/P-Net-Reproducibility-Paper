@@ -161,17 +161,19 @@ def run():
     #plot_external_validation(run_dir, figures_dir)
 
     # Sankey diagram for P-NET
-    pnet_run_dir = f"{run_dir}/pnet_single_split_elmarakeby"
-    dataset_id_mappings = "architecture/Reactome/ReactomePathways.txt"
-    # CSV of [full pathway name, shortened name] used to shorten long labels
+    #pnet_run_dir = f"{run_dir}/pnet_single_split_elmarakeby"
+    #dataset_id_mappings = "architecture/Reactome/ReactomePathways.txt"
+    #pathway_short_names = "prostate_cancer_prediction/plotting/reactome_short_names.csv"
+    #plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
+    #            short_name_csv=pathway_short_names)
+
+    # Sankey diagram for P-NET-GO
+    pnet_run_dir = f"{run_dir}/pnet_GO_single_split/best_auc"
+    dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
     pathway_short_names = "prostate_cancer_prediction/plotting/reactome_short_names.csv"
     plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
-                short_name_csv=pathway_short_names)
-
-    # Sankey diagram of the P-NET-GO hierarchy:
-    # pnet_run_dir = f"{run_dir}/pnet_GO_single_split"
-    # dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
-    # plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
+                short_name_csv=pathway_short_names, format_pathway_names=True,
+                output_prefix="pnet_GO_single_split")
 
 
 
