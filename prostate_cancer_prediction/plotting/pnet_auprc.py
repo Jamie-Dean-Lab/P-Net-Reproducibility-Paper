@@ -64,7 +64,9 @@ class FigureAUPRCConfiguration(Enum):
 
     spine_thickness = 1
     tick_size = 12
-    label_size = 12 
+    label_size = 12
+    annotation_size = 12
+    legend_size = 10
 
 
 class PlotAUPRC:
@@ -88,8 +90,7 @@ class PlotAUPRC:
             self.processed_results[model_name] = processed_model_res
     
     # adapted from the scikit learn tutorial: https://scikit-learn.org/stable/auto_examples/model_selection/plot_precision_recall.html
-    @staticmethod
-    def _plot_f1_isocurves(ax):
+    def _plot_f1_isocurves(self, ax):
         """
         Plot F1 isocurves - curves containing points for each the F1 score has
         a constant, pre-defined value.
@@ -108,7 +109,8 @@ class PlotAUPRC:
             annotation_label = "F1={0:0.1f}".format(f_score) if i==0 else "{0:0.1f}".format(f_score)
 
             # ensure labels are associated to each curve (values here are tweaked for 4 curves)
-            ax.annotate(annotation_label, xy=(f1_scores[i]-0.18*(i>0)-0.15*(i==0), 1.05), fontsize=12)
+            ax.annotate(annotation_label, xy=(f1_scores[i]-0.18*(i>0)-0.15*(i==0), 1.05),
+                        fontsize=self.config.annotation_size.value)
         return ax
     
     def _format_axes(self, ax: plt.Axes):
@@ -159,7 +161,7 @@ class PlotAUPRC:
 
         ax = self._plot_f1_isocurves(ax)
         ax = self._format_axes(ax)
-        ax.legend(loc='lower left')
+        ax.legend(loc='lower left', fontsize=self.config.legend_size.value)
 
 
             

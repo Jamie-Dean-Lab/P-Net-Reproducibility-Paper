@@ -19,6 +19,7 @@ class FigureROCConfiguration(Enum):
     spine_thickness = 1
     tick_size = 12
     label_size = 12
+    legend_size = 10
 
 
 class PlotROC:
@@ -77,4 +78,4 @@ class PlotROC:
             ax.plot(fpr, tpr, label=label, c=self.config.plot_colors.value[i])
 
         ax = self._format_axes(ax)
-        ax.legend(loc='lower right')
+        ax.legend(loc='lower right', fontsize=self.config.legend_size.value)
