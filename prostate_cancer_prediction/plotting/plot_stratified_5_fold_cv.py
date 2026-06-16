@@ -9,6 +9,9 @@ from matplotlib import ticker
 def plot_stratified_5_fold_CV(run_dir, figures_dir):
     model_names = [
         "pnet_stratified_5_fold_CV",
+        "pnetfc_stratified_5_fold_CV",
+        "pnet_GO_stratified_5_fold_CV",
+        "dense_single_layer_stratified_5_fold_CV",
         "decision_tree_stratified_5_fold_CV",
         "adaboost_stratified_5_fold_CV",
         "linear_svm_stratified_5_fold_CV",
@@ -19,6 +22,9 @@ def plot_stratified_5_fold_CV(run_dir, figures_dir):
 
     models_display = {
         "pnet": "P-NET",
+        "pnetfc": "P-NET-FC",
+        "pnet_GO": "P-NET-GO",
+        "dense_single_layer": "Dense Single Layer",
         "decision_tree": "Decision Tree",
         "adaboost": "Ada. Boosting",
         "linear_svm": "Linear SVM",
@@ -28,7 +34,7 @@ def plot_stratified_5_fold_CV(run_dir, figures_dir):
     }
 
     metric_display = {
-        'auc': 'Area Under Curve (AUC)',
+        'auc': 'AUROC',
         'auprc': 'AUPRC',
         'f1': 'F1',
         'accuracy': 'Accuracy',
@@ -37,12 +43,13 @@ def plot_stratified_5_fold_CV(run_dir, figures_dir):
     }
 
     # Match the original paper's colour order exactly
-    paper_model_order = ['Decision Tree', 'Logistic Regression', 'Random Forest', 'Ada. Boosting', 'Linear SVM', 'RBF SVM', 'P-NET']
+    paper_model_order = ['Decision Tree', 'Logistic Regression', 'Random Forest', 'Ada. Boosting', 'Linear SVM', 'RBF SVM', 'P-NET', 'P-NET-FC', 'P-NET-GO', 'Dense Single Layer']
     current_palette = sns.color_palette(None, len(paper_model_order))
     my_pal = {m: current_palette[i] for i, m in enumerate(paper_model_order)}
 
-    fontsize = 8
-    fontproperties = {'family': 'Arial', 'weight': 'normal', 'size': 9}
+    # close to plot_train_size_comparisons (tick_size=18, label_size=20), nudged down slightly
+    fontsize = 16
+    fontproperties = {'family': 'Arial', 'weight': 'normal', 'size': 18}
 
     col_names = ["split", "auc", "auprc", "f1", "accuracy", "precision", "recall", "fold"]
     metric_cols = ["auc", "auprc", "f1", "accuracy", "precision", "recall"]
@@ -104,7 +111,10 @@ def plot_stratified_5_fold_CV(run_dir, figures_dir):
         ax.spines['right'].set_visible(False)
         ax.spines['bottom'].set_visible(False)
         ax.spines['left'].set_visible(False)
+        ax.yaxis.grid(False)  # remove horizontal grid lines
 
+        # 'auc' is the data-column key; the file is named with the AUROC label
+        slug = "auroc" if metric == "auc" else metric
         plt.tight_layout()
-        plt.savefig(os.path.join(figures_dir, f"stratified_5_fold_CV_{metric}.png"), dpi=300)
+        plt.savefig(os.path.join(figures_dir, f"stratified_5_fold_CV_{slug}.png"), dpi=300)
         plt.close()

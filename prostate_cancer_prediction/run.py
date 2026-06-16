@@ -168,12 +168,14 @@ def run():
     #            short_name_csv=pathway_short_names)
 
     # Sankey diagram for P-NET-GO
-    pnet_run_dir = f"{run_dir}/pnet_GO_single_split/best_auc"
-    dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
-    pathway_short_names = "prostate_cancer_prediction/plotting/reactome_short_names.csv"
-    plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
-                short_name_csv=pathway_short_names, format_pathway_names=True,
-                output_prefix="pnet_GO_single_split")
+    #pnet_run_dir = f"{run_dir}/pnet_GO_single_split/best_auc"
+    #dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
+    #pathway_short_names = "prostate_cancer_prediction/plotting/reactome_short_names.csv"
+    #plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
+    #            short_name_csv=pathway_short_names, format_pathway_names=True,
+    #            output_prefix="pnet_GO_single_split")
+
+    plot_stratified_5_fold_CV(run_dir, figures_dir)
 
 
 
@@ -183,7 +185,7 @@ def run():
     #                              run_prefix="pnet_network_order_variation", split="test")
 
     # plot_nested_CV(run_dir, figures_dir)
-    # plot_stratified_5_fold_CV(run_dir, figures_dir)
+    #
     # plot_external_validation(run_dir, figures_dir)
 
     # Feature-importance stability (each run writes to its own subdirectory under
