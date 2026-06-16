@@ -9,8 +9,8 @@ from scipy.stats import ttest_ind
 class FigureComparativeAnalysisConfiguration(Enum):
     plot_size = (10, 7)
 
-    pnet_auc_color = 'blue'
-    dense_auc_color = 'orange'
+    pnet_auroc_color = 'blue'
+    dense_auroc_color = 'orange'
 
     marker = "."
     marker_size = 14
@@ -18,7 +18,7 @@ class FigureComparativeAnalysisConfiguration(Enum):
     pnet_label = 'P-NET'
     dense_label = 'Dense'
 
-    legend_fontsize = 12
+    legend_fontsize = 18
     legend_frame = False
 
     top_spine_visibility = False
@@ -27,8 +27,8 @@ class FigureComparativeAnalysisConfiguration(Enum):
     right_spine_visibility = False
 
     spine_thickness = 1
-    tick_size = 14
-    label_size = 14
+    tick_size = 18
+    label_size = 20
 
 
 # Fixed limits for metrics that are well-behaved on [0, 1];
@@ -44,6 +44,12 @@ METRICS_Y_LIMITS = {
     "recall": None,
 }
 
+# Display labels / filename slugs for metrics whose identifier differs from how
+# they should be shown. The "auc" column is reported as AUROC everywhere.
+METRIC_DISPLAY = {
+    "auc": "AUROC",
+}
+
 
 class ComparativeAnalysis:
 
@@ -53,8 +59,8 @@ class ComparativeAnalysis:
 
     def process_results(self):
         self.number_of_samples = np.array(self.results['number_of_samples'])
-        self.pnet_auc = np.array(self.results['pnet_auc'])
-        self.dense_auc = np.array(self.results['dense_auc'])
+        self.pnet_auroc = np.array(self.results['pnet_auroc'])
+        self.dense_auroc = np.array(self.results['dense_auroc'])
         self.pnet_lower_bound = np.array(self.results['pnet_lower_bound'])
         self.pnet_upper_bound = np.array(self.results['pnet_upper_bound'])
         self.dense_lower_bound = np.array(self.results['dense_lower_bound'])
@@ -110,7 +116,7 @@ class ComparativeAnalysis:
 
         return ax
 
-    def plot(self, ax, title, ylabel='AUC', y_limit=(0.4, 1.0), dense_label=None):
+    def plot(self, ax, title, ylabel='AUROC', y_limit=(0.4, 1.0), dense_label=None):
         self.process_results()
 
         x_ticks = self.compute_xticks()
@@ -120,15 +126,15 @@ class ComparativeAnalysis:
         ax.set_title(title, loc="left", fontdict={"fontsize": 14, "fontweight": "bold"})
 
         ax.plot(
-            x_ticks, self.pnet_auc,
-            c=self.config.pnet_auc_color.value,
+            x_ticks, self.pnet_auroc,
+            c=self.config.pnet_auroc_color.value,
             marker=self.config.marker.value,
             markersize=self.config.marker_size.value,
             label=self.config.pnet_label.value,
         )
         ax.plot(
-            x_ticks, self.dense_auc,
-            c=self.config.dense_auc_color.value,
+            x_ticks, self.dense_auroc,
+            c=self.config.dense_auroc_color.value,
             marker=self.config.marker.value,
             markersize=self.config.marker_size.value,
             label=self.config.dense_label.value if dense_label is None else dense_label,
@@ -142,11 +148,11 @@ class ComparativeAnalysis:
 
         ax.fill_between(
             x_ticks, self.pnet_lower_bound, self.pnet_upper_bound,
-            color=self.config.pnet_auc_color.value, edgecolor=None, alpha=0.15,
+            color=self.config.pnet_auroc_color.value, edgecolor=None, alpha=0.15,
         )
         ax.fill_between(
             x_ticks, self.dense_lower_bound, self.dense_upper_bound,
-            color=self.config.dense_auc_color.value, edgecolor=None, alpha=0.15,
+            color=self.config.dense_auroc_color.value, edgecolor=None, alpha=0.15,
         )
 
         ax = self.format_spines(ax, y_limit=y_limit, ylabel=ylabel)
@@ -206,10 +212,10 @@ def _build_comparison_results(pnet_df, other_df, stats):
     )
     return {
         "number_of_samples": pnet_df["n_samples"].to_numpy(),
-        "pnet_auc": pnet_df["mean"].to_numpy(),
+        "pnet_auroc": pnet_df["mean"].to_numpy(),
         "pnet_lower_bound": (pnet_df["mean"] - pnet_df["std"]).to_numpy(),
         "pnet_upper_bound": (pnet_df["mean"] + pnet_df["std"]).to_numpy(),
-        "dense_auc": other_df["mean"].to_numpy(),
+        "dense_auroc": other_df["mean"].to_numpy(),
         "dense_lower_bound": (other_df["mean"] - other_df["std"]).to_numpy(),
         "dense_upper_bound": (other_df["mean"] + other_df["std"]).to_numpy(),
         "statistically_significant": np.array(stats),
@@ -233,20 +239,27 @@ def plot_train_size_comparisons(run_dir, figures_dir, metrics=METRICS):
         dense_results = _aggregate_train_size(dense_results)
 
         y_limit = METRICS_Y_LIMITS[metric]
-        ylabel = metric.upper()
+        # METRIC_DISPLAY overrides the shown name (auc -> AUROC); otherwise
+        # acronym metrics stay upper-case and the rest read as normal words.
+        ylabel = METRIC_DISPLAY.get(
+            metric,
+            metric.upper() if metric in {"auprc", "f1"} else metric.capitalize(),
+        )
+        # filename slug follows the display name so plots are named e.g. *_auroc.png
+        slug = METRIC_DISPLAY.get(metric, metric).lower()
 
         plots = [
             (
-                "B",
+                "",
                 _build_comparison_results(pnet_results, dense_results, pnet_dense_stats),
                 "Dense Single Layer",
-                f"train_size_pnet_vs_dense_{metric}.png",
+                f"train_size_pnet_vs_dense_{slug}.png",
             ),
             (
-                "C",
+                "",
                 _build_comparison_results(pnet_results, pnetfc_results, pnet_pnetfc_stats),
                 "P-NET fully connected",
-                f"train_size_pnet_vs_pnetfc_{metric}.png",
+                f"train_size_pnet_vs_pnetfc_{slug}.png",
             ),
         ]
 

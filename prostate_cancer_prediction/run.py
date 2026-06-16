@@ -154,14 +154,16 @@ def run():
     #plot_single_split_curves(run_dir, figures_dir, concat_val=False)
 
     # Single-split ROC/PRC curves (Elmarakeby et al.'s hyperparameters, test and validation splits combined).
-    plot_single_split_curves(run_dir, figures_dir, tag="elmarakeby", concat_val=True)
+    #plot_single_split_curves(run_dir, figures_dir, tag="elmarakeby", concat_val=True)
+
+    plot_train_size_comparisons(run_dir, figures_dir)
 
     # Sankey diagram of the P-NET-GO hierarchy:
     # pnet_run_dir = f"{run_dir}/pnet_GO_single_split"
     # dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
     # plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings)
 
-    # plot_train_size_comparisons(run_dir, figures_dir)
+
 
     # Distribution of each test metric across the network-order variation runs
     #
