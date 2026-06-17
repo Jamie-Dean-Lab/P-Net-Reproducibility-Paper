@@ -136,16 +136,16 @@ def run():
         pnet_external_validation_2_elmarakeby_config,
 
         # Stratified nested CV
-        pnet_nested_CV_config,
-        pnetfc_nested_CV_config,
-        dense_single_layer_nested_CV_config,
-        pnet_GO_nested_CV_config,
-        adaboost_nested_CV_config,
-        decision_tree_nested_CV_config,
-        linear_svm_nested_CV_config,
-        random_forest_nested_CV_config,
-        rbf_svm_nested_CV_config,
-        sgd_logistic_regression_nested_CV_config,
+        # pnet_nested_CV_config,
+        # pnetfc_nested_CV_config,
+        # dense_single_layer_nested_CV_config,
+        # pnet_GO_nested_CV_config,
+        # adaboost_nested_CV_config,
+        # decision_tree_nested_CV_config,
+        # linear_svm_nested_CV_config,
+        # random_forest_nested_CV_config,
+        # rbf_svm_nested_CV_config,
+        # sgd_logistic_regression_nested_CV_config,
     ]
 
     for config in configs:
