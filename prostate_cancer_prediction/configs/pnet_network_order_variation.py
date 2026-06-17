@@ -1,4 +1,5 @@
 import copy
+import random
 from functools import partial
 
 from architecture.evaluation import plot_history, get_deeplift_global
@@ -8,8 +9,16 @@ from .pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config, n
 # Network-order variation: keep the train/val/test split and all hyperparameters
 # fixed, and vary ONLY the network construction seed (map_seed) so any change in
 # performance is attributable to the pathway/gene ordering of the network alone.
-seeds = [203928, 84954, 603492, 1023924, 72832934, 55464, 123454, 99854, 456134, 115549,
-         781233, 9123, 4456721, 33812, 670091, 2210984, 58123, 99012, 1500321, 7788123]
+
+n_seeds = 100
+seeds = []
+_seen = {42}
+_rng = random.Random(20240617)
+while len(seeds) < n_seeds:
+    candidate = _rng.randint(1, 100_000_000)
+    if candidate not in _seen:
+        _seen.add(candidate)
+        seeds.append(candidate)
 
 pnet_network_order_variation_configs = [
     {

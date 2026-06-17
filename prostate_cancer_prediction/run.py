@@ -63,8 +63,8 @@ from prostate_cancer_prediction.configs.pnet_external_validation_2 import \
     pnet_external_validation_2_elmarakeby_config
 
 from prostate_cancer_prediction.configs.pnet_network_order_variation import pnet_network_order_variation_configs
-from prostate_cancer_prediction.configs.pnet_10_fold_CV_stability import pnet_10_fold_CV_stability_config
-from prostate_cancer_prediction.configs.pnet_GO_10_fold_CV_stability import pnet_GO_10_fold_CV_stability_config
+from prostate_cancer_prediction.configs.pnet_test_set_stability import pnet_test_set_stability_configs
+from prostate_cancer_prediction.configs.pnet_GO_test_set_stability import pnet_GO_test_set_stability_configs
 from prostate_cancer_prediction.plotting.plot_train_size_variations import plot_train_size_comparisons
 
 project_root = os.path.dirname(os.path.abspath(__file__))
@@ -85,110 +85,110 @@ from prostate_cancer_prediction.plotting.plot_network_order_variation import plo
 def run():
     configs = [
         # Single split, including grid search.
-        # pnet_single_split_config,
-        # decision_tree_single_split_config,
-        # linear_svm_single_split_config,
-        # rbf_svm_single_split_config,
-        # random_forest_single_split_config,
-        # adaboost_single_split_config,
-        # sgd_logistic_regression_single_split_config,
-        # dense_single_layer_single_split_config,
-        # pnetfc_single_split_config,
-        # pnet_GO_single_split_config,
-        #
-        # # Single split, using hyperparams from original paper.
-        # pnet_single_split_elmarakeby_config,
-        # decision_tree_single_split_elmarakeby_config,
-        # linear_svm_single_split_elmarakeby_config,
-        # rbf_svm_single_split_elmarakeby_config,
-        # random_forest_single_split_elmarakeby_config,
-        # adaboost_single_split_elmarakeby_config,
-        # sgd_logistic_regression_single_split_elmarakeby_config,
-        # dense_single_layer_single_split_elmarakeby_config,
-        # pnetfc_single_split_elmarakeby_config,
-        #
-        # # Train size variation
-        # *pnet_train_size_variation_configs,
-        # *pnetfc_train_size_variation_configs,
-        # *dense_single_layer_train_size_variation_configs,
-        #
-        # # Stratified 5 fold CV
-        # pnet_stratified_5_fold_CV_config,
-        # pnetfc_stratified_5_fold_CV_config,
-        # pnet_GO_stratified_5_fold_CV_config,
-        # dense_single_layer_stratified_5_fold_CV_config,
-        # decision_tree_stratified_5_fold_CV_config,
-        # adaboost_stratified_5_fold_CV_config,
-        # linear_svm_stratified_5_fold_CV_config,
-        # random_forest_stratified_5_fold_CV_config,
-        # rbf_svm_stratified_5_fold_CV_config,
-        # sgd_logistic_regression_stratified_5_fold_CV_config,
-        #
-        # # Feature-importance stability
-        # pnet_10_fold_CV_stability_config,
-        # pnet_GO_10_fold_CV_stability_config,
-        #
-        # *pnet_network_order_variation_configs,
-        # *pnet_network_order_fixed_seed_configs,
-        #
-        #pnet_external_validation_1_elmarakeby_config,
-        #pnet_external_validation_2_elmarakeby_config,
+        pnet_single_split_config,
+        decision_tree_single_split_config,
+        linear_svm_single_split_config,
+        rbf_svm_single_split_config,
+        random_forest_single_split_config,
+        adaboost_single_split_config,
+        sgd_logistic_regression_single_split_config,
+        dense_single_layer_single_split_config,
+        pnetfc_single_split_config,
+        pnet_GO_single_split_config,
+
+        # Single split, using hyperparams from original paper.
+        pnet_single_split_elmarakeby_config,
+        decision_tree_single_split_elmarakeby_config,
+        linear_svm_single_split_elmarakeby_config,
+        rbf_svm_single_split_elmarakeby_config,
+        random_forest_single_split_elmarakeby_config,
+        adaboost_single_split_elmarakeby_config,
+        sgd_logistic_regression_single_split_elmarakeby_config,
+        dense_single_layer_single_split_elmarakeby_config,
+        pnetfc_single_split_elmarakeby_config,
+
+        # Train size variation
+        *pnet_train_size_variation_configs,
+        *pnetfc_train_size_variation_configs,
+        *dense_single_layer_train_size_variation_configs,
+
+        # Stratified 5-fold CV
+        pnet_stratified_5_fold_CV_config,
+        pnetfc_stratified_5_fold_CV_config,
+        pnet_GO_stratified_5_fold_CV_config,
+        dense_single_layer_stratified_5_fold_CV_config,
+        decision_tree_stratified_5_fold_CV_config,
+        adaboost_stratified_5_fold_CV_config,
+        linear_svm_stratified_5_fold_CV_config,
+        random_forest_stratified_5_fold_CV_config,
+        rbf_svm_stratified_5_fold_CV_config,
+        sgd_logistic_regression_stratified_5_fold_CV_config,
+
+        # Feature-importance test-train stability
+        *pnet_test_set_stability_configs,
+        *pnet_GO_test_set_stability_configs,
+
+        # Feature-importance network order stability
+        *pnet_network_order_variation_configs,
+        *pnet_network_order_fixed_seed_configs,
+
+        pnet_external_validation_1_elmarakeby_config,
+        pnet_external_validation_2_elmarakeby_config,
 
         # Stratified nested CV
-         pnet_nested_CV_config,
-        # pnetfc_nested_CV_config,
-        # dense_single_layer_nested_CV_config,
-        # pnet_GO_nested_CV_config,
-        # adaboost_nested_CV_config,
-        # decision_tree_nested_CV_config,
-        # linear_svm_nested_CV_config,
-        # random_forest_nested_CV_config,
-        # rbf_svm_nested_CV_config,
-        # sgd_logistic_regression_nested_CV_config,
+        pnet_nested_CV_config,
+        pnetfc_nested_CV_config,
+        dense_single_layer_nested_CV_config,
+        pnet_GO_nested_CV_config,
+        adaboost_nested_CV_config,
+        decision_tree_nested_CV_config,
+        linear_svm_nested_CV_config,
+        random_forest_nested_CV_config,
+        rbf_svm_nested_CV_config,
+        sgd_logistic_regression_nested_CV_config,
     ]
 
     for config in configs:
         run_pipeline(config)
 
     # Single-split ROC/PRC curves (our hyperparameters, test and validation splits kept separate).
-    #plot_single_split_curves(run_dir, figures_dir, concat_val=False)
+    # plot_single_split_curves(run_dir, figures_dir, concat_val=False)
 
     # Single-split ROC/PRC curves (Elmarakeby et al.'s hyperparameters, test and validation splits combined).
-    #plot_single_split_curves(run_dir, figures_dir, tag="elmarakeby", concat_val=True)
+    # plot_single_split_curves(run_dir, figures_dir, tag="elmarakeby", concat_val=True)
 
-    #plot_train_size_comparisons(run_dir, figures_dir)
+    # plot_train_size_comparisons(run_dir, figures_dir)
 
-    #plot_external_validation(run_dir, figures_dir)
+    # plot_external_validation(run_dir, figures_dir)
 
     # Sankey diagram for P-NET
-    #pnet_run_dir = f"{run_dir}/pnet_single_split_elmarakeby"
-    #dataset_id_mappings = "architecture/Reactome/ReactomePathways.txt"
-    #pathway_short_names = "prostate_cancer_prediction/plotting/reactome_short_names.csv"
-    #plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
+    # pnet_run_dir = f"{run_dir}/pnet_single_split_elmarakeby"
+    # dataset_id_mappings = "architecture/Reactome/ReactomePathways.txt"
+    # pathway_short_names = "prostate_cancer_prediction/plotting/reactome_short_names.csv"
+    # plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     #            short_name_csv=pathway_short_names)
 
     # Sankey diagram for P-NET-GO
-    #pnet_run_dir = f"{run_dir}/pnet_GO_single_split/best_auc"
-    #dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
-    #pathway_short_names = "prostate_cancer_prediction/plotting/reactome_short_names.csv"
-    #plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
+    # pnet_run_dir = f"{run_dir}/pnet_GO_single_split/best_auc"
+    # dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
+    # pathway_short_names = "prostate_cancer_prediction/plotting/reactome_short_names.csv"
+    # plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     #            short_name_csv=pathway_short_names, format_pathway_names=True,
     #            output_prefix="pnet_GO_single_split")
 
-    #plot_stratified_5_fold_CV(run_dir, figures_dir)
-
+    # plot_stratified_5_fold_CV(run_dir, figures_dir)
 
     # Distribution of each test metric across the network-order variation runs
-    #plot_network_order_variation(run_dir, figures_dir, run_prefix="pnet_network_order_variation", split="test")
+    # plot_network_order_variation(run_dir, figures_dir, run_prefix="pnet_network_order_variation", split="test")
 
     # Feature-importance stability across the network-order variation runs
-    analyse_importance_stability(
-        run_dir, figures_dir, n_hidden_layers,
-        run_id="pnet_network_order_variation",
-        fold_dirs=[f"{run_dir}/pnet_network_order_variation_{i}"
-                   for i in range(len(pnet_network_order_variation_configs))],
-        unit="run",
-        pathway_names="architecture/Reactome/ReactomePathways.txt")
+    # analyse_importance_stability(
+    #     run_dir, figures_dir, n_hidden_layers,
+    #     run_id="pnet_network_order_variation",
+    #     fold_dirs=[f"{run_dir}/pnet_network_order_variation_{i}"
+    #                for i in range(len(pnet_network_order_variation_configs))],
+    #     unit="run",
+    #     pathway_names="architecture/Reactome/ReactomePathways.txt")
 
     # plot_nested_CV(run_dir, figures_dir)
     #
@@ -196,16 +196,20 @@ def run():
 
     # Feature-importance stability (each run writes to its own subdirectory under
     # figures/importance_stability/{run_id} so the two do not overwrite each other)
-    # analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
-    #                              run_id="pnet_10_fold_CV_stability",
-    #                              pathway_names="architecture/Reactome/ReactomePathways.txt")
-    # analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
-    #                              run_id="pnet_GO_10_fold_CV_stability",
-    #                              pathway_names="architecture/GO/go_id_name_map.tsv")
-
-
-
-
+    # analyse_importance_stability(
+    #     run_dir, figures_dir, n_hidden_layers,
+    #     run_id="pnet_10_fold_CV_stability",
+    #     fold_dirs=[f"{run_dir}/pnet_10_fold_CV_stability_{i}"
+    #                for i in range(len(pnet_test_set_stability_configs))],
+    #     unit="run",
+    #     pathway_names="architecture/Reactome/ReactomePathways.txt")
+    # analyse_importance_stability(
+    #     run_dir, figures_dir, n_hidden_layers,
+    #     run_id="pnet_GO_10_fold_CV_stability",
+    #     fold_dirs=[f"{run_dir}/pnet_GO_10_fold_CV_stability_{i}"
+    #                for i in range(len(pnet_GO_10_fold_CV_stability_configs))],
+    #     unit="run",
+    #     pathway_names="architecture/GO/go_id_name_map.tsv")
 
 
 if __name__ == "__main__":
