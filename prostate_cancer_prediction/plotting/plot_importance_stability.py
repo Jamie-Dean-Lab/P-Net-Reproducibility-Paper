@@ -25,8 +25,14 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 from scipy.stats import spearmanr
+
+
+# Shared figure styling, consistent with the other figures in this project
+# (e.g. plot_stratified_5_fold_CV, plot_network_order_variation).
+TICK_SIZE = 12
+LABEL_SIZE = 14
+DPI = 300
 
 
 def _load_fold_importance(fold_dirs, layer_key, value_col, connected_only, unit="fold"):
@@ -110,7 +116,7 @@ def _plot_topk_membership(table, display, top_k, out_dir, label_col=None, top_n=
     top = table.head(top_n).iloc[::-1]  # reverse so rank 1 sits at the top of barh
     labels = top[label_col] if label_col else top.index
 
-    fig, ax = plt.subplots(figsize=(7, max(4.0, 0.38 * len(top))))
+    fig, ax = plt.subplots(figsize=(8, max(4.0, 0.45 * len(top))))
 
     # how many repeats place each consensus feature in the top-K,
     # coloured by mean rank (darker = better average rank)
@@ -119,25 +125,14 @@ def _plot_topk_membership(table, display, top_k, out_dir, label_col=None, top_n=
     ax.barh(range(len(top)), top["topk_frequency"],
             color=plt.cm.viridis_r(norm))
     ax.set_yticks(range(len(top)))
-    ax.set_yticklabels(labels, fontsize=7)
-    ax.set_xlabel(f"# {unit}s with feature in top-{top_k}")
-    ax.set_title(f"{display}: top-{top_k} membership across {unit}s")
+    ax.set_yticklabels(labels, fontsize=TICK_SIZE)
+    ax.set_xlabel(f"Number of {unit}s with feature in top {top_k}", fontsize=LABEL_SIZE)
+    ax.tick_params(axis='both', labelsize=TICK_SIZE)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
 
     fig.tight_layout()
-    fig.savefig(f"{out_dir}/{display}_top{top_k}_membership.png", dpi=200)
-    plt.close(fig)
-
-
-def _plot_pairwise_spearman(spear, display, out_dir):
-    """Save the pairwise Spearman heatmap of the full per-fold rankings."""
-    fig, ax = plt.subplots(figsize=(8, 7))
-
-    sns.heatmap(spear, vmin=0, vmax=1, annot=True, fmt=".2f", cmap="rocket",
-                ax=ax, cbar=True, annot_kws={"size": 6})
-    ax.set_title(f"{display}: pairwise Spearman of rankings")
-
-    fig.tight_layout()
-    fig.savefig(f"{out_dir}/{display}_spearman.png", dpi=200)
+    fig.savefig(f"{out_dir}/{display}_top{top_k}_membership.png", dpi=DPI)
     plt.close(fig)
 
 
@@ -164,17 +159,18 @@ def _plot_top_importance(wide, table, display, top_k, out_dir, label_col=None, u
 
     # mean +/- 1 SD across repeats
     ax.errorbar(means, y, xerr=stds, fmt="o", color="C3", capsize=3,
-                markersize=5, lw=1.2, zorder=3, label=f"mean +/- 1 SD across {unit}s")
+                markersize=5, lw=1.2, zorder=3)
 
     ax.set_yticks(y)
-    ax.set_yticklabels([label_of[f] for f in order], fontsize=7)
-    ax.set_xlabel("DeepLIFT importance score")
-    ax.set_title(f"{display}: top-{top_k} importance (mean & variance across {unit}s)")
-    ax.legend(fontsize=7, loc="lower right")
+    ax.set_yticklabels([label_of[f] for f in order], fontsize=TICK_SIZE)
+    ax.set_xlabel("DeepLIFT importance score", fontsize=LABEL_SIZE)
+    ax.tick_params(axis='both', labelsize=TICK_SIZE)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
     ax.margins(y=0.02)
 
     fig.tight_layout()
-    fig.savefig(f"{out_dir}/{display}_top{top_k}_importance.png", dpi=200)
+    fig.savefig(f"{out_dir}/{display}_top{top_k}_importance.png", dpi=DPI)
     plt.close(fig)
 
 
@@ -208,18 +204,19 @@ def _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=None, unit="
 
     # median with IQR (Q1-Q3) across repeats
     ax.errorbar(medians, y, xerr=xerr, fmt="o", color="C0", capsize=3,
-                markersize=5, lw=1.2, zorder=3, label=f"median +/- IQR across {unit}s")
+                markersize=5, lw=1.2, zorder=3)
 
     ax.set_yticks(y)
-    ax.set_yticklabels([label_of[f] for f in order], fontsize=7)
-    ax.set_xlabel(f"rank within {unit} (1 = most important)")
-    ax.set_title(f"{display}: top-{top_k} rank (median & IQR across {unit}s)")
+    ax.set_yticklabels([label_of[f] for f in order], fontsize=TICK_SIZE)
+    ax.set_xlabel("Rank", fontsize=LABEL_SIZE)
     ax.set_xlim(left=0)
-    ax.legend(fontsize=7, loc="lower right")
+    ax.tick_params(axis='both', labelsize=TICK_SIZE)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
     ax.margins(y=0.02)
 
     fig.tight_layout()
-    fig.savefig(f"{out_dir}/{display}_top{top_k}_rank.png", dpi=200)
+    fig.savefig(f"{out_dir}/{display}_top{top_k}_rank.png", dpi=DPI)
     plt.close(fig)
 
 
@@ -243,7 +240,6 @@ def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
     Outputs to {figures_dir}/importance_stability/{run_id}/:
       * {layer}_stability.csv          -- per-feature metrics (consensus-ordered)
       * {layer}_top{K}_membership.png  -- top-K membership frequency bars
-      * {layer}_spearman.png           -- pairwise Spearman heatmap of rankings
       * {layer}_top{K}_importance.png  -- mean +/- SD importance of the top-K features
       * {layer}_top{K}_rank.png        -- median & IQR rank of the top-K features
       * stability_summary.csv          -- one row per layer (mean Spearman)
@@ -299,7 +295,6 @@ def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
         print(f"  top consensus features:\n{table.head(top_k)[cols].to_string()}")
 
         _plot_topk_membership(table, display, top_k, out_dir, label_col=label_col, unit=unit)
-        _plot_pairwise_spearman(spear, display, out_dir)
         _plot_top_importance(wide, table, display, top_k, out_dir, label_col=label_col, unit=unit)
         _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=label_col, unit=unit)
 
