@@ -26,7 +26,7 @@ _dense_fitting_params = {
     "early_stopping":     None,
     "prediction_output":  "average",
     "shuffle_samples":    True,
-    "class_weight":       [[0.75, 1.5]] * (n_hidden_layers + 1),
+    "class_weight":       [{0: 0.75, 1: 1.5}] * (n_hidden_layers + 1),
 }
 
 _dense_model_params = {

@@ -61,7 +61,7 @@ pnet_external_validation_1_elmarakeby_config = {
         "early_stopping": None,
         "prediction_output": "average",
         "shuffle_samples": True,
-        "class_weight": [[1, 1]] * (n_hidden_layers + 1),
+        "class_weight": [{0: 1, 1: 1}] * (n_hidden_layers + 1),
     },
     "results_processors": [
         save_processor,

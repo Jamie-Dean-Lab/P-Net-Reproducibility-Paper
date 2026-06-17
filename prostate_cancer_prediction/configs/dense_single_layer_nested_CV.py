@@ -35,7 +35,7 @@ dense_single_layer_nested_CV_config = {
         "early_stopping":     None,
         "prediction_output":  "average",
         "shuffle_samples":    True,
-        "class_weight":       [[0.75, 1.5]] * (n_hidden_layers + 1),
+        "class_weight":       [{0: 0.75, 1: 1.5}] * (n_hidden_layers + 1),
     },
     "results_processors": [save_processor],
     "pipeline_class":     TFPipeline,
