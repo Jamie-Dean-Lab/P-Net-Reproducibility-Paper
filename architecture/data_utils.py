@@ -451,7 +451,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
 
         args:
             train_ids (list or float) : list of training sample ids or training size proportion
-            val_ids (list or float) : list of validation sample ids or validatoin size proportion
+            val_ids (list or float) : list of validation sample ids or validation size proportion
             test_ids (list or float) : list of test sample ids or test size proportion
             seed (int) : seed for random number generation if some splits are defined by proportions
 
