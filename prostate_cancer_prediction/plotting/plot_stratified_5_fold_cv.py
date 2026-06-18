@@ -100,7 +100,7 @@ def plot_stratified_5_fold_CV(run_dir, figures_dir):
         )
 
         ax.axhline(avg, ls='--', linewidth=1)
-        ax.set_ylim([0.4, 1.05])
+        ax.autoscale(axis='y')
         ax.set_ylabel(metric_display[metric], fontproperties)
         ax.set_xlabel('')
         ax.set_xticklabels(ax.get_xticklabels(), rotation=30, horizontalalignment='right', fontsize=fontsize)
