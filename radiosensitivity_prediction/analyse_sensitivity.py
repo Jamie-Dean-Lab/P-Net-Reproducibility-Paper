@@ -1,9 +1,9 @@
 """
 Analyse the P-NET hyperparameter sensitivity sweep
-(radiosensitivity_prediction/runs/pnet_sensitivity).
+(radiosensitivity_prediction/runs/pnet_hyperparameter_sensitivity).
 
 The sweep is a one-at-a-time (OAT) analysis run on fold 0 of the main
-cross-validation (see extract_sensitivity_split.py / configs/pnet_sensitivity.py):
+cross-validation (see extract_sensitivity_split.py / configs/pnet_hyperparameter_sensitivity.py):
 each hyperparameter is varied over a grid while the others are held at their
 baseline values, and every configuration is scored with an inner 5-fold CV over
 the *training* portion of the split.
@@ -28,15 +28,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-RUN_DIR = os.path.join("radiosensitivity_prediction", "runs", "pnet_sensitivity")
-FIGURES_DIR = os.path.join("radiosensitivity_prediction", "figures", "pnet_sensitivity")
+RUN_DIR = os.path.join("radiosensitivity_prediction", "runs", "pnet_hyperparameter_sensitivity")
+FIGURES_DIR = os.path.join("radiosensitivity_prediction", "figures", "pnet_hyperparameter_sensitivity")
 
 # Response label prefix used in the summary CSVs (label is AUC_log1p).
 LABEL_PREFIX = "AUC_log1p"
 DEFAULT_METRIC = "r2"
 
 # Baseline (default) value of each swept hyperparameter, mirroring
-# configs/pnet_sensitivity.py. At its baseline value every sweep collapses to the
+# configs/pnet_hyperparameter_sensitivity.py. At its baseline value every sweep collapses to the
 # same all-defaults configuration, so these points should agree across sweeps.
 BASELINE = {
     "lr": 1e-3,

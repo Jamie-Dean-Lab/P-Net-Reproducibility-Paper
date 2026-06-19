@@ -159,9 +159,9 @@ _sweep_labels = {f"cv_{i}": p["model_params_choice"] for i, p in enumerate(_grid
 with open(os.path.join(_run_dir, "sweep_labels.json"), "w") as f:
     json.dump(_sweep_labels, f, indent=2)
 
-pnet_sensitivity_config = {
+pnet_hyperparameter_sensitivity_config = {
     **copy.deepcopy(base_config),
-    "run_id": "pnet_sensitivity",
+    "run_id": "pnet_hyperparameter_sensitivity",
     "model": compile_pnet,
     "fitting_params": _make_fitting_params(),
     "pipeline_class": TFPipeline,
@@ -173,5 +173,5 @@ pnet_sensitivity_config = {
     "test_samples": _split["test"],
     "grid_search": _grid_search_params,
 }
-pnet_sensitivity_config.pop("external_datasets", None)
+pnet_hyperparameter_sensitivity_config.pop("external_datasets", None)
 
