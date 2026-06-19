@@ -5,6 +5,7 @@ from radiosensitivity_prediction.configs.adaboost import adaboost_config
 from radiosensitivity_prediction.configs.decision_tree import decision_tree_config
 from radiosensitivity_prediction.configs.lgbm import lgbm_config
 from radiosensitivity_prediction.configs.linear_svm import linear_svm_config
+from radiosensitivity_prediction.configs.pnet_sensitivity import pnet_sensitivity_config
 from radiosensitivity_prediction.configs.random_forest import random_forest_config
 from radiosensitivity_prediction.configs.rbf_svm import rbf_svm_config
 from radiosensitivity_prediction.configs.sgd_logistic_regression import sgd_logistic_regression_config
@@ -22,6 +23,7 @@ from architecture.run_pipeline import run_pipeline
 
 def run():
     configs = [
+        pnet_sensitivity_config,
         pnet_config,
         dense_config,
         krr_config,
