@@ -23,9 +23,15 @@ SELECTED_O_REG = 1e-6
 DEFAULT_LEARNING_RATE = 1e-3
 DEFAULT_DROP = 0.5
 DEFAULT_EPOCHS_DROP = 25
-DEFAULT_H_DROPOUT_FIRST = 0.5
-DEFAULT_H_DROPOUT_REST = 0.1
 DEFAULT_BATCH = 50
+
+# Dropout was inert in the original P-NET (the Dropout `training` flag was hardcoded
+# off - see apply_training_dropout in architecture/pnet_model.py), so the model
+# effectively trained with no dropout. We re-enable dropout for this sweep
+# (apply_training_dropout=True below) and vary the first-layer and hidden-layer (rest)
+# rates independently from 0 upward to measure their effect.
+DEFAULT_H_DROPOUT_FIRST = 0.0
+DEFAULT_H_DROPOUT_REST = 0.0
 
 _model_params_fixed = {
     "pathway_dataset": "reactome",
@@ -41,6 +47,7 @@ _model_params_fixed = {
     "batch_normal": False,
     "sparse": True,
     "dropout_testing": False,
+    "apply_training_dropout": True,
     "loss": ["MeanSquaredError"] * (n_hidden_layers + 1),
     "loss_weights": [2, 7, 20, 54, 148, 400],
     "map_seed": 42,
@@ -90,7 +97,8 @@ def _make_fitting_params(learning_rate=DEFAULT_LEARNING_RATE,
 LEARNING_RATE_VALUES = [1e-4, 3e-4, 1e-3, 3e-3, 1e-2]
 EPOCHS_VALUES = [100, 200, 300, 400, 500]
 EPOCHS_DROP_VALUES = [5, 10, 25, 50, 100]
-H_DROPOUT_FIRST_VALUES = [0.3, 0.4, 0.5, 0.6, 0.7]
+H_DROPOUT_FIRST_VALUES = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
+H_DROPOUT_REST_VALUES = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
 BATCH_VALUES = [10, 25, 50, 100, 200]
 
 _grid_search_params = (
@@ -122,6 +130,13 @@ _grid_search_params = (
             "model_params_choice": f"h_dropout_first_{do}",
         }
         for do in H_DROPOUT_FIRST_VALUES
+    ] + [
+        {
+            "model_params": _make_model_params(h_dropout_rest=do),
+            "fitting_params": _make_fitting_params(),
+            "model_params_choice": f"h_dropout_rest_{do}",
+        }
+        for do in H_DROPOUT_REST_VALUES
     ] + [
         {
             "model_params": _make_model_params(),
@@ -158,3 +173,5 @@ pnet_sensitivity_config = {
     "test_samples": _split["test"],
     "grid_search": _grid_search_params,
 }
+pnet_sensitivity_config.pop("external_datasets", None)
+

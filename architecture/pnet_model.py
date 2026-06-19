@@ -180,7 +180,7 @@ class TFModel:
 def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, loss_weights, data,
                  h_activation, o_activation, h_reg, o_reg, h_dropout, sparse, batch_normal, h_kernel_initializer,
                  h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing, map_seed,
-                 pathway_dataset):
+                 pathway_dataset, apply_training_dropout=False):
     """
     Compiles P-Net model specifying the optimizer, loss function, and loss weights on top of building
     the P-Net architecture
@@ -238,7 +238,7 @@ def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, l
                                                      h_reg, o_reg, h_dropout, sparse, batch_normal,
                                                      h_kernel_initializer,
                                                      h_kernel_constraints, h_bias_initializer, h_bias_constraints,
-                                                     dropout_testing, map_seed)
+                                                     dropout_testing, map_seed, apply_training_dropout)
 
     # Compile P-Net with the opimizer and loss function
     logging.info("Compiling...")
@@ -258,7 +258,8 @@ def compile_pnet(pp_relations, gp_relations, n_hidden_layers, optimizer, loss, l
 
 def build_pnet(inputs, data, maps, h_activation, o_activation,
                h_reg, o_reg, h_dropout, sparse, batch_normal, h_kernel_initializer,
-               h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing, map_seed):
+               h_kernel_constraints, h_bias_initializer, h_bias_constraints, dropout_testing, map_seed,
+               apply_training_dropout=False):
     """
     Function which builds the P-Net model using Keras library
 
@@ -279,13 +280,33 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
         h_bias_constraints (list[keras constraints]) : Constraint to be used for each hidden layer's bias
         dropout_testing (bool) : Whether to apply dropout outside of training
         map_seed (int) : rng seed for sparse network orders
-    
+        apply_training_dropout (bool) : Selects how the Dropout layers' `training` flag is wired.
+            False (default) reproduces the original P-NET exactly (`training=dropout_testing`),
+            which leaves dropout inactive during training whenever dropout_testing is False.
+            True applies the corrected behaviour: dropout is active during training and disabled
+            at inference, unless dropout_testing requests Monte Carlo / Bayesian dropout.
+
     returns:
         outcome, decision_outcomes, feature_names : output of the hidden layers, output of the decision layers, feature labels 
                                                     for each hidden layer
     """
     # Keep track of number of features and number of genes
     feature_names = {}
+
+    # Resolve the `training` flag shared by every Dropout layer.
+    #
+    # Legacy (apply_training_dropout=False) reproduces the original P-NET: the flag is hardcoded
+    # to `dropout_testing`, so when dropout_testing is False (the default in every config) dropout
+    # is a no-op during BOTH training and inference.
+    #
+    # Corrected (apply_training_dropout=True): pass None so Keras follows the learning phase
+    # (dropout active during fit, disabled during predict), and only force it on at inference when
+    # dropout_testing requests Monte Carlo / Bayesian dropout.
+    if apply_training_dropout:
+        dropout_training_flag = True if dropout_testing else None
+    else:
+        dropout_training_flag = dropout_testing
+
     # Start constructing first layer from input features to set of genes
     gene_set = np.array(data.get_alignment_ids())[range(0, len(data.get_alignment_ids()), len(data.data_views))]
     feature_gene_map = Diagonal(len(gene_set), tf.keras.activations.get(h_activation[0]),
@@ -303,7 +324,7 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
     # Apply layers
     outcome = feature_gene_map(inputs)
     decision_outcomes = [BatchNormalization()(out_0(outcome))] if batch_normal else [out_0(outcome)]
-    outcome = dropout_0(outcome, training=dropout_testing)
+    outcome = dropout_0(outcome, training=dropout_training_flag)
 
     # Construct P-Net hidden layer hierarchy
     inp_features = gene_set
@@ -345,7 +366,7 @@ def build_pnet(inputs, data, maps, h_activation, o_activation,
         decision_outcomes.append(decision_outcome)
         # Apply dropout
         dropout_n = Dropout(h_dropout[i + 1])
-        outcome = dropout_n(outcome, training=dropout_testing)
+        outcome = dropout_n(outcome, training=dropout_training_flag)
         # Save feature names
         feature_names["h{}".format(i)] = inp_features
         inp_features = out_features

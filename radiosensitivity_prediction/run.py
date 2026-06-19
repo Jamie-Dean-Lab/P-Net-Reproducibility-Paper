@@ -24,17 +24,17 @@ from architecture.run_pipeline import run_pipeline
 def run():
     configs = [
         pnet_sensitivity_config,
-        pnet_config,
-        dense_config,
-        krr_config,
-        lgbm_config,
-        xgb_config,
-        adaboost_config,
-        decision_tree_config,
-        linear_svm_config,
-        rbf_svm_config,
-        random_forest_config,
-        sgd_logistic_regression_config
+        # pnet_config,
+        # dense_config,
+        # krr_config,
+        # lgbm_config,
+        # xgb_config,
+        # adaboost_config,
+        # decision_tree_config,
+        # linear_svm_config,
+        # rbf_svm_config,
+        # random_forest_config,
+        # sgd_logistic_regression_config
     ]
 
     for config in configs:
