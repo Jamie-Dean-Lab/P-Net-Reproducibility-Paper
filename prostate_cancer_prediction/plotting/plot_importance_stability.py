@@ -30,8 +30,8 @@ from scipy.stats import spearmanr
 
 # Shared figure styling, consistent with the other figures in this project
 # (e.g. plot_stratified_5_fold_CV, plot_network_order_variation).
-TICK_SIZE = 12
-LABEL_SIZE = 14
+TICK_SIZE = 14
+LABEL_SIZE = 16
 DPI = 300
 
 
@@ -119,11 +119,11 @@ def _plot_topk_membership(table, display, top_k, out_dir, label_col=None, top_n=
     fig, ax = plt.subplots(figsize=(8, max(4.0, 0.45 * len(top))))
 
     # how many repeats place each consensus feature in the top-K,
-    # coloured by mean rank (darker = better average rank)
-    rng = top["mean_rank"].max() - top["mean_rank"].min()
-    norm = (top["mean_rank"] - top["mean_rank"].min()) / (rng + 1e-9)
+    # coloured by mean rank (lighter/yellow = better, i.e. lower, average rank)
+    cmap = plt.cm.viridis_r
+    norm = plt.Normalize(vmin=top["mean_rank"].min(), vmax=top["mean_rank"].max())
     ax.barh(range(len(top)), top["topk_frequency"],
-            color=plt.cm.viridis_r(norm))
+            color=cmap(norm(top["mean_rank"].to_numpy())))
     ax.set_yticks(range(len(top)))
     ax.set_yticklabels(labels, fontsize=TICK_SIZE)
     ax.set_xlabel(f"Number of {unit}s with feature in top {top_k}", fontsize=LABEL_SIZE)
@@ -131,15 +131,21 @@ def _plot_topk_membership(table, display, top_k, out_dir, label_col=None, top_n=
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = fig.colorbar(sm, ax=ax, pad=0.02)
+    cbar.set_label("Mean rank", fontsize=LABEL_SIZE)
+    cbar.ax.tick_params(labelsize=TICK_SIZE)
+
     fig.tight_layout()
     fig.savefig(f"{out_dir}/{display}_top{top_k}_membership.png", dpi=DPI)
     plt.close(fig)
 
 
-def _plot_top_importance(wide, table, display, top_k, out_dir, label_col=None, unit="fold"):
-    """Save a figure of mean +/- 1 SD importance for the top-K consensus features.
+def _plot_top_importance(wide, table, display, top_n, out_dir, label_col=None, unit="fold"):
+    """Save a figure of mean +/- 1 SD importance for the top-N features by mean score.
     """
-    top = table.head(top_k)
+    top = table.sort_values("mean_importance", ascending=False).head(top_n)
     feats = list(top.index)
     label_of = dict(zip(feats, list(top[label_col]) if label_col else feats))
 
@@ -155,33 +161,33 @@ def _plot_top_importance(wide, table, display, top_k, out_dir, label_col=None, u
     for yi, f in zip(y, order):
         fold_vals = sub.loc[f].dropna().to_numpy()
         ax.scatter(fold_vals, np.full(len(fold_vals), yi),
-                   color="0.65", s=14, zorder=2)
+                   color="0.65", s=22, zorder=2)
 
     # mean +/- 1 SD across repeats
-    ax.errorbar(means, y, xerr=stds, fmt="o", color="C3", capsize=3,
-                markersize=5, lw=1.2, zorder=3)
+    ax.errorbar(means, y, xerr=stds, fmt="o", color="C3", capsize=5,
+                markersize=7, lw=1.8, zorder=3)
 
     ax.set_yticks(y)
     ax.set_yticklabels([label_of[f] for f in order], fontsize=TICK_SIZE)
-    ax.set_xlabel("DeepLIFT importance score", fontsize=LABEL_SIZE)
+    ax.set_xlabel("Feature importance score", fontsize=LABEL_SIZE)
     ax.tick_params(axis='both', labelsize=TICK_SIZE)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.margins(y=0.02)
 
     fig.tight_layout()
-    fig.savefig(f"{out_dir}/{display}_top{top_k}_importance.png", dpi=DPI)
+    fig.savefig(f"{out_dir}/{display}_top{top_n}_importance.png", dpi=DPI)
     plt.close(fig)
 
 
-def _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=None, unit="fold"):
-    """Save a figure of median rank with IQR (Q1-Q3) for the top-K features.
+def _plot_top_rank(ranks, table, display, top_n, out_dir, label_col=None, unit="fold"):
+    """Save a figure of median rank with IQR (Q1-Q3) for the top-N features by median rank.
 
     Rank is bounded, discrete and typically right-skewed across repeats, so the
     median and inter-quartile range describe its spread more faithfully than
     mean +/- SD (which can place whiskers below rank 1).
     """
-    top = table.head(top_k)
+    top = table.sort_values(["median_rank", "mean_rank"], ascending=True).head(top_n)
     feats = list(top.index)
     label_of = dict(zip(feats, list(top[label_col]) if label_col else feats))
 
@@ -200,11 +206,11 @@ def _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=None, unit="
     for yi, f in zip(y, order):
         fold_vals = sub.loc[f].dropna().to_numpy()
         ax.scatter(fold_vals, np.full(len(fold_vals), yi),
-                   color="0.65", s=14, zorder=2)
+                   color="0.65", s=22, zorder=2)
 
     # median with IQR (Q1-Q3) across repeats
-    ax.errorbar(medians, y, xerr=xerr, fmt="o", color="C0", capsize=3,
-                markersize=5, lw=1.2, zorder=3)
+    ax.errorbar(medians, y, xerr=xerr, fmt="o", color="C0", capsize=5,
+                markersize=7, lw=1.8, zorder=3)
 
     ax.set_yticks(y)
     ax.set_yticklabels([label_of[f] for f in order], fontsize=TICK_SIZE)
@@ -216,7 +222,7 @@ def _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=None, unit="
     ax.margins(y=0.02)
 
     fig.tight_layout()
-    fig.savefig(f"{out_dir}/{display}_top{top_k}_rank.png", dpi=DPI)
+    fig.savefig(f"{out_dir}/{display}_top{top_n}_rank.png", dpi=DPI)
     plt.close(fig)
 
 
@@ -295,8 +301,8 @@ def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
         print(f"  top consensus features:\n{table.head(top_k)[cols].to_string()}")
 
         _plot_topk_membership(table, display, top_k, out_dir, label_col=label_col, unit=unit)
-        _plot_top_importance(wide, table, display, top_k, out_dir, label_col=label_col, unit=unit)
-        _plot_top_rank(ranks, table, display, top_k, out_dir, label_col=label_col, unit=unit)
+        _plot_top_importance(wide, table, display, 15, out_dir, label_col=label_col, unit=unit)
+        _plot_top_rank(ranks, table, display, 15, out_dir, label_col=label_col, unit=unit)
 
         summary_rows.append({
             "layer": display,
