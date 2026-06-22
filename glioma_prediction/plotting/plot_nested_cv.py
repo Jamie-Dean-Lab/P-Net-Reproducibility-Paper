@@ -52,8 +52,8 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="auc"):
     current_palette = sns.color_palette(None, len(paper_model_order))
     my_pal = {m: current_palette[i] for i, m in enumerate(paper_model_order)}
 
-    fontsize = 16
-    fontproperties = {"family": "Arial", "weight": "normal", "size": 18}
+    fontsize = 18
+    fontproperties = {"family": "Arial", "weight": "normal", "size": 20}
     metric_cols = ["auc", "auprc", "f1", "accuracy", "precision", "recall"]
 
     all_data = []
@@ -143,7 +143,6 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="auc"):
         ax.set_xticklabels(ax.get_xticklabels(), rotation=30, horizontalalignment="right", fontsize=fontsize)
         ax.get_xaxis().set_minor_locator(ticker.AutoMinorLocator())
         ax.tick_params(axis="both", which="major", labelsize=fontsize)
-        ax.tick_params(axis="x", which="major", length=6, width=1.2, bottom=True)
         ax.minorticks_off()
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
