@@ -1,7 +1,5 @@
 import os, sys
 
-from tissue_type_classification.significance_testing import significance_test
-
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
@@ -21,8 +19,8 @@ from architecture.run_pipeline import run_pipeline
 
 def run():
     configs = [
-        pnet_config,
-        dense_config,
+        #pnet_config,
+        #dense_config,
         svc_config,
         adaboost_config,
         decision_tree_config,
@@ -36,7 +34,7 @@ def run():
     for config in configs:
         run_pipeline(config)
 
-    significance_test(run_dir, wd)
+    #significance_test(run_dir, wd)
 
 
 if __name__ == "__main__":

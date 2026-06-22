@@ -125,8 +125,8 @@ def run():
         # sgd_logistic_regression_stratified_5_fold_CV_config,
         #
         # # Feature-importance test-train stability
-         #*pnet_test_set_stability_configs,
-         #*pnet_GO_test_set_stability_configs,
+        # *pnet_test_set_stability_configs,
+        # *pnet_GO_test_set_stability_configs,
         #
         # # Feature-importance network order stability
         # *pnet_network_order_variation_configs,
@@ -139,13 +139,13 @@ def run():
         #  pnet_nested_CV_config,
         # pnetfc_nested_CV_config,
         # dense_single_layer_nested_CV_config,
-        # pnet_GO_nested_CV_config,
-        # adaboost_nested_CV_config,
-        # decision_tree_nested_CV_config,
-        # linear_svm_nested_CV_config,
-        # random_forest_nested_CV_config,
-        # rbf_svm_nested_CV_config,
-        # sgd_logistic_regression_nested_CV_config,
+        pnet_GO_nested_CV_config,
+        adaboost_nested_CV_config,
+        decision_tree_nested_CV_config,
+        linear_svm_nested_CV_config,
+        random_forest_nested_CV_config,
+        rbf_svm_nested_CV_config,
+        sgd_logistic_regression_nested_CV_config,
     ]
 
     for config in configs:
@@ -176,7 +176,7 @@ def run():
     #            short_name_csv=pathway_short_names, format_pathway_names=True,
     #            output_prefix="pnet_GO_single_split")
 
-    #plot_stratified_5_fold_CV(run_dir, figures_dir)
+    # plot_stratified_5_fold_CV(run_dir, figures_dir)
 
     # Distribution of each test metric across the network-order variation runs
     # plot_network_order_variation(run_dir, figures_dir, run_prefix="pnet_network_order_variation", split="test")
@@ -202,13 +202,13 @@ def run():
     #                for i in range(len(pnet_test_set_stability_configs))],
     #     unit="run",
     #     pathway_names="architecture/Reactome/ReactomePathways.txt")
-    analyse_importance_stability(
-        run_dir, figures_dir, n_hidden_layers,
-        run_id="pnet_GO_test_set_stability",
-        fold_dirs=[f"{run_dir}/pnet_GO_test_set_stability_{i}"
-                   for i in range(len(pnet_GO_test_set_stability_configs))],
-        unit="run",
-        pathway_names="architecture/GO/go_id_name_map.tsv")
+    # analyse_importance_stability(
+    #     run_dir, figures_dir, n_hidden_layers,
+    #     run_id="pnet_GO_test_set_stability",
+    #     fold_dirs=[f"{run_dir}/pnet_GO_test_set_stability_{i}"
+    #                for i in range(len(pnet_GO_test_set_stability_configs))],
+    #     unit="run",
+    #     pathway_names="architecture/GO/go_id_name_map.tsv")
 
 
 if __name__ == "__main__":

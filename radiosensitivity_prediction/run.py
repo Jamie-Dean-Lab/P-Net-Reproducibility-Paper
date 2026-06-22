@@ -11,6 +11,7 @@ from radiosensitivity_prediction.configs.random_forest import random_forest_conf
 from radiosensitivity_prediction.configs.rbf_svm import rbf_svm_config
 from radiosensitivity_prediction.configs.sgd_logistic_regression import sgd_logistic_regression_config
 from radiosensitivity_prediction.configs.xgb import xgb_config
+
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
@@ -24,9 +25,9 @@ from architecture.run_pipeline import run_pipeline
 
 def run():
     configs = [
-        # pnet_config,
-        # dense_config,
-        # pnet_GO_config,
+        pnet_config,
+        dense_config,
+        pnet_GO_config,
         # krr_config,
         # lgbm_config,
         # xgb_config,
