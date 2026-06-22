@@ -38,6 +38,10 @@ Install TensorFlow and the Metal GPU plugin separately before the rest of the re
 ```
 pip install tensorflow-macos==2.10.0 tensorflow-metal==0.6.0
 ```
+LightGBM on macOS requires `libomp`, which is not installed by default
+```
+brew install libomp
+```
 Then install the remaining requirements
 ```
 pip install -r requirements-mac.txt

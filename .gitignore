@@ -22,6 +22,7 @@
 *.gz
 *.gff3
 *.seg
+*.json
 
 # Logs
 *.log
