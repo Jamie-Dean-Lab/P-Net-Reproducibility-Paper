@@ -30,7 +30,7 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="auc"):
     }
 
     metric_display = {
-        'auc': 'Area Under Curve (AUC)',
+        'auc': 'AUROC',
         'auprc': 'AUPRC',
         'f1': 'F1',
         'accuracy': 'Accuracy',
@@ -188,7 +188,8 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="auc"):
         fig, ax = plt.subplots(figsize=(8, 5))
         draw_metric(ax, metric)
         plt.tight_layout()
-        plt.savefig(os.path.join(figures_dir, f"nested_CV_{metric}.png"), dpi=300)
+        slug = "auroc" if metric == "auc" else metric
+        plt.savefig(os.path.join(figures_dir, f"nested_CV_{slug}.png"), dpi=300)
         plt.close()
 
     # Combined figure with every metric as a labelled panel (a, b, c, ...)
