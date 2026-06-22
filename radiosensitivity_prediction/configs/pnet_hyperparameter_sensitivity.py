@@ -21,8 +21,8 @@ SELECTED_O_REG = 1e-6
 
 # Baseline hyperparameter values (matching pnet.py / Elmarakeby et al.).
 DEFAULT_LEARNING_RATE = 1e-3
-DEFAULT_DROP = 0.5
-DEFAULT_EPOCHS_DROP = 25
+DEFAULT_DROP = 0.25
+DEFAULT_EPOCHS_DROP = 50
 DEFAULT_BATCH = 50
 
 # Dropout was inert in the original P-NET (the Dropout `training` flag was hardcoded
