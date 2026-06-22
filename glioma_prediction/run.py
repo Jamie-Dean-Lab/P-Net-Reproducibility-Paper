@@ -6,6 +6,7 @@ sys.path.insert(0, project_root)
 
 from glioma_prediction.configs.pnet import pnet_config
 from glioma_prediction.configs.pnet_GO import pnet_GO_config
+from glioma_prediction.configs.pnet_hyperparameter_sensitivity import pnet_hyperparameter_sensitivity_config
 from glioma_prediction.configs.dense import dense_config
 from glioma_prediction.configs.decision_tree import decision_tree_config
 from glioma_prediction.configs.random_forest import random_forest_config
@@ -31,6 +32,7 @@ def run():
         sgd_logistic_regression_config,
         adaboost_config,
         lgbm_config,
+        pnet_hyperparameter_sensitivity_config,
     ]
 
     for config in configs:

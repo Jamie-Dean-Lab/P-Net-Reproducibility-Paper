@@ -48,7 +48,7 @@ _fitting_params = {
 
 pnet_GO_config = {
     **copy.deepcopy(base_config),
-    "run_id": "pnet",
+    "run_id": "pnet_GO",
     "model": compile_pnet,
     "fitting_params": _fitting_params,
     "pipeline_class": TFPipeline,
