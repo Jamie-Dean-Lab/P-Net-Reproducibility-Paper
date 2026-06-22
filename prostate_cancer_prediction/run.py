@@ -132,34 +132,34 @@ def run():
         # *pnet_network_order_variation_configs,
         # *pnet_network_order_fixed_seed_configs,
         #
-        # pnet_external_validation_1_elmarakeby_config,
-        # pnet_external_validation_2_elmarakeby_config,
+        #pnet_external_validation_1_elmarakeby_config,
+        #pnet_external_validation_2_elmarakeby_config,
         #
         # # Stratified nested CV
         #  pnet_nested_CV_config,
         # pnetfc_nested_CV_config,
         # dense_single_layer_nested_CV_config,
-        pnet_GO_nested_CV_config,
-        adaboost_nested_CV_config,
-        decision_tree_nested_CV_config,
-        linear_svm_nested_CV_config,
-        random_forest_nested_CV_config,
-        rbf_svm_nested_CV_config,
-        sgd_logistic_regression_nested_CV_config,
+        # pnet_GO_nested_CV_config,
+        # adaboost_nested_CV_config,
+        # decision_tree_nested_CV_config,
+        # linear_svm_nested_CV_config,
+        # random_forest_nested_CV_config,
+        # rbf_svm_nested_CV_config,
+        # sgd_logistic_regression_nested_CV_config,
     ]
 
     for config in configs:
         run_pipeline(config)
 
     # Single-split ROC/PRC curves (our hyperparameters, test and validation splits kept separate).
-    # plot_single_split_curves(run_dir, figures_dir, concat_val=False)
+    #plot_single_split_curves(run_dir, figures_dir, concat_val=False)
 
     # Single-split ROC/PRC curves (Elmarakeby et al.'s hyperparameters, test and validation splits combined).
-    # plot_single_split_curves(run_dir, figures_dir, tag="elmarakeby", concat_val=True)
+    #plot_single_split_curves(run_dir, figures_dir, tag="elmarakeby", concat_val=True)
 
-    # plot_train_size_comparisons(run_dir, figures_dir)
+    #plot_train_size_comparisons(run_dir, figures_dir)
 
-    # plot_external_validation(run_dir, figures_dir)
+    #plot_external_validation(run_dir, figures_dir)
 
     # Sankey diagram for P-NET
     # pnet_run_dir = f"{run_dir}/pnet_single_split_elmarakeby"
@@ -179,7 +179,7 @@ def run():
     # plot_stratified_5_fold_CV(run_dir, figures_dir)
 
     # Distribution of each test metric across the network-order variation runs
-    # plot_network_order_variation(run_dir, figures_dir, run_prefix="pnet_network_order_variation", split="test")
+    #plot_network_order_variation(run_dir, figures_dir, run_prefix="pnet_network_order_variation", split="test")
 
     # Feature-importance stability across the network-order variation runs
     # analyse_importance_stability(
