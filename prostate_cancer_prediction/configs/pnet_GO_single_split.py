@@ -39,7 +39,7 @@ _model_params_base = {
 
 pnet_GO_single_split_config = {
     **copy.deepcopy(base_config),
-    "run_id":                 "pnet_GO_single_split_test",
+    "run_id":                 "pnet_GO_single_split",
     "model":                  compile_pnet,
     "fitting_params": {
         "epochs":             300,
