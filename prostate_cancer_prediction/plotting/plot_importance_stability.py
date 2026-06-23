@@ -143,8 +143,8 @@ def _plot_topk_membership(table, display, top_k, out_dir, label_col=None, top_n=
 
 
 def _plot_top_importance(wide, table, display, top_n, out_dir, label_col=None, unit="fold"):
-    """Save a violin plot of importance score distributions for the top-N features by mean rank."""
-    top = table.sort_values("mean_rank", ascending=True).head(top_n)
+    """Save a violin plot of importance score distributions for the top-N features by mean importance score."""
+    top = table.sort_values("mean_importance", ascending=False).head(top_n)
     feats = list(top.index)
     label_of = dict(zip(feats, list(top[label_col]) if label_col else feats))
 
