@@ -143,37 +143,33 @@ def _plot_topk_membership(table, display, top_k, out_dir, label_col=None, top_n=
 
 
 def _plot_top_importance(wide, table, display, top_n, out_dir, label_col=None, unit="fold"):
-    """Save a figure of mean +/- 1 SD importance for the top-N features by mean score.
-    """
-    top = table.sort_values("mean_importance", ascending=False).head(top_n)
+    """Save a violin plot of importance score distributions for the top-N features by mean rank."""
+    top = table.sort_values("mean_rank", ascending=True).head(top_n)
     feats = list(top.index)
     label_of = dict(zip(feats, list(top[label_col]) if label_col else feats))
 
     order = feats[::-1]                 # reverse so rank 1 is at the top of the axis
-    sub = wide.loc[order]               # feature x fold importance values
-    means = sub.mean(axis=1).to_numpy()
-    stds = sub.std(axis=1).to_numpy()
+    sub = wide.loc[order]
     y = np.arange(len(order))
+    data = [sub.loc[f].dropna().to_numpy() for f in order]
 
     fig, ax = plt.subplots(figsize=(8, max(3.5, 0.5 * len(order))))
 
-    # individual per-fold scores (shows the actual variance, not just the SD bar)
-    for yi, f in zip(y, order):
-        fold_vals = sub.loc[f].dropna().to_numpy()
-        ax.scatter(fold_vals, np.full(len(fold_vals), yi),
-                   color="0.65", s=22, zorder=2)
-
-    # mean +/- 1 SD across repeats
-    ax.errorbar(means, y, xerr=stds, fmt="o", color="C3", capsize=5,
-                markersize=7, lw=1.8, zorder=3)
+    parts = ax.violinplot(data, positions=y, vert=False,
+                          showmedians=True, showextrema=False)
+    for body in parts["bodies"]:
+        body.set_facecolor("C3")
+        body.set_alpha(0.7)
+    parts["cmedians"].set_color("black")
+    parts["cmedians"].set_linewidth(2)
 
     ax.set_yticks(y)
     ax.set_yticklabels([label_of[f] for f in order], fontsize=TICK_SIZE)
     ax.set_xlabel("Feature importance score", fontsize=LABEL_SIZE)
-    ax.tick_params(axis='both', labelsize=TICK_SIZE)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.margins(y=0.02)
+    ax.tick_params(axis="both", labelsize=TICK_SIZE)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.margins(y=0.05)
 
     fig.tight_layout()
     fig.savefig(f"{out_dir}/{display}_top{top_n}_importance.png", dpi=DPI)
@@ -181,45 +177,34 @@ def _plot_top_importance(wide, table, display, top_n, out_dir, label_col=None, u
 
 
 def _plot_top_rank(ranks, table, display, top_n, out_dir, label_col=None, unit="fold"):
-    """Save a figure of median rank with IQR (Q1-Q3) for the top-N features by median rank.
-
-    Rank is bounded, discrete and typically right-skewed across repeats, so the
-    median and inter-quartile range describe its spread more faithfully than
-    mean +/- SD (which can place whiskers below rank 1).
-    """
-    top = table.sort_values(["median_rank", "mean_rank"], ascending=True).head(top_n)
+    """Save a violin plot of rank distributions for the top-N features by mean rank."""
+    top = table.sort_values("mean_rank", ascending=True).head(top_n)
     feats = list(top.index)
     label_of = dict(zip(feats, list(top[label_col]) if label_col else feats))
 
     order = feats[::-1]                 # reverse so rank 1 is at the top of the axis
-    sub = ranks.loc[order]              # feature x fold ranks
-    medians = sub.median(axis=1).to_numpy()
-    q1 = sub.quantile(0.25, axis=1).to_numpy()
-    q3 = sub.quantile(0.75, axis=1).to_numpy()
-    # asymmetric whiskers: distance from the median out to each quartile
-    xerr = np.vstack([medians - q1, q3 - medians])
+    sub = ranks.loc[order]
     y = np.arange(len(order))
+    data = [sub.loc[f].dropna().to_numpy() for f in order]
 
     fig, ax = plt.subplots(figsize=(8, max(3.5, 0.5 * len(order))))
 
-    # individual per-fold ranks (shows the actual spread, not just the IQR bar)
-    for yi, f in zip(y, order):
-        fold_vals = sub.loc[f].dropna().to_numpy()
-        ax.scatter(fold_vals, np.full(len(fold_vals), yi),
-                   color="0.65", s=22, zorder=2)
-
-    # median with IQR (Q1-Q3) across repeats
-    ax.errorbar(medians, y, xerr=xerr, fmt="o", color="C0", capsize=5,
-                markersize=7, lw=1.8, zorder=3)
+    parts = ax.violinplot(data, positions=y, vert=False,
+                          showmedians=True, showextrema=False)
+    for body in parts["bodies"]:
+        body.set_facecolor("C0")
+        body.set_alpha(0.7)
+    parts["cmedians"].set_color("black")
+    parts["cmedians"].set_linewidth(2)
 
     ax.set_yticks(y)
     ax.set_yticklabels([label_of[f] for f in order], fontsize=TICK_SIZE)
     ax.set_xlabel("Rank", fontsize=LABEL_SIZE)
     ax.set_xlim(left=0)
-    ax.tick_params(axis='both', labelsize=TICK_SIZE)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.margins(y=0.02)
+    ax.tick_params(axis="both", labelsize=TICK_SIZE)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.margins(y=0.05)
 
     fig.tight_layout()
     fig.savefig(f"{out_dir}/{display}_top{top_n}_rank.png", dpi=DPI)
