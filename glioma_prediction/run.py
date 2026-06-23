@@ -21,13 +21,13 @@ from glioma_prediction.configs.base_config import run_dir, figures_dir, wd
 from glioma_prediction.plotting.plot_nested_cv import plot_nested_CV
 from glioma_prediction.plotting.plot_external_validation import plot_external_validation
 from glioma_prediction.plotting.plot_hyperparameter_sensitivity import analyse as plot_hyperparameter_sensitivity
-from prostate_cancer_prediction.plotting.plot_sankey import plot_sankey
+from architecture.plotting.plot_sankey import plot_sankey
 from glioma_prediction.significance_testing import significance_test
 
 
 def run():
     configs = [
-         pnet_config,
+        # pnet_config,
         # pnet_GO_config,
         # dense_config,
         # decision_tree_config,
@@ -44,15 +44,16 @@ def run():
     for config in configs:
         run_pipeline(config)
 
-    plot_nested_CV(run_dir, figures_dir)
-    plot_external_validation(run_dir, figures_dir)
-    plot_hyperparameter_sensitivity()
+    # plot_nested_CV(run_dir, figures_dir)
+    # plot_external_validation(run_dir, figures_dir)
+    # plot_hyperparameter_sensitivity()
 
     # Sankey diagram of the first outer split's P-NET model.
     pnet_run_dir = f"{run_dir}/pnet/test_0/best_auc"
     dataset_id_mappings = "architecture/Reactome/ReactomePathways.txt"
+    pathway_short_names = "architecture/plotting/reactome_short_names.csv"
     plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
-                output_prefix="pnet_single_split")
+                pathway_short_names, output_prefix="pnet_single_split")
 
     significance_test(run_dir, wd)
 

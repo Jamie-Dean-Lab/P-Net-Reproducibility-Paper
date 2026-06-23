@@ -77,7 +77,7 @@ from prostate_cancer_prediction.plotting.plot_nested_cv import plot_nested_CV
 from prostate_cancer_prediction.plotting.plot_stratified_5_fold_cv import plot_stratified_5_fold_CV
 from prostate_cancer_prediction.plotting.plot_external_validation import plot_external_validation
 from prostate_cancer_prediction.plotting.plot_single_split import plot_single_split_curves
-from prostate_cancer_prediction.plotting.plot_sankey import plot_sankey
+from architecture.plotting.plot_sankey import plot_sankey
 from prostate_cancer_prediction.plotting.plot_importance_stability import analyse_importance_stability
 from prostate_cancer_prediction.plotting.plot_network_order_variation import plot_network_order_variation
 
@@ -164,14 +164,14 @@ def run():
     # Sankey diagram for P-NET
     # pnet_run_dir = f"{run_dir}/pnet_single_split_elmarakeby"
     # dataset_id_mappings = "architecture/Reactome/ReactomePathways.txt"
-    # pathway_short_names = "prostate_cancer_prediction/plotting/reactome_short_names.csv"
+    # pathway_short_names = "architecture/plotting/reactome_short_names.csv"
     # plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     #            short_name_csv=pathway_short_names)
 
     # Sankey diagram for P-NET-GO
     # pnet_run_dir = f"{run_dir}/pnet_GO_single_split/best_auc"
     # dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
-    # pathway_short_names = "prostate_cancer_prediction/plotting/reactome_short_names.csv"
+    # pathway_short_names = "architecture/plotting/reactome_short_names.csv"
     # plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     #            short_name_csv=pathway_short_names, format_pathway_names=True,
     #            output_prefix="pnet_GO_single_split")
