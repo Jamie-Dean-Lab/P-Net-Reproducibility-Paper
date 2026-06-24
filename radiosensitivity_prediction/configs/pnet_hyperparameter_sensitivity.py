@@ -153,7 +153,7 @@ if not os.path.exists(_split_path):
 with open(_split_path) as f:
     _split = json.load(f)
 
-_run_dir = os.path.join("radiosensitivity_prediction", "runs", "pnet_sensitivity")
+_run_dir = os.path.join("radiosensitivity_prediction", "runs", "pnet_hyperparameter_sensitivity")
 os.makedirs(_run_dir, exist_ok=True)
 _sweep_labels = {f"cv_{i}": p["model_params_choice"] for i, p in enumerate(_grid_search_params)}
 with open(os.path.join(_run_dir, "sweep_labels.json"), "w") as f:

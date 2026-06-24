@@ -21,6 +21,7 @@ from radiosensitivity_prediction.configs.pnet import pnet_config
 from radiosensitivity_prediction.configs.dense import dense_config
 from radiosensitivity_prediction.configs.kernel_regression import krr_config
 from architecture.run_pipeline import run_pipeline
+from radiosensitivity_prediction.plotting.plot_hyperparameter_sensitivity import analyse as plot_hyperparameter_sensitivity
 
 
 def run():
@@ -42,6 +43,8 @@ def run():
 
     for config in configs:
         run_pipeline(config)
+
+    # plot_hyperparameter_sensitivity()
 
     # significance_test(run_dir, wd)
 

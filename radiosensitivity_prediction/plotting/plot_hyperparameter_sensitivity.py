@@ -7,18 +7,6 @@ cross-validation (see extract_sensitivity_split.py / configs/pnet_hyperparameter
 each hyperparameter is varied over a grid while the others are held at their
 baseline values, and every configuration is scored with an inner 5-fold CV over
 the *training* portion of the split.
-
-LEAKAGE NOTE
-------------
-Each cv_*/fold_summaries.csv contains `train`, `val` and `test` rows. The `test`
-rows are the held-out fold-0 test set, recomputed for every configuration purely
-as a by-product of the pipeline threading test_df through every inner fold
-(architecture/pipeline.py). Using those test numbers to characterise sensitivity
-- or to pick a hyperparameter value - leaks the held-out set and biases the final
-test estimate.
-
-This script therefore builds every sensitivity curve from the inner-CV
-*validation* folds only (split == "val"); the held-out test set is never read.
 """
 
 import json
@@ -83,10 +71,6 @@ def load_val_results(run_dir=RUN_DIR, metric=DEFAULT_METRIC):
         value = float(raw_value)
 
         fold_summaries = os.path.join(run_dir, "test_0", cv_name, "fold_summaries.csv")
-        if not os.path.exists(fold_summaries):
-            # Sweep still running / partially complete - skip configs without results.
-            print(f"Skipping {cv_name} ({label}): no fold_summaries.csv yet")
-            continue
         df = pd.read_csv(fold_summaries, index_col=0)
         val = df.loc[df["split"] == "val", [col, "fold"]]
         for _, r in val.iterrows():
@@ -111,35 +95,35 @@ def aggregate(val_df):
 
 
 def plot_sensitivity(agg, figures_dir=FIGURES_DIR, metric=DEFAULT_METRIC):
-    """One OAT curve per hyperparameter: mean validation score +/- sem vs value."""
+    """One OAT curve per hyperparameter: mean validation score +/- sd vs value."""
     os.makedirs(figures_dir, exist_ok=True)
-    metric_label = metric.upper() if metric == "r2" else metric.replace("_", " ").capitalize()
+    metric_label = {"auc": "AUROC", "r2": "R2"}.get(metric, metric.replace("_", " ").capitalize())
+    fontsize = 18
+    fontproperties = {"family": "Arial", "weight": "normal", "size": 20}
 
     for param, sub in agg.groupby("param"):
         sub = sub.sort_values("value")
         fig, ax = plt.subplots(figsize=(7, 5))
 
-        ax.errorbar(sub["value"], sub["mean"], yerr=sub["sem"], marker="o", capsize=3, color="tab:blue")
+        ax.errorbar(sub["value"], sub["mean"], yerr=sub["std"], marker="o", capsize=3, color="tab:blue")
 
         # Highlight the baseline value so the OAT reference point is obvious.
         base = sub[sub["is_baseline"]]
         if not base.empty:
             ax.scatter(base["value"], base["mean"], s=120, facecolors="none",
-                       edgecolors="tab:red", zorder=5, label="Baseline")
-            ax.legend(frameon=False)
+                       edgecolors="tab:red", zorder=5)
 
         if param in LOG_X:
             ax.set_xscale("log")
 
-        ax.set_xlabel(DISPLAY.get(param, param))
-        ax.set_ylabel(f"Validation {metric_label} (mean +/- sem, 5 inner folds)")
-        ax.set_title(f"P-NET sensitivity: {DISPLAY.get(param, param)}", loc="left",
-                     fontdict={"fontsize": 12, "fontweight": "bold"})
+        ax.set_xlabel(DISPLAY.get(param, param), fontproperties)
+        ax.set_ylabel(metric_label, fontproperties)
+        ax.tick_params(axis="both", which="major", labelsize=fontsize)
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
         fig.tight_layout()
-        fig.savefig(os.path.join(figures_dir, f"sensitivity_{param}_{metric}.png"), dpi=300)
+        fig.savefig(os.path.join(figures_dir, f"sensitivity_{param}_{metric_label}.png"), dpi=300)
         plt.close(fig)
 
 
