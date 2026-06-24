@@ -18,7 +18,7 @@ def make_dataset(n_samples=60, n_features=10, seed=0):
     Build a real ConcatMultiViewDataset in memory with known string IDs ("0".."n-1")
     and balanced binary labels — no filesystem required.
     """
-    from data_utils import ConcatMultiViewDataset
+    from architecture.data_utils import ConcatMultiViewDataset
 
     rng = np.random.default_rng(seed)
     ds = ConcatMultiViewDataset()
@@ -78,7 +78,7 @@ def make_pipeline(tmp_dir, ds, config_overrides=None):
     _get_logger writes into tmp_dir but suppresses console output.
     _train returns a trivial mock model.
     """
-    from pipeline import Pipeline
+    from architecture.pipeline import Pipeline
 
     mock_model = MagicMock()
     mock_model.predict.side_effect = lambda xs: np.zeros(len(xs))
@@ -937,7 +937,7 @@ class TestAlignViewsDropSamples(unittest.TestCase):
     """align_views with method='drop samples' removes rows that have any NaN."""
 
     def setUp(self):
-        from data_utils import ConcatMultiViewDataset
+        from architecture.data_utils import ConcatMultiViewDataset
         rng = np.random.default_rng(0)
         n = 20
         ids = [str(i) for i in range(n)]
@@ -977,7 +977,7 @@ class TestAlignViewsDropFeatures(unittest.TestCase):
     """align_views with method='drop features' removes columns that have any NaN."""
 
     def setUp(self):
-        from data_utils import ConcatMultiViewDataset
+        from architecture.data_utils import ConcatMultiViewDataset
         rng = np.random.default_rng(0)
         n = 20
         ids = [str(i) for i in range(n)]
@@ -1674,7 +1674,7 @@ class TestRunSingleSplitMultipleValMetricsNoClobber(unittest.TestCase):
 
 def make_ml_pipeline(tmp_dir, ds, config_overrides=None):
     """Build an MLPipeline backed by a real ConcatMultiViewDataset."""
-    from pipeline import MLPipeline
+    from architecture.pipeline import MLPipeline
     from sklearn.linear_model import Ridge
 
     spy_pp = SpyTransformer()
@@ -1746,7 +1746,7 @@ class TestMLPipelineRunSingleSplit(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_model_is_sk_model_wrapper(self):
-        from pipeline import SKModelWrapper
+        from architecture.pipeline import SKModelWrapper
         self.assertIsInstance(self.result["model"], SKModelWrapper)
 
     def test_train_hx_is_none(self):
