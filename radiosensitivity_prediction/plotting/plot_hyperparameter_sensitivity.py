@@ -97,7 +97,7 @@ def aggregate(val_df):
 def plot_sensitivity(agg, figures_dir=FIGURES_DIR, metric=DEFAULT_METRIC):
     """One OAT curve per hyperparameter: mean validation score +/- sd vs value."""
     os.makedirs(figures_dir, exist_ok=True)
-    metric_label = {"auc": "AUROC", "r2": "R2"}.get(metric, metric.replace("_", " ").capitalize())
+    metric_label = {"auc": "AUROC", "r2": "$R^2$"}.get(metric, metric.replace("_", " ").capitalize())
     fontsize = 18
     fontproperties = {"family": "Arial", "weight": "normal", "size": 20}
 
@@ -123,7 +123,8 @@ def plot_sensitivity(agg, figures_dir=FIGURES_DIR, metric=DEFAULT_METRIC):
         ax.spines["right"].set_visible(False)
 
         fig.tight_layout()
-        fig.savefig(os.path.join(figures_dir, f"sensitivity_{param}_{metric_label}.png"), dpi=300)
+        fig.savefig(os.path.join(figures_dir, f"sensitivity_{param}_{metric}.png"),
+                    dpi=300, bbox_inches="tight")
         plt.close(fig)
 
 
