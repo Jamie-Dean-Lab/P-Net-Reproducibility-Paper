@@ -49,6 +49,8 @@ pip install -r requirements-mac.txt
 
 All scripts should be run from the root directory rather than from the individual experiment folders. If you are running the radiosensitivity experiment scripts you will also need to have R installed with tidyverse.
 
+Kaleido (used to export Sankey diagrams as PNG) requires Google Chrome or Chromium to be installed on all platforms. If Chrome is not already installed, you can install a compatible version by running `kaleido_get_chrome` after installing the requirements.
+
 ## Datasets
 Pre-processed datasets for the experiments can be downloaded from 10.5281/zenodo.17340266. Unzip and put the data folder in each experiment's root folder then execute the run_all.py script.
 
