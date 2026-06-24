@@ -21,7 +21,7 @@ from tissue_type_classification.plotting.plot_hyperparameter_sensitivity import 
 
 def run():
     configs = [
-        #pnet_config,
+        pnet_config,
         #dense_config,
         # svc_config,
         # adaboost_config,

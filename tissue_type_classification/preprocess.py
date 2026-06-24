@@ -1,5 +1,3 @@
-import gzip
-import io
 import joblib
 import traceback
 import zipfile
@@ -10,17 +8,11 @@ import requests
 from pathlib import Path
 from sklearn.preprocessing import OneHotEncoder
 
-# GTEx bulk RNAseq data (~18k samples, 300 people, 50+ tissue types)
-# https://www.gtexportal.org/home/downloads/adult-gtex/bulk_tissue_expression
-_DATA_URL = "https://storage.googleapis.com/adult-gtex/bulk-gex/v8/rna-seq/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_tpm.gct.gz"
-_META_URL = "https://storage.googleapis.com/adult-gtex/annotations/v8/metadata-files/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt"
-_HUGO_URL = "https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/locus_types/gene_with_protein_product.txt"
+_ZENODO_URL = "https://zenodo.org/records/20829764/files/data_tt.zip"
 
 _EXPRESSION_GCT = "GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_tpm.gct"
 _METADATA_TSV = "GTEx_Analysis_v8_Annotations_SampleAttributesDS.tsv"
-_HPA_URL = "https://www.proteinatlas.org/download/tsv/rna_tissue_hpa.tsv.zip"
 _HPA_TSV = "rna_tissue_hpa.tsv"
-_TRANSCRIPT_RNA_URL = "https://www.proteinatlas.org/download/tsv/transcript_rna_tissue.tsv.zip"
 _TRANSCRIPT_RNA_TSV = "transcript_rna_tissue.tsv"
 
 
@@ -29,33 +21,34 @@ class Preprocessor:
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
+    # --- Data download ---
+
+    def download_zenodo(self):
+        zip_path = self.data_dir / "data_tt.zip"
+        if not zip_path.exists():
+            print(f"Downloading {_ZENODO_URL} ...")
+            with open(zip_path, "wb") as f:
+                f.write(requests.get(_ZENODO_URL).content)
+            print("Download complete.")
+        else:
+            print(f"  {zip_path.name} already exists, skipping download.")
+        print("Extracting data_tt.zip ...")
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            for member in zf.infolist():
+                parts = Path(member.filename).parts
+                stripped = Path(*parts[1:]) if len(parts) > 1 else None
+                if stripped is None or str(stripped) == ".":
+                    continue
+                dest = self.data_dir / stripped
+                if member.is_dir():
+                    dest.mkdir(parents=True, exist_ok=True)
+                else:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(member) as src, open(dest, "wb") as out:
+                        out.write(src.read())
+        print("Extraction complete.")
+
     # --- GTEx ---
-
-    def download_hugo_genes(self):
-        print("Downloading HUGO protein-coding gene list...")
-        response = requests.get(_HUGO_URL)
-        with open(self.data_dir / "hugo_genes.txt", "wb") as f:
-            f.write(response.content)
-
-    def download_gtex_metadata(self):
-        out = self.data_dir / _METADATA_TSV
-        if out.exists():
-            print("GTEx metadata already downloaded, skipping.")
-            return
-        print("Downloading GTEx sample metadata...")
-        response = requests.get(_META_URL)
-        with open(out, "w") as f:
-            f.write(response.content.decode("utf-8"))
-
-    def download_gtex_expression(self):
-        out = self.data_dir / _EXPRESSION_GCT
-        if out.exists():
-            print("GTEx expression data already downloaded, skipping.")
-            return
-        print("Downloading GTEx expression data...")
-        response = requests.get(_DATA_URL)
-        with open(out, "wb") as f:
-            f.write(gzip.decompress(response.content))
 
     def process_gtex_expression(self):
         print("Processing GTEx expression data...")
@@ -95,34 +88,6 @@ class Preprocessor:
         print(f"Tissue labels saved: {info.shape[0]} samples, {info.shape[1]} classes.")
 
     # --- Human Protein Atlas ---
-
-    # We just use this file for ENSG to gene name mappings
-    def download_hpa_expression(self):
-        out = self.data_dir / _HPA_TSV
-        if out.exists():
-            print("Human Protein Atlas tissue RNA data already downloaded, skipping.")
-            return
-        print("Downloading Human Protein Atlas tissue RNA data...")
-        response = requests.get(_HPA_URL)
-        with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
-            with zf.open(_HPA_TSV) as tsv_file:
-                df = pd.read_csv(tsv_file, sep="\t")
-        df.to_csv(out, index=False)
-        print(f"HPA tissue RNA data saved: {df.shape[0]} rows, {df.shape[1]} columns.")
-
-    def download_transcript_rna_tissue(self):
-        out = self.data_dir / _TRANSCRIPT_RNA_TSV
-        if out.exists():
-            print("Transcript RNA tissue data already downloaded, skipping.")
-            return
-        print("Downloading transcript RNA tissue data...")
-        response = requests.get(_TRANSCRIPT_RNA_URL)
-        with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
-            with zf.open(_TRANSCRIPT_RNA_TSV) as tsv_file:
-                df = pd.read_csv(tsv_file, sep="\t")
-        df.to_csv(out, index=False)
-        print(f"Transcript RNA tissue data saved: {df.shape[0]} rows, {df.shape[1]} columns.")
-        return df
 
     def process_transcript_rna_tissue(self):
         print("Processing transcript RNA tissue data...")
@@ -210,11 +175,7 @@ class Preprocessor:
     def run_all(self):
         print("Starting preprocessing...")
         steps = [
-            ("download_hugo_genes", self.download_hugo_genes),
-            ("download_gtex_metadata", self.download_gtex_metadata),
-            ("download_gtex_expression", self.download_gtex_expression),
-            ("download_transcript_rna_tissue", self.download_transcript_rna_tissue),
-            ("download_hpa_expression", self.download_hpa_expression),
+            ("download_zenodo", self.download_zenodo),
             ("process_gtex_expression", self.process_gtex_expression),
             ("process_gtex_tissue_labels", self.process_gtex_tissue_labels),
             ("process_transcript_rna_tissue", self.process_transcript_rna_tissue),

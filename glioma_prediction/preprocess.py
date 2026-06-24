@@ -1,13 +1,12 @@
 import os
-import shutil
-import tarfile
+import zipfile
 
 import numpy as np
 import pandas as pd
 import requests
 from pathlib import Path
 
-_GDAC = "http://gdac.broadinstitute.org/runs/stddata__2016_01_28/data/GBMLGG/20160128"
+_ZENODO_URL = "https://zenodo.org/records/20829764/files/data_glioma.zip"
 
 CGGA_EXCLUDED_MUTATION_TYPES = {
     'synonymous_variant',               # silent
@@ -33,21 +32,34 @@ class Preprocessor:
     def __init__(self, data_dir):
         self.cgga_data_dir = Path(data_dir)
         self.tcga_data_dir = Path(data_dir)
+        self.tcga_data_dir.mkdir(parents=True, exist_ok=True)
 
-    # --- Shared utilities ---
+    # --- Data download ---
 
-    @staticmethod
-    def _download_and_extract(url, tar_path, extracted_name, dest):
-        if dest.exists():
-            print(f"{dest} already exists, skipping download.")
-            return
-        print(f"Downloading {url} ...")
-        with open(tar_path, 'wb') as f:
-            f.write(requests.get(url).content)
-        with tarfile.open(tar_path) as tf:
-            tf.extractall(path=tar_path.parent)
-        shutil.move(tar_path.parent / extracted_name, dest)
-        os.remove(tar_path)
+    def download_zenodo(self):
+        zip_path = self.tcga_data_dir / "data_glioma.zip"
+        if not zip_path.exists():
+            print(f"Downloading {_ZENODO_URL} ...")
+            with open(zip_path, "wb") as f:
+                f.write(requests.get(_ZENODO_URL).content)
+            print("Download complete.")
+        else:
+            print(f"  {zip_path.name} already exists, skipping download.")
+        print("Extracting data_glioma.zip ...")
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            for member in zf.infolist():
+                parts = Path(member.filename).parts
+                stripped = Path(*parts[1:]) if len(parts) > 1 else None
+                if stripped is None or str(stripped) == ".":
+                    continue
+                dest = self.tcga_data_dir / stripped
+                if member.is_dir():
+                    dest.mkdir(parents=True, exist_ok=True)
+                else:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(member) as src, open(dest, "wb") as out:
+                        out.write(src.read())
+        print("Extraction complete.")
 
     # --- CGGA ---
 
@@ -97,19 +109,8 @@ class Preprocessor:
 
     # --- TCGA ---
 
-    def download_tcga_mutations(self):
-        name = 'gdac.broadinstitute.org_GBMLGG.Mutation_Packager_Calls.Level_3.2016012800.0.0'
-        self._download_and_extract(
-            url=f"{_GDAC}/{name}.tar.gz",
-            tar_path=self.tcga_data_dir / 'mut.tar.gz',
-            extracted_name=name,
-            dest=self.tcga_data_dir / 'mut',
-        )
-
     def tcga_mutations(self):
         print("Preprocessing TCGA mutations data...")
-        self.download_tcga_mutations()
-
         mut_dir = self.tcga_data_dir / 'mut'
         samples = {}
         all_genes = set()
@@ -140,13 +141,6 @@ class Preprocessor:
 
     def tcga_labels(self):
         print("Preprocessing TCGA labels...")
-        name = 'gdac.broadinstitute.org_GBMLGG.Merge_Clinical.Level_1.2016012800.0.0'
-        self._download_and_extract(
-            url=f"{_GDAC}/{name}.tar.gz",
-            tar_path=self.tcga_data_dir / 'clin.tar.gz',
-            extracted_name=name,
-            dest=self.tcga_data_dir / 'clin',
-        )
         df = pd.read_csv(
             self.tcga_data_dir / 'clin' / 'GBMLGG.merged_only_clinical_clin_format.txt',
             sep='\t',
@@ -162,13 +156,10 @@ class Preprocessor:
 
     def tcga_cna(self):
         print("Preprocessing TCGA copy number data...")
-        cached = self.tcga_data_dir / 'Gistic2_CopyNumber_Gistic2_all_thresholded.by_genes.gz'
-        url = "https://tcga.xenahubs.net/download/TCGA.GBMLGG.sampleMap/Gistic2_CopyNumber_Gistic2_all_thresholded.by_genes.gz"
-        if not cached.exists():
-            print(f"Downloading {url} ...")
-            with open(cached, 'wb') as f:
-                f.write(requests.get(url).content)
-        cna = pd.read_csv(cached, sep='\t', index_col=0, compression='gzip')
+        cna = pd.read_csv(
+            self.tcga_data_dir / 'Gistic2_CopyNumber_Gistic2_all_thresholded.by_genes.gz',
+            sep='\t', index_col=0, compression='gzip',
+        )
         cna = cna.T
         cna.index = ['-'.join(x.split('-')[:3]) for x in cna.index]
         cna.index.name = None
@@ -203,6 +194,7 @@ class Preprocessor:
     # --- Pipeline ---
 
     def run_all(self):
+        self.download_zenodo()
         self.cgga_mutations()
         self.cgga_cna()
         self.cgga_labels()

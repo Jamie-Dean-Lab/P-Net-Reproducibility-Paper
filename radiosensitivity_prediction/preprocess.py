@@ -1,10 +1,14 @@
 import subprocess
 import traceback
+import urllib.request
+import zipfile
 
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from scipy.integrate import quad
+
+_ZENODO_URL = "https://zenodo.org/records/20829764/files/rs_data.zip"
 
 # HCC56_LARGE_INTESTINE is contaminated and has been intentionally excluded from the model list.
 
@@ -43,9 +47,21 @@ class Preprocessor:
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.remove_overlapping_cell_lines = True
-        self.model_annotations = self.get_annotations()
-        self.ccle_id_to_sanger_mappings = self.model_annotations.set_index('CCLE_ID')['model_id'].to_dict()
-        self.broad_id_to_sanger_mappings = self.model_annotations.set_index('BROAD_ID')['model_id'].to_dict()
+        self._model_annotations = None
+
+    @property
+    def model_annotations(self):
+        if self._model_annotations is None:
+            self._model_annotations = self.get_annotations()
+        return self._model_annotations
+
+    @property
+    def ccle_id_to_sanger_mappings(self):
+        return self.model_annotations.set_index('CCLE_ID')['model_id'].to_dict()
+
+    @property
+    def broad_id_to_sanger_mappings(self):
+        return self.model_annotations.set_index('BROAD_ID')['model_id'].to_dict()
 
     # --- Shared utilities ---
 
@@ -168,6 +184,33 @@ class Preprocessor:
         df["gene_id_base"] = df["gene_id"].str.split(".").str[0]
         print(f"GTF: {len(df)} genes, {df['gene_name'].nunique()} unique gene names")
         return df
+
+    # --- Data download ---
+
+    def download_zenodo(self):
+        zip_path = self.data_dir / "rs_data.zip"
+        if not zip_path.exists():
+            print(f"Downloading {_ZENODO_URL} ...")
+            urllib.request.urlretrieve(_ZENODO_URL, zip_path)
+            print("Download complete.")
+        else:
+            print(f"  {zip_path.name} already exists, skipping download.")
+        print("Extracting rs_data.zip ...")
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            for member in zf.infolist():
+                # strip the top-level directory from each path before extracting
+                parts = Path(member.filename).parts
+                stripped = Path(*parts[1:]) if len(parts) > 1 else None
+                if stripped is None or str(stripped) == ".":
+                    continue
+                dest = self.data_dir / stripped
+                if member.is_dir():
+                    dest.mkdir(parents=True, exist_ok=True)
+                else:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(member) as src, open(dest, "wb") as out:
+                        out.write(src.read())
+        print("Extraction complete.")
 
     # --- Radiation response (target variable) ---
 
@@ -461,6 +504,7 @@ class Preprocessor:
     def run_all(self):
         print("Starting preprocessing...")
         steps = [
+            ("download_zenodo",       self.download_zenodo),
             ("download_cleveland",    self.download_cleveland),
             ("cleveland",             self.cleveland),
             ("ccle_dna_methylation",  self.ccle_dna_methylation),

@@ -1,5 +1,5 @@
 # Install and load RadioGx
-if (!require(BiocManager, quietly = TRUE)) install.packages("BiocManager")
+if (!require(BiocManager, quietly = TRUE)) install.packages("BiocManager", repos = "https://cloud.r-project.org")
 BiocManager::install("RadioGx", ask = FALSE)
 library(RadioGx)
 
