@@ -27,7 +27,7 @@ from glioma_prediction.significance_testing import significance_test
 
 def run():
     configs = [
-        pnet_config,
+        # pnet_config,
         # pnet_GO_config,
         # dense_config,
         # decision_tree_config,

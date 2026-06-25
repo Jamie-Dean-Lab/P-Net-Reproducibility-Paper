@@ -1,74 +1,105 @@
-import itertools
+import os
 
-import numpy as np
 import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from sklearn.metrics import confusion_matrix
+from matplotlib import ticker
 
 
-def plot_external_validation(run_dir, figures_dir):
-    met1 = pd.read_csv(f"{run_dir}/pnet_external_validation_1_elmarakeby/external_validation/Met500/predictions.csv", index_col=0)
-    primary1 = pd.read_csv(f"{run_dir}/pnet_external_validation_1_elmarakeby/external_validation/PRAD/predictions.csv", index_col=0)
+def plot_external_validation(run_dir, figures_dir, dataset_tag="combined"):
+    model_names = [
+        "pnet_nested_CV",
+        "pnet_GO_nested_CV",
+        "pnetfc_nested_CV",
+        "dense_single_layer_nested_CV",
+        "decision_tree_nested_CV",
+        "adaboost_nested_CV",
+        "linear_svm_nested_CV",
+        "random_forest_nested_CV",
+        "rbf_svm_nested_CV",
+        "sgd_logistic_regression_nested_CV",
+    ]
 
-    met2 = pd.read_csv(f"{run_dir}/pnet_external_validation_2_elmarakeby/external_validation/Met500/predictions.csv", index_col=0)
-    primary2 = pd.read_csv(f"{run_dir}/pnet_external_validation_2_elmarakeby/external_validation/PRAD/predictions.csv", index_col=0)
+    models_display = {
+        "pnet_nested_CV":                    "P-NET",
+        "pnet_GO_nested_CV":                 "P-NET-GO",
+        "pnetfc_nested_CV":                  "P-NET-FC",
+        "dense_single_layer_nested_CV":      "Dense Single Layer",
+        "decision_tree_nested_CV":           "Decision Tree",
+        "adaboost_nested_CV":                "Ada. Boosting",
+        "linear_svm_nested_CV":              "Linear SVM",
+        "random_forest_nested_CV":           "Random Forest",
+        "rbf_svm_nested_CV":                 "RBF SVM",
+        "sgd_logistic_regression_nested_CV": "Logistic Regression",
+    }
 
-    # Average prediction scores before thresholding
-    met_preds = (met1["metastatic_pred"] + met2["metastatic_pred"]) / 2
-    prad_preds = (primary1["metastatic_pred"] + primary2["metastatic_pred"]) / 2
+    metric_display = {
+        "auc":       "AUROC",
+        "auprc":     "AUPRC",
+        "f1":        "F1",
+        "accuracy":  "Accuracy",
+        "precision": "Precision",
+        "recall":    "Recall",
+    }
 
-    met_binary = (met_preds > 0.5).astype(int)
-    prad_binary = (prad_preds > 0.5).astype(int)
+    paper_model_order = [
+        "Decision Tree", "Ada. Boosting", "Logistic Regression", "Linear SVM",
+        "Dense Single Layer", "P-NET-FC", "Random Forest", "RBF SVM",
+        "P-NET", "P-NET-GO",
+    ]
+    current_palette = sns.color_palette(None, len(paper_model_order))
+    my_pal = {m: current_palette[i] for i, m in enumerate(paper_model_order)}
 
-    # Reproduce their approach: one row per dataset, [pred==False count, pred==True count]
-    primary_row = np.array([sum(prad_binary == 0), sum(prad_binary == 1)])
-    mets_row = np.array([sum(met_binary == 0), sum(met_binary == 1)])
+    fontsize = 18
+    fontproperties = {"family": "Arial", "weight": "normal", "size": 20}
+    metric_cols = ["auc", "auprc", "f1", "accuracy", "precision", "recall"]
 
-    cm = np.array([primary_row, mets_row])
-    # Normalise each dataset independently (row-wise)
-    cm = 100. * cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    records = {}
+    for model_name in model_names:
+        path = os.path.join(run_dir, model_name, "external_validation", dataset_tag, "metrics.csv")
+        if not os.path.exists(path):
+            print(f"Warning: {path} not found, skipping")
+            continue
+        df = pd.read_csv(path)
+        df.columns = [c.replace("metastatic_", "") for c in df.columns]
+        records[models_display[model_name]] = df.iloc[0][metric_cols].to_dict()
 
-    fig = plt.figure(figsize=(4, 4))
-    ax = fig.subplots(1, 1)
-    _plot_confusion_matrix(ax, cm)
-    plt.savefig(f"{figures_dir}/pnet_external_validation.png", dpi=300)
-    plt.close()
+    if not records:
+        print("No external validation results found.")
+        return
 
+    scores = pd.DataFrame(records).T
+    order = [m for m in paper_model_order if m in scores.index]
 
-def _plot_confusion_matrix(ax, conf_mat):
-    cmap = plt.cm.Reds
+    sns.set_style("white")
 
-    # Columns = true class (dataset), rows = predicted, so each dataset column
-    # sums to 100%. conf_mat is row=actual, col=predicted, so transpose.
-    cm = conf_mat.T
-    labels = np.array([["TN", "FN"], ["FP", "TP"]])
-    classes = ["localized", "metastatic"]
+    def draw_metric(ax, metric):
+        vals = scores.loc[order, metric]
+        colors = [my_pal[m] for m in order]
+        avg = vals["P-NET"]
 
-    im = ax.imshow(cm, interpolation="nearest", cmap=cmap)
-    fig = ax.get_figure()
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="10%", pad=0.1)
-    cb = fig.colorbar(im, cax=cax, orientation="vertical")
-    cax.yaxis.set_ticks_position("right")
-    cb.outline.set_visible(False)
+        ax.bar(range(len(order)), vals.values, color=colors, edgecolor="black", linewidth=0.5)
+        ax.axhline(avg, ls="--", linewidth=1)
+        ax.set_xticks(range(len(order)))
+        ax.set_xticklabels(order, rotation=30, horizontalalignment="right", fontsize=fontsize)
+        ax.set_xlim(-0.5, len(order) - 0.5)
+        ax.set_ylim(0, min(vals.max() * 1.15, 1.02))
+        ax.set_ylabel(metric_display[metric], fontproperties)
+        ax.set_xlabel("")
+        ax.get_xaxis().set_minor_locator(ticker.AutoMinorLocator())
+        ax.tick_params(axis="both", which="major", labelsize=fontsize)
+        ax.minorticks_off()
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+        ax.spines["left"].set_visible(False)
 
-    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-        # Pick text colour from the actual cell luminance so it stays legible
-        # regardless of how imshow autoscales the colormap (white text on a pale
-        # cell was the previous problem).
-        r, g, b, _ = im.cmap(im.norm(cm[i, j]))
-        luminance = 0.299 * r + 0.587 * g + 0.114 * b
-        ax.text(j, i, "{}: {:.2f}%".format(labels[i, j], cm[i, j]),
-                horizontalalignment="center",
-                color="white" if luminance < 0.5 else "black", fontsize=12)
+    os.makedirs(figures_dir, exist_ok=True)
 
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_visible(False)
-    ax.spines["bottom"].set_visible(False)
-
-    tick_marks = np.arange(len(classes))
-    ax.set_xticks(tick_marks)
-    ax.set_xticklabels(classes, rotation=0)
-    ax.set_yticks([])
+    for metric in metric_cols:
+        fig, ax = plt.subplots(figsize=(10, 5))
+        draw_metric(ax, metric)
+        plt.tight_layout()
+        slug = "auroc" if metric == "auc" else metric
+        plt.savefig(os.path.join(figures_dir, f"external_validation_{slug}.png"), dpi=300)
+        plt.close()
