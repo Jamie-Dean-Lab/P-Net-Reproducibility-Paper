@@ -80,6 +80,7 @@ from prostate_cancer_prediction.plotting.plot_single_split import plot_single_sp
 from architecture.plotting.plot_sankey import plot_sankey
 from prostate_cancer_prediction.plotting.plot_importance_stability import analyse_importance_stability
 from prostate_cancer_prediction.plotting.plot_network_order_variation import plot_network_order_variation
+from prostate_cancer_prediction.significance_testing import significance_test
 
 
 def run():
@@ -183,6 +184,8 @@ def run():
     #plot_external_validation_elmarakeby(run_dir, figures_dir)
 
     plot_external_validation(run_dir, figures_dir)
+
+    significance_test(run_dir, wd)
 
 
 

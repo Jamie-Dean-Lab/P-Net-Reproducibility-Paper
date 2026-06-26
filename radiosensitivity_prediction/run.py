@@ -16,19 +16,21 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
 from radiosensitivity_prediction.significance_testing import significance_test
-from radiosensitivity_prediction.configs.base_config import wd, run_dir, data_dir
+from radiosensitivity_prediction.configs.base_config import wd, run_dir, data_dir, figures_dir
 from radiosensitivity_prediction.configs.pnet import pnet_config
 from radiosensitivity_prediction.configs.dense import dense_config
 from radiosensitivity_prediction.configs.kernel_regression import krr_config
 from architecture.run_pipeline import run_pipeline
 from radiosensitivity_prediction.plotting.plot_hyperparameter_sensitivity import analyse as plot_hyperparameter_sensitivity
+from radiosensitivity_prediction.plotting.plot_nested_cv import plot_nested_CV
+from radiosensitivity_prediction.plotting.plot_external_validation import plot_external_validation
 
 
 def run():
     configs = [
-        pnet_config,
-        dense_config,
-        pnet_GO_config,
+        #pnet_config,
+        #dense_config,
+        #pnet_GO_config,
         # krr_config,
         # lgbm_config,
         # xgb_config,
@@ -47,6 +49,9 @@ def run():
     # plot_hyperparameter_sensitivity()
 
     # significance_test(run_dir, wd)
+
+    plot_nested_CV(run_dir, figures_dir)
+    plot_external_validation(run_dir, figures_dir)
 
 
 if __name__ == "__main__":

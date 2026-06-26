@@ -6,53 +6,59 @@ import matplotlib.pyplot as plt
 from matplotlib import ticker
 
 
-def plot_external_validation(run_dir, figures_dir, dataset_tag="combined"):
+def plot_external_validation(run_dir, figures_dir, dataset_tag="nci60"):
     model_names = [
-        "pnet_nested_CV",
-        "pnet_GO_nested_CV",
-        "pnetfc_nested_CV",
-        "dense_single_layer_nested_CV",
-        "decision_tree_nested_CV",
-        "adaboost_nested_CV",
-        "linear_svm_nested_CV",
-        "random_forest_nested_CV",
-        "rbf_svm_nested_CV",
-        "sgd_logistic_regression_nested_CV",
+        "pnet",
+        "pnet_GO",
+        "dense",
+        "decision_tree",
+        "adaboost",
+
+        "linear_svm",
+        "krr",
+        "lgbm",
+        "xgb",
+        "random_forest",
+        "rbf_svm",
     ]
 
     models_display = {
-        "pnet_nested_CV":                    "P-NET",
-        "pnet_GO_nested_CV":                 "P-NET-GO",
-        "pnetfc_nested_CV":                  "P-NET-FC",
-        "dense_single_layer_nested_CV":      "Dense Single Layer",
-        "decision_tree_nested_CV":           "Decision Tree",
-        "adaboost_nested_CV":                "Ada. Boosting",
-        "linear_svm_nested_CV":              "Linear SVM",
-        "random_forest_nested_CV":           "Random Forest",
-        "rbf_svm_nested_CV":                 "RBF SVM",
-        "sgd_logistic_regression_nested_CV": "Logistic Regression",
+        "pnet":                    "P-NET",
+        "pnet_GO":                 "P-NET-GO",
+        "dense":                   "P-NET-FC",
+        "decision_tree":           "Decision Tree",
+        "adaboost":                "Ada. Boosting",
+        "linear_svm":              "Linear SVR",
+        "krr":                     "Kernel Ridge Reg.",
+        "lgbm":                    "LightGBM",
+        "xgb":                     "XGBoost",
+        "random_forest":           "Random Forest",
+        "rbf_svm":                 "RBF SVR",
     }
 
     metric_display = {
-        "auc":       "AUROC",
-        "auprc":     "AUPRC",
-        "f1":        "F1",
-        "accuracy":  "Accuracy",
-        "precision": "Precision",
-        "recall":    "Recall",
+        "r2":                "R²",
+        "pearson_r":         "Pearson r",
+        "spearman_r":        "Spearman r",
+        "concordance_index": "Concordance Index",
+        "mae":               "MAE",
+        "rmse":              "RMSE",
     }
 
+    bounded_metrics = {"pearson_r", "spearman_r", "concordance_index"}
+
     paper_model_order = [
-        "Decision Tree", "Ada. Boosting", "Logistic Regression", "Linear SVM",
-        "Dense Single Layer", "P-NET-FC", "Random Forest", "RBF SVM",
-        "P-NET", "P-NET-GO",
+        "Decision Tree", "Ada. Boosting", "Linear SVR",
+        "Kernel Ridge Reg.", "LightGBM", "XGBoost", "Random Forest",
+        "RBF SVR", "P-NET-FC", "P-NET", "P-NET-GO",
     ]
     current_palette = sns.color_palette(None, len(paper_model_order))
     my_pal = {m: current_palette[i] for i, m in enumerate(paper_model_order)}
 
     fontsize = 18
     fontproperties = {"family": "Arial", "weight": "normal", "size": 20}
-    metric_cols = ["auc", "auprc", "f1", "accuracy", "precision", "recall"]
+    metric_cols = list(metric_display.keys())
+    ext_prefix = "auc_dose_range_1_10_log1p_"
 
     records = {}
     for model_name in model_names:
@@ -61,8 +67,9 @@ def plot_external_validation(run_dir, figures_dir, dataset_tag="combined"):
             print(f"Warning: {path} not found, skipping")
             continue
         df = pd.read_csv(path)
-        df.columns = [c.replace("metastatic_", "") for c in df.columns]
-        records[models_display[model_name]] = df.iloc[0][metric_cols].to_dict()
+        df.columns = [c.replace(ext_prefix, "") for c in df.columns]
+        available = {c: df.iloc[0][c] for c in metric_cols if c in df.columns}
+        records[models_display[model_name]] = available
 
     if not records:
         print("No external validation results found.")
@@ -74,6 +81,8 @@ def plot_external_validation(run_dir, figures_dir, dataset_tag="combined"):
     sns.set_style("white")
 
     def draw_metric(ax, metric):
+        if metric not in scores.columns:
+            return
         vals = scores.loc[order, metric]
         colors = [my_pal[m] for m in order]
         avg = vals["P-NET"]
@@ -84,7 +93,12 @@ def plot_external_validation(run_dir, figures_dir, dataset_tag="combined"):
         ax.set_xticklabels(order, rotation=30, horizontalalignment="right", fontsize=fontsize)
         ax.set_xlim(-0.5, len(order) - 0.5)
         ymin = min(vals.min() * 1.15, 0)
-        ymax = min(max(vals.max() * 1.15, 0), 1.02)
+        if metric in bounded_metrics:
+            ymax = min(max(vals.max() * 1.15, 0), 1.02)
+        else:
+            ymax = max(vals.max() * 1.15, 0)
+        if ymax == 0:
+            ymax = abs(ymin) * 0.05
         ax.set_ylim(ymin, ymax)
         ax.set_ylabel(metric_display[metric], fontproperties)
         ax.set_xlabel("")
@@ -99,9 +113,10 @@ def plot_external_validation(run_dir, figures_dir, dataset_tag="combined"):
     os.makedirs(figures_dir, exist_ok=True)
 
     for metric in metric_cols:
+        if metric not in scores.columns:
+            continue
         fig, ax = plt.subplots(figsize=(10, 5))
         draw_metric(ax, metric)
         plt.tight_layout()
-        slug = "auroc" if metric == "auc" else metric
-        plt.savefig(os.path.join(figures_dir, f"external_validation_{slug}.png"), dpi=300)
+        plt.savefig(os.path.join(figures_dir, f"external_validation_{metric}.png"), dpi=300)
         plt.close()
