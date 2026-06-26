@@ -9,7 +9,8 @@ import plotly.graph_objects as go
 
 
 def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
-                short_name_csv=None, format_pathway_names=False, output_prefix=None):
+                short_name_csv=None, format_pathway_names=False, output_prefix=None,
+                input_nodes=None, input_node_labels=None, input_node_colors=None):
     """
     Generates a Sankey diagram visualising the P-Net model's feature importance flow
     from input genomic features through gene and pathway layers to the outcome node.
@@ -31,6 +32,21 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     Node y-positions are computed from flow values (max of incoming/outgoing), with
     residual nodes forced to the bottom of each layer. Output saved as PNG and HTML.
     """
+
+    if input_nodes is None:
+        input_nodes = ["mut_important", "cnv_amp", "cnv_del"]
+    if input_node_labels is None:
+        input_node_labels = {
+            "mut_important": "mutation",
+            "cnv_amp": "amplification",
+            "cnv_del": "deletion",
+        }
+    if input_node_colors is None:
+        input_node_colors = {
+            "mut_important": 'rgba(105,189,210,0.7)',
+            "cnv_amp": 'rgba(224,123,57,0.7)',
+            "cnv_del": 'rgba(1,55,148,0.7)',
+        }
 
     # load pre-computed DeepLIFT importance scores saved by get_deeplift_global()
     # keys: 'inputs', 'h0'..'h5' — one DataFrame per layer with columns
@@ -91,7 +107,7 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     print(f"  gene_importance after Reactome filter: {len(gene_importance)} genes")
 
     high_nodes = {}
-    high_nodes[0] = ["mut_important", "cnv_amp", "cnv_del"]  # input layer always shows all 3
+    high_nodes[0] = list(input_nodes)  # input layer always shows all inputs
     high_nodes[1] = gene_importance.nlargest(nlargest[0]).index.tolist()
     print(f"  high_nodes[1] (genes): {high_nodes[1]}")
 
@@ -140,7 +156,7 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     # matching original high_nodes_df.loc['mutation'] = [1, 0] i.e. coef=1
     gene_layer_sum = deeplift["h0"]["coef"].clip(lower=0).sum()
     input_importance_val = float(np.log(1. + 100. * 1.0 / gene_layer_sum)) if gene_layer_sum > 0 else 1.0
-    for input_id in ["mut_important", "cnv_amp", "cnv_del"]:
+    for input_id in input_nodes:
         node_importance[input_id] = input_importance_val
     print(f"  input node importance: {input_importance_val:.4f}")
     print(f"  Total nodes in importance lookup: {len(node_importance)}")
@@ -175,9 +191,10 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     print(f"  input_imp_series non-zero count: {(input_imp_series != 0).sum()}")
 
     # parse flat index 'cnv_amp_RECK' -> source='cnv_amp', target='RECK'
-    # must anchor on known prefixes because 'mut_important' contains an underscore,
-    # so a naive split('_', 1) would give ('mut', 'important_RECK') — wrong
-    parsed = input_imp_series.index.str.extract(r"^(mut_important|cnv_amp|cnv_del)_(.+)$")
+    # built from input_nodes so prefixes containing underscores (e.g. 'mut_important')
+    # are matched correctly without a naive split
+    prefix_pattern = "|".join(re.escape(name) for name in input_nodes)
+    parsed = input_imp_series.index.str.extract(rf"^({prefix_pattern})_(.+)$")
     parsed.columns = ["source", "target"]
     parsed["value"] = input_imp_series.values
     n_unparsed = parsed["source"].isna().sum()
@@ -346,7 +363,7 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     df = pd.concat([first_edges, df_pw], ignore_index=True)
     print(f"  Total edges after concat: {len(df)}")
 
-    input_totals_final = df[df["source"].isin(["mut_important", "cnv_amp", "cnv_del"])]
+    input_totals_final = df[df["source"].isin(input_nodes)]
     input_totals_final = input_totals_final.groupby("source")["value"].sum().sort_values(ascending=False)
     print(f"  Input type totals (final):\n{input_totals_final.to_string()}")
 
@@ -368,7 +385,7 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
 
     # build ordered node list per layer — important nodes first, residual at end
     layer_nodes = {}
-    layer_nodes[0] = ["mut_important", "cnv_amp", "cnv_del"]
+    layer_nodes[0] = list(input_nodes)
     layer_nodes[1] = high_nodes[1] + (["others1"] if "others1" in others_with_edges else [])
     for i in range(1, n_hidden_layers + 1):
         others_id = f"others{i + 1}"
@@ -392,12 +409,8 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     print(f"  Total nodes: {len(all_node_ids)}")
 
     # convert internal IDs to display labels (pathway IDs -> full names)
-    display_name_map = {
-        "mut_important": "mutation",
-        "cnv_amp": "amplification",
-        "cnv_del": "deletion",
-        "root": "outcome",
-    }
+    display_name_map = dict(input_node_labels)
+    display_name_map["root"] = "outcome"
     all_node_labels = []
     for node_id in all_node_ids:
         if node_id in display_name_map:
@@ -614,12 +627,8 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     # outcome node: mid-red
     node_colours[root_idx] = 'rgba(255,100,100,0.7)'
 
-    # input type fixed colours matching original special cases
-    for node_id, colour in [
-        ("mut_important", 'rgba(105,189,210,0.7)'),   # cyan/teal for mutation
-        ("cnv_amp", 'rgba(224,123,57,0.7)'),           # orange for amplification
-        ("cnv_del", 'rgba(1,55,148,0.7)')              # dark blue for deletion
-    ]:
+    # input node colours — overrides the default Reds gradient for input nodes
+    for node_id, colour in input_node_colors.items():
         key = (0, node_id)
         if key in node_to_idx:
             node_colours[node_to_idx[key]] = colour
