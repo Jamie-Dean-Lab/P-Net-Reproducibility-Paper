@@ -39,7 +39,7 @@ _model_params_base = {
 
 pnet_GO_single_split_config = {
     **copy.deepcopy(base_config),
-    "run_id":                 "pnet_GO_single_split",
+    "run_id":                 "pnet_GO_single_split_test",
     "model":                  compile_pnet,
     "fitting_params": {
         "epochs":             300,
@@ -59,7 +59,7 @@ pnet_GO_single_split_config = {
                 pp_relations=_model_params_base["pp_relations"],
                 gp_relations=_model_params_base["gp_relations"])
     ],
-    "val_metric":             {"f1": f1_selection, "auprc": auprc_selection, "auc": auc_selection},
+    "val_metric":             {"auc": auc_selection},
     "pipeline_class":         TFPipeline,
     "run_method":             "run_single_split",
     "grid_search": {
@@ -67,8 +67,8 @@ pnet_GO_single_split_config = {
             f"h_reg_{h}_o_reg_{o}": {**_model_params_base,
                                      "h_reg": [(L2, {"l2": h})] * (n_hidden_layers + 1),
                                      "o_reg": [(L2, {"l2": o})] * (n_hidden_layers + 1)}
-            for h in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
-            for o in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
+            for h in [1e-3]
+            for o in [1e-5]
         },
     }
 }
