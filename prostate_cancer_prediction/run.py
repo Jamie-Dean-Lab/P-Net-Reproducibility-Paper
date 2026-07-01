@@ -126,11 +126,11 @@ def run():
         # sgd_logistic_regression_stratified_5_fold_CV_config,
         #
         # # Feature-importance test-train stability
-        # *pnet_test_set_stability_configs,
-        # *pnet_GO_test_set_stability_configs,
+        *pnet_test_set_stability_configs,
+        *pnet_GO_test_set_stability_configs,
         #
         # # Feature-importance network order stability
-        # *pnet_network_order_variation_configs,
+        *pnet_network_order_variation_configs,
         # *pnet_network_order_fixed_seed_configs,
         #
         #pnet_external_validation_1_elmarakeby_config,
@@ -170,12 +170,12 @@ def run():
     #            short_name_csv=pathway_short_names)
 
     # Sankey diagram for P-NET-GO
-    pnet_run_dir = f"{run_dir}/pnet_GO_single_split/best_auc"
-    dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
-    pathway_short_names = "architecture/plotting/go_short_names.csv"
-    plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
-               short_name_csv=pathway_short_names, format_pathway_names=True,
-               output_prefix="pnet_GO_single_split")
+    # pnet_run_dir = f"{run_dir}/pnet_GO_single_split/best_auc"
+    # dataset_id_mappings = "architecture/GO/go_id_name_map.tsv"
+    # pathway_short_names = "architecture/plotting/go_short_names.csv"
+    # plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
+    #            short_name_csv=pathway_short_names, format_pathway_names=True,
+    #            output_prefix="pnet_GO_single_split")
 
     # plot_stratified_5_fold_CV(run_dir, figures_dir)
 
