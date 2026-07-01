@@ -225,37 +225,37 @@ def plot_history(results):
     pd.DataFrame(history).to_csv(f"{folder_name}/train_hx.csv")
 
 
-def get_coef_importance(model, X_train, y_train, target, feature_importance, detailed=True, **kwargs):
+def get_coef_importance(model, X, y, target, feature_importance, detailed=True, **kwargs):
     print(feature_importance)
 
     if feature_importance.startswith("skf"):
-        coef_ = mcw.get_skf_weights(model, X_train, y_train, feature_importance)
+        coef_ = mcw.get_skf_weights(model, X, y, feature_importance)
     elif feature_importance == "loss_gradient":
-        coef_ = mcw.get_gradient_weights(model, X_train, y_train, signed=False, detailed=detailed, normalize=True)
+        coef_ = mcw.get_gradient_weights(model, X, y, signed=False, detailed=detailed, normalize=True)
     elif feature_importance == "loss_gradient_signed":
-        coef_ = mcw.get_gradient_weights(model, X_train, y_train, signed=True, detailed=detailed, normalize=True)
+        coef_ = mcw.get_gradient_weights(model, X, y, signed=True, detailed=detailed, normalize=True)
     elif feature_importance == "gradient_outcome":
-        coef_ = mcw.get_weights_gradient_outcome(model, X_train, y_train, target, multiply_by_input=False, signed=False)
+        coef_ = mcw.get_weights_gradient_outcome(model, X, y, target, multiply_by_input=False, signed=False)
     elif feature_importance == "gradient_outcome_signed":
-        coef_ = mcw.get_weights_gradient_outcome(model, X_train, y_train, target=target, detailed=detailed,
+        coef_ = mcw.get_weights_gradient_outcome(model, X, y, target=target, detailed=detailed,
                                                  multiply_by_input=False, signed=True)
     elif feature_importance == "gradient_outcome*input":
-        coef_ = mcw.get_weights_gradient_outcome(model, X_train, y_train, target, multiply_by_input=True, signed=False)
+        coef_ = mcw.get_weights_gradient_outcome(model, X, y, target, multiply_by_input=True, signed=False)
     elif feature_importance == "gradient_outcome*input_signed":
-        coef_ = mcw.get_weights_gradient_outcome(model, X_train, y_train, target, multiply_by_input=True, signed=True)
+        coef_ = mcw.get_weights_gradient_outcome(model, X, y, target, multiply_by_input=True, signed=True)
     elif feature_importance.startswith("deepexplain"):
         method = feature_importance.split("_")[1]
-        coef_ = mcw.get_deep_explain_scores(model, X_train, y_train, target, method_name=method, detailed=detailed,
+        coef_ = mcw.get_deep_explain_scores(model, X, y, target, method_name=method, detailed=detailed,
                                             **kwargs)
     elif feature_importance.startswith("shap"):
         method = feature_importance.split("_")[1]
-        coef_ = mcw.get_shap_scores(model, X_train, y_train, target, method_name=method, detailed=detailed)
+        coef_ = mcw.get_shap_scores(model, X, y, target, method_name=method, detailed=detailed)
     elif feature_importance == "gradient_with_repeated_outputs":
-        coef_ = mcw.get_gradient_weights_with_repeated_output(model, X_train, y_train, target)
+        coef_ = mcw.get_gradient_weights_with_repeated_output(model, X, y, target)
     elif feature_importance == "permutation":
-        coef_ = mcw.get_permutation_weights(model, X_train, y_train)
+        coef_ = mcw.get_permutation_weights(model, X, y)
     elif feature_importance == "linear":
-        coef_ = mcw.get_weights_linear_model(model, X_train, y_train)
+        coef_ = mcw.get_weights_linear_model(model, X, y)
     elif feature_importance == "one_to_one":
         weights = model.layers[1].get_weights()
         coef_ = np.abs(weights[0])
@@ -376,7 +376,7 @@ def get_deeplift_global(results, n_hidden_layers, pathway_dataset, pp_relations,
     print("Computing DeepLIFT global importance scores")
 
     global_coefs, sample_coefs = get_coef_importance(
-        results["model"].predictor, results["train_df"].xs, results["train_df"].ys, -1, "deepexplain_deeplift"
+        results["model"].predictor, results["test_df"].xs, results["test_df"].ys, -1, "deepexplain_deeplift"
     )
     print(f"sample_coefs keys: {list(sample_coefs.keys())}")
     for k, v in sample_coefs.items():
