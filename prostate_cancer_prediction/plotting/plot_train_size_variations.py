@@ -1,4 +1,5 @@
 import os
+import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -168,7 +169,7 @@ class ComparativeAnalysis:
 def _load_train_size_results(run_dir, prefix, metric="auc"):
     metric_col = f"response_{metric}"
     results = []
-    for exp_dir in [x for x in os.listdir(run_dir) if x.find(prefix) > -1]:
+    for exp_dir in [x for x in os.listdir(run_dir) if re.fullmatch(re.escape(prefix) + r'_\d+', x)]:
         data = pd.read_csv(
             f"{run_dir}/{exp_dir}/test_0/cv_0/fold_summaries.csv", index_col=0
         )

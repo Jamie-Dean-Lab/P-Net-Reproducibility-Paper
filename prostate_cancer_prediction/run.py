@@ -35,6 +35,9 @@ from prostate_cancer_prediction.configs.pnet_single_split import pnet_single_spl
 from prostate_cancer_prediction.configs.pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config
 from prostate_cancer_prediction.configs.pnet_stratified_5_fold_CV import pnet_stratified_5_fold_CV_config
 from prostate_cancer_prediction.configs.pnet_train_size_variation import pnet_train_size_variation_configs
+from prostate_cancer_prediction.configs.pnet_train_size_variation_nested_CV import pnet_train_size_variation_nested_CV_configs
+from prostate_cancer_prediction.configs.pnetfc_train_size_variation_nested_CV import pnetfc_train_size_variation_nested_CV_configs
+from prostate_cancer_prediction.configs.dense_single_layer_train_size_variation_nested_CV import dense_single_layer_train_size_variation_nested_CV_configs
 from prostate_cancer_prediction.configs.pnetfc_single_split import pnetfc_single_split_config
 from prostate_cancer_prediction.configs.pnetfc_single_split_elmarakeby import pnetfc_single_split_elmarakeby_config
 from prostate_cancer_prediction.configs.pnetfc_stratified_5_fold_CV import pnetfc_stratified_5_fold_CV_config
@@ -110,9 +113,12 @@ def run():
         #
         # # Train size variation
         # *pnet_train_size_variation_configs,
+        *pnet_train_size_variation_nested_CV_configs,
         # *pnetfc_train_size_variation_configs,
-        # *dense_single_layer_train_size_variation_configs,
-        #
+        *pnetfc_train_size_variation_nested_CV_configs,
+        #*dense_single_layer_train_size_variation_configs,
+        *dense_single_layer_train_size_variation_nested_CV_configs,
+
         # # Stratified 5-fold CV
         # pnet_stratified_5_fold_CV_config,
         # pnetfc_stratified_5_fold_CV_config,
@@ -126,11 +132,11 @@ def run():
         # sgd_logistic_regression_stratified_5_fold_CV_config,
         #
         # # Feature-importance test-train stability
-        *pnet_test_set_stability_configs,
-        *pnet_GO_test_set_stability_configs,
+        # *pnet_test_set_stability_configs,
+        # *pnet_GO_test_set_stability_configs,
         #
         # # Feature-importance network order stability
-        *pnet_network_order_variation_configs,
+        # *pnet_network_order_variation_configs,
         # *pnet_network_order_fixed_seed_configs,
         #
         #pnet_external_validation_1_elmarakeby_config,

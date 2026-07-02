@@ -2,8 +2,7 @@ import copy
 import pandas as pd
 from architecture.pipeline import TFPipeline
 from architecture.evaluation import plot_history, collate_folds
-from .base_config import (base_config, data_dir, val_samples, save_processor)
-from .pnet_single_split import pnet_single_split_config
+from .base_config import (data_dir, val_samples, save_processor)
 from .pnet_single_split_elmarakeby import pnet_single_split_elmarakeby_config
 
 train_size_samples = [
