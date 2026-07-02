@@ -27,7 +27,7 @@ xgb_config = {
                     "device": "cuda"
                 },
             }
-            for lr in [0.01, 0.1, 0.5]
+            for lr in [0.01, 0.1]
             for d in [3, 6]
             for mcw in [1, 10]
         }
