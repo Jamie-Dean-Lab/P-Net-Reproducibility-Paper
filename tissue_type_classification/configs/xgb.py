@@ -24,9 +24,10 @@ xgb_config = {
                     "min_child_weight": mcw,
                     "random_state": 42,
                     "verbosity": 0,
+                    "device": "cuda"
                 },
             }
-            for lr in [0.01, 0.1, 1]
+            for lr in [0.01, 0.1]
             for d in [3, 6]
             for mcw in [1, 10]
         }
