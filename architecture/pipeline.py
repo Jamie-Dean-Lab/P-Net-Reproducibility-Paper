@@ -172,8 +172,15 @@ class Pipeline:
             # Split the data into outer_kfolds train test sets
             if self.config["outer_kfolds"] < 2:
                 raise Exception("For nested crossvalidation at least 2 outer_kfolds needed")
-            outer_folds = self.data.get_k_splits(self.config["outer_kfolds"], self.config["stratified"],
-                                                 self.config["tt_split_seed"])
+            if "samples_to_include" in self.config:
+                # Optionally filter dataset to a subset
+                pool, _, _ = self.data.get_specific_split(
+                    self.config["samples_to_include"], [], [], self.config["tt_split_seed"]
+                )
+            else:
+                pool = self.data
+            outer_folds = pool.get_k_splits(self.config["outer_kfolds"], self.config["stratified"],
+                                            self.config["tt_split_seed"])
 
         # Outer loop of nested crossvalidation
         gs_dirs = []

@@ -930,6 +930,143 @@ class TestRunCrossvalidationInnerKFoldsWithGridSearch(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# run_crossvalidation — samples_to_include pool restriction
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestRunCrossvalidationSamplesToInclude(unittest.TestCase):
+    """
+    When samples_to_include is set and test_samples is absent, the outer CV
+    folds must be drawn only from those IDs — not from the full dataset.
+    Samples outside the pool must never appear in any fold.
+    """
+
+    def setUp(self):
+        self.ds = make_dataset(n_samples=60)
+        self.pool_ids = self.ds.ids[:40]
+        self.excluded_ids = set(self.ds.ids[40:])
+        self.tmp = tempfile.TemporaryDirectory()
+        self.p = make_pipeline(self.tmp.name, self.ds, {
+            "samples_to_include": list(self.pool_ids),
+            "inner_kfolds":       1,
+            "outer_kfolds":       2,
+            "model_params":       {},
+        })
+        self.p.run_crossvalidation(load_data=False)
+        self.all_calls = self.p._train.call_args_list
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_train_called_once_per_outer_fold(self):
+        self.assertEqual(self.p._train.call_count, 2)
+
+    def test_excluded_samples_not_in_any_train_fold(self):
+        for i, call in enumerate(self.all_calls):
+            self.assertTrue(
+                ids_of(call[0][0]).isdisjoint(self.excluded_ids),
+                f"Outer fold {i}: excluded samples found in train fold",
+            )
+
+    def test_excluded_samples_not_in_any_val_fold(self):
+        for i, call in enumerate(self.all_calls):
+            val_fold = call[0][1]
+            if len(val_fold) > 0:
+                self.assertTrue(
+                    ids_of(val_fold).isdisjoint(self.excluded_ids),
+                    f"Outer fold {i}: excluded samples found in val fold",
+                )
+
+    def test_only_pool_samples_appear_in_any_fold(self):
+        all_seen = set()
+        for call in self.all_calls:
+            all_seen |= ids_of(call[0][0])
+            all_seen |= ids_of(call[0][1])
+        self.assertEqual(all_seen, set(self.pool_ids))
+
+
+class TestRunCrossvalidationSamplesToIncludeWithGridSearch(unittest.TestCase):
+    """
+    Pool restriction propagates into inner folds and grid search: excluded
+    samples must not appear in any inner fold either.
+    """
+
+    def setUp(self):
+        self.ds = make_dataset(n_samples=60)
+        self.pool_ids = self.ds.ids[:40]
+        self.excluded_ids = set(self.ds.ids[40:])
+        self.tmp = tempfile.TemporaryDirectory()
+        gs = [
+            {"model_params": {"C": 0.1}, "model_params_choice": "small"},
+            {"model_params": {"C": 1.0}, "model_params_choice": "large"},
+        ]
+        self.p = make_pipeline(self.tmp.name, self.ds, {
+            "samples_to_include":              list(self.pool_ids),
+            "inner_kfolds":                    2,
+            "outer_kfolds":                    2,
+            "grid_search":                     gs,
+            "val_metric":                      {"auc": MagicMock(return_value=0.8)},
+            "hold_out_validation_for_final_fit": False,
+        })
+        self.p.run_crossvalidation(load_data=False)
+        self.all_calls = self.p._train.call_args_list
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_train_call_count(self):
+        # 2 outer × (2 gs configs × 2 inner folds + 1 best refit) = 10
+        self.assertEqual(self.p._train.call_count, 10)
+
+    def test_excluded_samples_never_in_any_fold(self):
+        for i, call in enumerate(self.all_calls):
+            self.assertTrue(
+                ids_of(call[0][0]).isdisjoint(self.excluded_ids),
+                f"Call {i}: excluded samples in train fold",
+            )
+            val_fold = call[0][1]
+            if len(val_fold) > 0:
+                self.assertTrue(
+                    ids_of(val_fold).isdisjoint(self.excluded_ids),
+                    f"Call {i}: excluded samples in val fold",
+                )
+
+
+class TestRunCrossvalidationSamplesToIncludeAbsentUsesAllData(unittest.TestCase):
+    """
+    When samples_to_include is not set, all loaded data is used for the outer
+    CV — existing behaviour is unchanged.
+    """
+
+    def setUp(self):
+        self.ds = make_dataset(n_samples=60)
+        self.tmp = tempfile.TemporaryDirectory()
+        # make_pipeline base has train_samples=0.6 (float) but no samples_to_include
+        self.p = make_pipeline(self.tmp.name, self.ds, {
+            "inner_kfolds": 1,
+            "outer_kfolds": 2,
+            "model_params": {},
+        })
+        self.p.run_crossvalidation(load_data=False)
+        self.all_calls = self.p._train.call_args_list
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_second_half_samples_appear_in_training(self):
+        # With all 60 samples the outer CV assigns the second half to outer fold 1's
+        # training set. If samples_to_include erroneously activated, those IDs would
+        # be excluded entirely.
+        second_half = set(self.ds.ids[30:])
+        all_train = set()
+        for call in self.all_calls:
+            all_train |= ids_of(call[0][0])
+        self.assertTrue(
+            all_train & second_half,
+            "Without samples_to_include, the full dataset should be used for outer CV",
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # ConcatMultiViewDataset — NA handling strategies
 # ══════════════════════════════════════════════════════════════════════════════
 
