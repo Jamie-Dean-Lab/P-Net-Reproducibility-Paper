@@ -303,6 +303,10 @@ class Pipeline:
         consoleHandler.setFormatter(logFormatter)
         consoleHandler.setLevel(logging.INFO)
         log = logging.getLogger(logger_name)
+        for handler in log.handlers[:]:
+            handler.close()
+            log.removeHandler(handler)
+        log.propagate = False
         log.setLevel(logging.INFO)
         log.addHandler(fileHandler)
         log.addHandler(consoleHandler)
@@ -498,7 +502,9 @@ class Pipeline:
         self.fold_logger.info("Saving results")
         for result_processor in self.config["results_processors"]:
             result_processor(results)
-        self.fold_logger.handlers.clear()
+        for handler in self.fold_logger.handlers[:]:
+            handler.close()
+            self.fold_logger.removeHandler(handler)
         # return validation metrics
         if len(val_fold) > 0:
             return {k: v(results) for k, v in self.config["val_metric"].items()}

@@ -1,13 +1,9 @@
-import os, sys
-import joblib
+import os
 import pandas as pd
 import numpy as np
-from sklearn.metrics import mean_squared_error, mean_absolute_error
 import matplotlib.pyplot as plt
 
 from keras.models import Sequential
-
-from architecture.pnet_model import get_layer_maps, PNetArchitectureGenerator
 
 from architecture.pnet_model import get_layer_maps, PNetArchitectureGenerator
 import architecture.coef_weights_utils as mcw
