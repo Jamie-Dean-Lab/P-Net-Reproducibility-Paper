@@ -556,14 +556,17 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
         for n, f in zip(nodes, flows):
             print(f"    {n}: {f:.2f}")
 
-        # zero out residual nodes before sorting so they fall to the bottom,
-        # then restore their flows for the cumsum calculation
-        # this matches original get_x_y which does the same with 'others' nodes
+        # order nodes top-to-bottom: important nodes by descending flow, then any
+        # residual/root nodes forced to the very bottom. We build the order
+        # explicitly rather than zeroing residual flows and sorting, because a
+        # non-stable descending argsort can place a real node that happens to have
+        # ~zero flow *below* the residual, leaving 'residual' second from the bottom.
         is_others = np.array([n.startswith("others") or n == "root" for n in nodes])
-        others_flows = flows[is_others].copy()
-        flows[is_others] = 0.0
-        sort_order = np.argsort(flows)[::-1]  # descending: most important at top
-        flows[is_others] = others_flows        # restore residual flows
+        real_idx = np.where(~is_others)[0]
+        others_idx = np.where(is_others)[0]
+        # stable descending sort of the real nodes by flow
+        real_order = real_idx[np.argsort(flows[real_idx], kind="stable")[::-1]]
+        sort_order = np.concatenate([real_order, others_idx]).astype(int)
         flows = flows[sort_order]              # apply sort order
 
         print(f"  Layer {layer_idx} sort order: {[nodes[i] for i in sort_order]}")
