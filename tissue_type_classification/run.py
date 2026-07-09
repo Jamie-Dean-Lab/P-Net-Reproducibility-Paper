@@ -3,7 +3,7 @@ import os, sys
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from tissue_type_classification.configs.base_config import wd, run_dir
+from tissue_type_classification.configs.base_config import wd, run_dir, figures_dir
 from tissue_type_classification.configs.pnet import pnet_config
 from tissue_type_classification.configs.pnet_hyperparameter_sensitivity import pnet_hyperparameter_sensitivity_config
 from tissue_type_classification.configs.dense import dense_config
@@ -17,6 +17,8 @@ from tissue_type_classification.configs.sgd_logistic_regression import sgd_logis
 from tissue_type_classification.configs.xgb import xgb_config
 from architecture.run_pipeline import run_pipeline
 from tissue_type_classification.plotting.plot_hyperparameter_sensitivity import analyse as plot_hyperparameter_sensitivity
+from tissue_type_classification.plotting.plot_nested_cv import plot_nested_CV
+from tissue_type_classification.plotting.plot_external_validation import plot_external_validation
 
 
 def run():
@@ -40,6 +42,9 @@ def run():
     plot_hyperparameter_sensitivity()
 
     #significance_test(run_dir, wd)
+
+    plot_nested_CV(run_dir, figures_dir)
+    plot_external_validation(run_dir, figures_dir)
 
 
 if __name__ == "__main__":
