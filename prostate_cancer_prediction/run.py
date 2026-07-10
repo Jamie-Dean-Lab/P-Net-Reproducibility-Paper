@@ -191,38 +191,38 @@ def run():
 
     #plot_external_validation(run_dir, figures_dir)
 
-    #significance_test(run_dir, wd)
+    significance_test(run_dir, wd)
 
 
 
 
     # Distribution of each test metric across the network-order variation runs
-    plot_network_order_variation(run_dir, figures_dir, run_prefix="pnet_network_order_variation", split="test")
+    #plot_network_order_variation(run_dir, figures_dir, run_prefix="pnet_network_order_variation", split="test")
 
     # Feature-importance stability across the network-order variation runs
-    analyse_importance_stability(
-        run_dir, figures_dir, n_hidden_layers,
-        run_id="pnet_network_order_variation",
-        fold_dirs=[f"{run_dir}/pnet_network_order_variation_{i}"
-                   for i in range(len(pnet_network_order_variation_configs))],
-        unit="run",
-        pathway_names="architecture/Reactome/ReactomePathways.txt")
+    # analyse_importance_stability(
+    #     run_dir, figures_dir, n_hidden_layers,
+    #     run_id="pnet_network_order_variation",
+    #     fold_dirs=[f"{run_dir}/pnet_network_order_variation_{i}"
+    #                for i in range(len(pnet_network_order_variation_configs))],
+    #     unit="run",
+    #     pathway_names="architecture/Reactome/ReactomePathways.txt")
 
     # Feature-importance stability (each run writes to its own subdirectory under
-    analyse_importance_stability(
-        run_dir, figures_dir, n_hidden_layers,
-        run_id="pnet_test_set_stability",
-        fold_dirs=[f"{run_dir}/pnet_test_set_stability_{i}"
-                   for i in range(len(pnet_test_set_stability_configs))],
-        unit="run",
-        pathway_names="architecture/Reactome/ReactomePathways.txt")
-    analyse_importance_stability(
-        run_dir, figures_dir, n_hidden_layers,
-        run_id="pnet_GO_test_set_stability",
-        fold_dirs=[f"{run_dir}/pnet_GO_test_set_stability_{i}"
-                   for i in range(len(pnet_GO_test_set_stability_configs))],
-        unit="run",
-        pathway_names="architecture/GO/go_id_name_map.tsv")
+    # analyse_importance_stability(
+    #     run_dir, figures_dir, n_hidden_layers,
+    #     run_id="pnet_test_set_stability",
+    #     fold_dirs=[f"{run_dir}/pnet_test_set_stability_{i}"
+    #                for i in range(len(pnet_test_set_stability_configs))],
+    #     unit="run",
+    #     pathway_names="architecture/Reactome/ReactomePathways.txt")
+    # analyse_importance_stability(
+    #     run_dir, figures_dir, n_hidden_layers,
+    #     run_id="pnet_GO_test_set_stability",
+    #     fold_dirs=[f"{run_dir}/pnet_GO_test_set_stability_{i}"
+    #                for i in range(len(pnet_GO_test_set_stability_configs))],
+    #     unit="run",
+    #     pathway_names="architecture/GO/go_id_name_map.tsv")
 
 if __name__ == "__main__":
     run()
