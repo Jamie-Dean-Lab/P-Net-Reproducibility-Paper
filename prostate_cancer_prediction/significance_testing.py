@@ -22,8 +22,29 @@ def significance_test(run_dir, wd, selection_metric="auc"):
         "rbf_svm_nested_CV",
         "sgd_logistic_regression_nested_CV",
     ]
+
+    # Standardised display names, kept in sync with plot_nested_cv.models_display
+    # so a model reads identically across figures and the significance table.
+    # Here "dense_single_layer" IS a genuine dense single layer (distinct from the
+    # fully-connected P-NET, "pnetfc" -> P-NET-FC).
+    models_display = {
+        "pnet":                    "P-NET",
+        "pnet_GO":                 "P-NET-GO",
+        "pnetfc":                  "P-NET-FC",
+        "dense_single_layer":      "Dense Single Layer",
+        "decision_tree":           "Decision Tree",
+        "adaboost":                "Ada. Boosting",
+        "linear_svm":              "Linear SVM",
+        "random_forest":           "Random Forest",
+        "rbf_svm":                 "RBF SVM",
+        "sgd_logistic_regression": "Logistic Regression",
+    }
+
+    def disp(m):
+        return models_display.get(m.replace("_nested_CV", ""), m)
+
     comparisons = [
-        (reference, m, f"pnet_vs_{m.replace('_nested_CV', '')}")
+        (reference, m, f"{disp(reference)} vs {disp(m)}")
         for m in baseline_models
     ]
     model_names = [reference] + baseline_models
@@ -64,8 +85,8 @@ def significance_test(run_dir, wd, selection_metric="auc"):
 
         results_full.append({
             "comparison": comp_name,
-            "model1":     model1,
-            "model2":     model2,
+            "model1":     disp(model1),
+            "model2":     disp(model2),
             "metric":     metric,
             "t":          t_stat,
             "df":         df_deg,

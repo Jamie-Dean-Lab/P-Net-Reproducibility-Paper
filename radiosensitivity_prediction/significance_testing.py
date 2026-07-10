@@ -23,7 +23,28 @@ def significance_test(run_dir, wd, selection_metric="r2"):
         "random_forest",
         "rbf_svm",
     ]
-    comparisons = [(reference, m, f"pnet_vs_{m}") for m in baseline_models]
+
+    # Standardised display names, kept in sync with plot_nested_cv.models_display
+    # so a model reads identically across figures and the significance table.
+    # Note "dense" is the fully-connected P-NET (P-NET-FC), not a dense single layer.
+    models_display = {
+        "pnet":                    "P-NET",
+        "pnet_GO":                 "P-NET-GO",
+        "dense":                   "P-NET-FC",
+        "decision_tree":           "Decision Tree",
+        "adaboost":                "Ada. Boosting",
+        "linear_svm":              "Linear SVR",
+        "krr":                     "Kernel Ridge Reg.",
+        "lgbm":                    "LightGBM",
+        "xgb":                     "XGBoost",
+        "random_forest":           "Random Forest",
+        "rbf_svm":                 "RBF SVR",
+    }
+
+    def disp(m):
+        return models_display.get(m, m)
+
+    comparisons = [(reference, m, f"{disp(reference)} vs {disp(m)}") for m in baseline_models]
     model_names = [reference] + baseline_models
 
     model_scores = {}
@@ -62,8 +83,8 @@ def significance_test(run_dir, wd, selection_metric="r2"):
 
         results_full.append({
             "comparison": comp_name,
-            "model1":     model1,
-            "model2":     model2,
+            "model1":     disp(model1),
+            "model2":     disp(model2),
             "metric":     metric,
             "t":          t_stat,
             "df":         df_deg,

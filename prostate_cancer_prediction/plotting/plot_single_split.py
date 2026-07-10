@@ -37,18 +37,28 @@ SINGLE_SPLIT_MODELS = [
 
 _DEFAULT_MODELS = {"elmarakeby": ELMARAKEBY_MODELS, "": SINGLE_SPLIT_MODELS}
 
-# Pretty legend labels for model ids that need it; others fall back to the id
-# with the "_single_split"/"_single_split_elmarakeby" suffix stripped.
+# Standardised legend labels, keyed by the model id with the
+# "_single_split"/"_single_split_elmarakeby" suffix stripped. Kept in sync with
+# plot_nested_cv.plot_nested_CV's models_display so a model reads identically
+# across the single-split and nested-CV figures. Ids without an entry fall back
+# to the stripped id.
 _DISPLAY_NAMES = {
-    "pnetfc_single_split": "pnet_FC",
-    "pnetfc_single_split_elmarakeby": "pnet_FC",
+    "pnet":                    "P-NET",
+    "pnet_GO":                 "P-NET-GO",
+    "pnetfc":                  "P-NET-FC",
+    "dense_single_layer":      "Dense Single Layer",
+    "decision_tree":           "Decision Tree",
+    "adaboost":                "Ada. Boosting",
+    "linear_svm":              "Linear SVM",
+    "random_forest":           "Random Forest",
+    "rbf_svm":                 "RBF SVM",
+    "sgd_logistic_regression": "Logistic Regression",
 }
 
 
 def _display_name(model):
-    if model in _DISPLAY_NAMES:
-        return _DISPLAY_NAMES[model]
-    return model.replace("_single_split_elmarakeby", "").replace("_single_split", "")
+    short = model.replace("_single_split_elmarakeby", "").replace("_single_split", "")
+    return _DISPLAY_NAMES.get(short, short)
 
 
 def _resolve_results_dir(run_dir, model, selection_metric):

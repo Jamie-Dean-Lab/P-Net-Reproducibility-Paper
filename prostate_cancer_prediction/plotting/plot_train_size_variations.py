@@ -259,7 +259,7 @@ def plot_train_size_comparisons(run_dir, figures_dir, metrics=METRICS):
             (
                 "",
                 _build_comparison_results(pnet_results, pnetfc_results, pnet_pnetfc_stats),
-                "P-NET fully connected",
+                "P-NET-FC",
                 f"train_size_pnet_vs_pnetfc_{slug}.png",
             ),
         ]

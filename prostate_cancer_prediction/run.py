@@ -159,12 +159,12 @@ def run():
         run_pipeline(config)
 
     # Single-split ROC/PRC curves (our hyperparameters, test and validation splits kept separate).
-    #plot_single_split_curves(run_dir, figures_dir, concat_val=False)
+    plot_single_split_curves(run_dir, figures_dir, concat_val=False)
 
     # Single-split ROC/PRC curves (Elmarakeby et al.'s hyperparameters, test and validation splits combined).
-    #plot_single_split_curves(run_dir, figures_dir, tag="elmarakeby", concat_val=True)
+    plot_single_split_curves(run_dir, figures_dir, tag="elmarakeby", concat_val=True)
 
-    #plot_train_size_comparisons(run_dir, figures_dir)
+    plot_train_size_comparisons(run_dir, figures_dir)
 
     #plot_external_validation(run_dir, figures_dir)
 
