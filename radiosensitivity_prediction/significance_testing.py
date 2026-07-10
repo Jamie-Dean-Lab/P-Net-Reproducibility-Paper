@@ -9,11 +9,22 @@ def significance_test(run_dir, wd, selection_metric="r2"):
     metric = "r2"
     cv_prefix = "AUC_log1p_"
 
-    comparisons = [
-        ("pnet", "krr",   "pnet_vs_krr"),
-        ("pnet", "dense", "pnet_vs_pnetfc"),
+    # P-NET is compared against every other model; names match plot_nested_cv
+    reference = "pnet"
+    baseline_models = [
+        "pnet_GO",
+        "dense",
+        "decision_tree",
+        "adaboost",
+        "linear_svm",
+        "krr",
+        "lgbm",
+        "xgb",
+        "random_forest",
+        "rbf_svm",
     ]
-    model_names = list({m for pair in comparisons for m in pair[:2]})
+    comparisons = [(reference, m, f"pnet_vs_{m}") for m in baseline_models]
+    model_names = [reference] + baseline_models
 
     model_scores = {}
     for model_name in model_names:

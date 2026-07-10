@@ -1,53 +1,81 @@
+import os
 import numpy as np
 import pandas as pd
-from scipy import stats
-from scipy.stats import t
+from scipy.stats import ttest_rel, t
 from statsmodels.stats.multitest import multipletests
-
-def _paired_ttest(scores1, scores2, label):
-    t_stat, p_raw = stats.ttest_rel(scores2, scores1, alternative="greater")
-    diffs = scores2 - scores1
-    n = len(diffs)
-    df = n - 1
-    mean_diff = np.mean(diffs)
-    sem = stats.sem(diffs)
-    cohens_d = mean_diff / np.std(diffs, ddof=1)
-    t_crit = t.ppf(0.975, df)
-    return {
-        "comparison": label,
-        "t":          t_stat,
-        "df":         df,
-        "mean_diff":  mean_diff,
-        "sem":        sem,
-        "ci_low":     mean_diff - t_crit * sem,
-        "ci_high":    mean_diff + t_crit * sem,
-        "cohens_d":   cohens_d,
-        "p_raw":      p_raw,
-    }
 
 
 def significance_test(run_dir, wd):
-    results = {m: pd.read_csv(f"{run_dir}/{m}/results.csv", index_col=0) for m in __import__('os').listdir(run_dir)}
+    metric = "f1"  # weighted F1
 
-    def test_scores(model):
-        return lambda metric: results[model].loc[results[model]["index"] == "test", metric].values
+    # P-NET is compared against every other model; display names match plot_nested_cv
+    baseline_models = [
+        "dense",                    # P-NET-FC
+        "decision_tree",
+        "adaboost",
+        "sgd_logistic_regression",
+        "svc",                      # Linear SVM
+        "rbf_svm",
+        "lgbm",
+        "xgb",
+        "random_forest",
+    ]
+    comparisons = [("pnet", m, f"pnet_vs_{m}") for m in baseline_models]
+    model_names = ["pnet"] + baseline_models
 
-    pnet_scores  = test_scores("pnet")
-    dense_scores = test_scores("dense")
-    svc_scores   = test_scores("svc")
+    # each model stores one results.csv with per-outer-fold rows; the "test" rows
+    # give the held-out fold scores we compare across models
+    model_scores = {}
+    for model_name in model_names:
+        path = os.path.join(run_dir, model_name, "results.csv")
+        if not os.path.exists(path):
+            continue
+        df = pd.read_csv(path, index_col=0)
+        test_rows = df[df["index"] == "test"][[metric]]
+        model_scores[model_name] = test_rows.reset_index(drop=True)
+
+    comparisons = [(m1, m2, name) for m1, m2, name in comparisons
+                   if m1 in model_scores and m2 in model_scores]
 
     results_full = []
+    for model1, model2, comp_name in comparisons:
+        scores1 = model_scores[model1][metric].values
+        scores2 = model_scores[model2][metric].values
 
-    for metric in ["auc", "auprc", "f1", "accuracy"]:
-        results_full.append(_paired_ttest(pnet_scores(metric), dense_scores(metric), f"dense_vs_pnet_{metric}"))
+        t_stat, p_raw = ttest_rel(scores1, scores2, alternative="two-sided")
 
-    for metric in ["auprc", "f1", "accuracy"]:
-        results_full.append(_paired_ttest(pnet_scores(metric), svc_scores(metric), f"svc_vs_pnet_{metric}"))
+        diffs = scores1 - scores2
+        n = len(diffs)
+        df_deg = n - 1
+        mean_diff = np.mean(diffs)
+        sem = np.std(diffs, ddof=1) / np.sqrt(n)
+        cohens_d = mean_diff / np.std(diffs, ddof=1)
+        t_crit = t.ppf(0.975, df_deg)
 
-    rejected, p_fdr, _, _ = multipletests([r["p_raw"] for r in results_full], alpha=0.05, method="fdr_bh")
+        results_full.append({
+            "comparison": comp_name,
+            "model1":     model1,
+            "model2":     model2,
+            "metric":     metric,
+            "t":          t_stat,
+            "df":         df_deg,
+            "mean_diff":  mean_diff,
+            "sem":        sem,
+            "ci_low":     mean_diff - t_crit * sem,
+            "ci_high":    mean_diff + t_crit * sem,
+            "cohens_d":   cohens_d,
+            "p_raw":      p_raw,
+        })
+
+    rejected, p_fdr, _, _ = multipletests(
+        [r["p_raw"] for r in results_full], alpha=0.05, method="fdr_bh"
+    )
 
     sigresults = pd.DataFrame(results_full)
     sigresults["p_fdr"] = p_fdr
     sigresults["significant"] = rejected
-    sigresults.to_csv(f"{wd}/significance_tests.csv", float_format="%.4f")
-    print(sigresults.round(4))
+
+    out_path = os.path.join(wd, "significance_tests.csv")
+    sigresults.to_csv(out_path, float_format="%.4f")
+    print(f"Tissue type significance test results saved to {out_path}")
+    print(sigresults.round(4).to_string())

@@ -8,11 +8,22 @@ from statsmodels.stats.multitest import multipletests
 def significance_test(run_dir, wd, selection_metric="auc"):
     metric = "auc"
 
-    comparisons = [
-        ("pnet", "lgbm",    "pnet_vs_lgbm"),
-        ("pnet", "dense",  "pnet_vs_pnetfc"),
+    # P-NET is compared against every other model; names match plot_nested_cv
+    reference = "pnet"
+    baseline_models = [
+        "pnet_GO",
+        "dense",
+        "decision_tree",
+        "adaboost",
+        "svc",
+        "random_forest",
+        "rbf_svm",
+        "xgb",
+        "lgbm",
+        "sgd_logistic_regression",
     ]
-    model_names = list({m for pair in comparisons for m in pair[:2]})
+    comparisons = [(reference, m, f"pnet_vs_{m}") for m in baseline_models]
+    model_names = [reference] + baseline_models
 
     # Load per-fold test scores for each model
     model_scores = {}
