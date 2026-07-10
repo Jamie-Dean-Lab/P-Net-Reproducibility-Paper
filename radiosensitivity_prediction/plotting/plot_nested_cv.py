@@ -36,8 +36,9 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="r2"):
     }
 
     metric_display = {
-        "r2":                "R²",
-        "pearson_r":         "Pearson r",
+        "r2":                 "R²",
+        "explained_variance": "Explained Variance",
+        "pearson_r":          "Pearson r",
         "spearman_r":        "Spearman r",
         "concordance_index": "Concordance Index",
         "mae":               "MAE",

@@ -37,8 +37,9 @@ def plot_external_validation(run_dir, figures_dir, dataset_tag="nci60"):
     }
 
     metric_display = {
-        "r2":                "R²",
-        "pearson_r":         "Pearson r",
+        "r2":                 "R²",
+        "explained_variance": "Explained Variance",
+        "pearson_r":          "Pearson r",
         "spearman_r":        "Spearman r",
         "concordance_index": "Concordance Index",
         "mae":               "MAE",
