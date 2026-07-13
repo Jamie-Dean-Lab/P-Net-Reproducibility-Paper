@@ -41,12 +41,12 @@ def run():
     for config in configs:
         run_pipeline(config)
 
-    plot_hyperparameter_sensitivity()
+    #plot_hyperparameter_sensitivity()
 
     significance_test(run_dir, wd)
 
-    plot_nested_CV(run_dir, figures_dir)
-    plot_external_validation(run_dir, figures_dir)
+    #plot_nested_CV(run_dir, figures_dir)
+    #plot_external_validation(run_dir, figures_dir)
 
     # Sankey diagram for tissue type P-NET
     pnet_run_dir = os.path.join(run_dir, "pnet", "test_0", "best_f1")

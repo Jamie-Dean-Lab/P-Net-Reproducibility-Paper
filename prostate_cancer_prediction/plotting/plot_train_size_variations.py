@@ -184,6 +184,34 @@ def _load_train_size_results(run_dir, prefix, metric="auc"):
     return pd.concat(results)
 
 
+def _load_train_size_results_nested_CV(run_dir, prefix, metric="auc", selection_metric="auc"):
+    """Load per-outer-fold *test* set metrics for a nested-CV train-size sweep.
+
+    Mirrors the format returned by :func:`_load_train_size_results` (one row per
+    fold with columns ``response_metric``, ``fold``, ``n_samples``) but the value
+    is the held-out test metric of each outer fold rather than an inner-fold
+    validation metric. ``n_samples`` is the total number of samples in the run
+    (outer train + outer test), which is constant across the outer folds.
+    """
+    metric_col = f"response_{metric}"
+    results = []
+    for exp_dir in [x for x in os.listdir(run_dir) if re.fullmatch(re.escape(prefix) + r'_\d+', x)]:
+        exp_path = f"{run_dir}/{exp_dir}"
+        for test_dir in [d for d in os.listdir(exp_path) if re.fullmatch(r'test_\d+', d)]:
+            best_dir = f"{exp_path}/{test_dir}/best_{selection_metric}"
+            summary = pd.read_csv(f"{best_dir}/summary_results.csv", index_col=0)
+            n_samples = (
+                    pd.read_csv(f"{best_dir}/train_results.csv").shape[0]
+                    + pd.read_csv(f"{best_dir}/test_results.csv").shape[0]
+            )
+            results.append(pd.DataFrame({
+                "response_metric": [summary.loc["test", metric_col]],
+                "fold": [int(test_dir.split("_")[1])],
+                "n_samples": [n_samples],
+            }))
+    return pd.concat(results)
+
+
 def _aggregate_train_size(df):
     return (
         df.groupby("n_samples")["response_metric"]
@@ -223,11 +251,11 @@ def _build_comparison_results(pnet_df, other_df, stats):
     }
 
 
-def plot_train_size_comparisons(run_dir, figures_dir, metrics=METRICS):
+def _render_train_size_comparisons(run_dir, figures_dir, loader, prefix_suffix, fname_prefix, metrics):
     for metric in metrics:
-        pnet_results = _load_train_size_results(run_dir, "pnet_train_size_variation", metric)
-        pnetfc_results = _load_train_size_results(run_dir, "pnetfc_train_size_variation", metric)
-        dense_results = _load_train_size_results(run_dir, "dense_single_layer_train_size_variation", metric)
+        pnet_results = loader(run_dir, f"pnet_train_size_variation{prefix_suffix}", metric)
+        pnetfc_results = loader(run_dir, f"pnetfc_train_size_variation{prefix_suffix}", metric)
+        dense_results = loader(run_dir, f"dense_single_layer_train_size_variation{prefix_suffix}", metric)
 
         # compute stats before aggregation (need per-fold values for t-test),
         # sorted() in _compute_stats ensures order matches _aggregate_train_size
@@ -254,13 +282,13 @@ def plot_train_size_comparisons(run_dir, figures_dir, metrics=METRICS):
                 "",
                 _build_comparison_results(pnet_results, dense_results, pnet_dense_stats),
                 "Dense Single Layer",
-                f"train_size_pnet_vs_dense_{slug}.png",
+                f"{fname_prefix}_pnet_vs_dense_{slug}.png",
             ),
             (
                 "",
                 _build_comparison_results(pnet_results, pnetfc_results, pnet_pnetfc_stats),
                 "P-NET-FC",
-                f"train_size_pnet_vs_pnetfc_{slug}.png",
+                f"{fname_prefix}_pnet_vs_pnetfc_{slug}.png",
             ),
         ]
 
@@ -272,3 +300,19 @@ def plot_train_size_comparisons(run_dir, figures_dir, metrics=METRICS):
             fig.tight_layout()
             fig.savefig(os.path.join(figures_dir, fname), dpi=300)
             plt.close(fig)
+
+
+def plot_train_size_comparisons(run_dir, figures_dir, metrics=METRICS):
+    # Inner-fold validation metric (mean +- SD across inner CV folds).
+    _render_train_size_comparisons(
+        run_dir, figures_dir, _load_train_size_results,
+        prefix_suffix="", fname_prefix="train_size", metrics=metrics,
+    )
+
+
+def plot_train_size_comparisons_nested_CV(run_dir, figures_dir, metrics=METRICS):
+    # Held-out test metric (mean +- SD across the outer CV folds).
+    _render_train_size_comparisons(
+        run_dir, figures_dir, _load_train_size_results_nested_CV,
+        prefix_suffix="_nested_CV", fname_prefix="train_size_nested_CV", metrics=metrics,
+    )

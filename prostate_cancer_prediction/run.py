@@ -68,7 +68,7 @@ from prostate_cancer_prediction.configs.pnet_external_validation_2 import \
 from prostate_cancer_prediction.configs.pnet_network_order_variation import pnet_network_order_variation_configs
 from prostate_cancer_prediction.configs.pnet_test_set_stability import pnet_test_set_stability_configs
 from prostate_cancer_prediction.configs.pnet_GO_test_set_stability import pnet_GO_test_set_stability_configs
-from prostate_cancer_prediction.plotting.plot_train_size_variations import plot_train_size_comparisons
+from prostate_cancer_prediction.plotting.plot_train_size_variations import plot_train_size_comparisons, plot_train_size_comparisons_nested_CV
 
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
@@ -113,11 +113,11 @@ def run():
         #
         # # Train size variation
         # *pnet_train_size_variation_configs,
-        #*pnet_train_size_variation_nested_CV_configs,
         # *pnetfc_train_size_variation_configs,
-        #*pnetfc_train_size_variation_nested_CV_configs,
         #*dense_single_layer_train_size_variation_configs,
-        #*dense_single_layer_train_size_variation_nested_CV_configs,
+        # *pnet_train_size_variation_nested_CV_configs,
+        # *pnetfc_train_size_variation_nested_CV_configs,
+        # *dense_single_layer_train_size_variation_nested_CV_configs,
 
         # # Stratified 5-fold CV
         # pnet_stratified_5_fold_CV_config,
@@ -159,12 +159,14 @@ def run():
         run_pipeline(config)
 
     # Single-split ROC/PRC curves (our hyperparameters, test and validation splits kept separate).
-    plot_single_split_curves(run_dir, figures_dir, concat_val=False)
+    #plot_single_split_curves(run_dir, figures_dir, concat_val=False)
 
     # Single-split ROC/PRC curves (Elmarakeby et al.'s hyperparameters, test and validation splits combined).
-    plot_single_split_curves(run_dir, figures_dir, tag="elmarakeby", concat_val=True)
+    #plot_single_split_curves(run_dir, figures_dir, tag="elmarakeby", concat_val=True)
 
-    plot_train_size_comparisons(run_dir, figures_dir)
+    #plot_train_size_comparisons(run_dir, figures_dir)
+
+    plot_train_size_comparisons_nested_CV(run_dir, figures_dir)
 
     #plot_external_validation(run_dir, figures_dir)
 
@@ -191,7 +193,7 @@ def run():
 
     #plot_external_validation(run_dir, figures_dir)
 
-    significance_test(run_dir, wd)
+    #significance_test(run_dir, wd)
 
 
 
