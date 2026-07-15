@@ -215,6 +215,7 @@ def run():
                    for i in range(len(pnet_test_set_stability_configs))],
         unit="run",
         pathway_names="architecture/Reactome/ReactomePathways.txt")
+
     analyse_importance_stability(
         run_dir, figures_dir, n_hidden_layers,
         run_id="pnet_GO_test_set_stability",
