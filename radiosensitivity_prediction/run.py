@@ -29,46 +29,46 @@ from radiosensitivity_prediction.plotting.plot_external_validation import plot_e
 
 def run():
     configs = [
-        #pnet_config,
-        #dense_config,
-        #pnet_GO_config,
-        # krr_config,
-        # lgbm_config,
-        # xgb_config,
-        # adaboost_config,
-        # decision_tree_config,
-        # linear_svm_config,
-        # rbf_svm_config,
-        # random_forest_config,
-        # sgd_logistic_regression_config
-        # pnet_hyperparameter_sensitivity_config,
+        pnet_config,
+        dense_config,
+        pnet_GO_config,
+        krr_config,
+        lgbm_config,
+        xgb_config,
+        adaboost_config,
+        decision_tree_config,
+        linear_svm_config,
+        rbf_svm_config,
+        random_forest_config,
+        sgd_logistic_regression_config,
+        pnet_hyperparameter_sensitivity_config
     ]
 
     for config in configs:
         run_pipeline(config)
 
-    # plot_hyperparameter_sensitivity()
+    plot_hyperparameter_sensitivity()
 
-    #significance_test(run_dir, wd)
+    significance_test(run_dir, wd)
 
     plot_nested_CV(run_dir, figures_dir)
     plot_external_validation(run_dir, figures_dir)
 
-    # Sankey diagram for radiosensitivity P-NET
-    # pnet_run_dir = os.path.join(run_dir, "pnet_test", "test_0", "best_r2")
-    # plot_sankey(
-    #     pnet_run_dir,
-    #     n_hidden_layers=5,
-    #     figures_dir=figures_dir,
-    #     dataset_id_mappings="architecture/Reactome/ReactomePathways.txt",
-    #     short_name_csv="architecture/plotting/reactome_short_names.csv",
-    #     input_nodes=["gexpr", "methylation"],
-    #     input_node_labels={"gexpr": "RNA-seq", "methylation": "DNA Methylation"},
-    #     input_node_colors={
-    #         "gexpr":       "rgba(60,180,75,0.7)",
-    #         "methylation": "rgba(145,30,180,0.7)",
-    #     },
-    # )
+    # Sankey diagram
+    pnet_run_dir = os.path.join(run_dir, "pnet_test", "test_0", "best_r2")
+    plot_sankey(
+        pnet_run_dir,
+        n_hidden_layers=5,
+        figures_dir=figures_dir,
+        dataset_id_mappings="architecture/Reactome/ReactomePathways.txt",
+        short_name_csv="architecture/plotting/reactome_short_names.csv",
+        input_nodes=["gexpr", "methylation"],
+        input_node_labels={"gexpr": "RNA-seq", "methylation": "DNA Methylation"},
+        input_node_colors={
+            "gexpr":       "rgba(60,180,75,0.7)",
+            "methylation": "rgba(145,30,180,0.7)",
+        },
+    )
 
 
 if __name__ == "__main__":

@@ -25,30 +25,30 @@ from tissue_type_classification.plotting.plot_external_validation import plot_ex
 
 def run():
     configs = [
-        #pnet_config,
-        #dense_config,
-        # svc_config,
-        # adaboost_config,
-        # decision_tree_config,
-        # lgbm_config,
-        # random_forest_config
-        # rbf_svm_config,
-        # sgd_logistic_regression_config,
-        # xgb_config,
-        #pnet_hyperparameter_sensitivity_config,
+        pnet_config,
+        dense_config,
+        svc_config,
+        adaboost_config,
+        decision_tree_config,
+        lgbm_config,
+        random_forest_config,
+        rbf_svm_config,
+        sgd_logistic_regression_config,
+        xgb_config,
+        pnet_hyperparameter_sensitivity_config
     ]
 
     for config in configs:
         run_pipeline(config)
 
-    #plot_hyperparameter_sensitivity()
+    plot_hyperparameter_sensitivity()
 
     significance_test(run_dir, wd)
 
-    #plot_nested_CV(run_dir, figures_dir)
-    #plot_external_validation(run_dir, figures_dir)
+    plot_nested_CV(run_dir, figures_dir)
+    plot_external_validation(run_dir, figures_dir)
 
-    # Sankey diagram for tissue type P-NET
+    # Sankey diagram
     pnet_run_dir = os.path.join(run_dir, "pnet", "test_0", "best_f1")
     plot_sankey(
         pnet_run_dir,

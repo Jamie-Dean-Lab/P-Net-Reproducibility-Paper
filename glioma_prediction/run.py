@@ -27,33 +27,33 @@ from glioma_prediction.significance_testing import significance_test
 
 def run():
     configs = [
-        # pnet_config,
-        # pnet_GO_config,
-        # dense_config,
-        # decision_tree_config,
-        # random_forest_config,
-        # svc_config,
-        # rbf_svm_config,
-        # xgb_config,
-        # sgd_logistic_regression_config,
-        # adaboost_config,
-        # lgbm_config,
-        # pnet_hyperparameter_sensitivity_config,
+        pnet_config,
+        pnet_GO_config,
+        dense_config,
+        decision_tree_config,
+        random_forest_config,
+        svc_config,
+        rbf_svm_config,
+        xgb_config,
+        sgd_logistic_regression_config,
+        adaboost_config,
+        lgbm_config,
+        pnet_hyperparameter_sensitivity_config
     ]
 
     for config in configs:
         run_pipeline(config)
 
-    # plot_nested_CV(run_dir, figures_dir)
-    # plot_external_validation(run_dir, figures_dir)
-    # plot_hyperparameter_sensitivity()
+    plot_nested_CV(run_dir, figures_dir)
+    plot_external_validation(run_dir, figures_dir)
+    plot_hyperparameter_sensitivity()
 
-    # Sankey diagram of the first outer split's P-NET model.
-    # pnet_run_dir = f"{run_dir}/pnet/test_0/best_auc"
-    # dataset_id_mappings = "architecture/Reactome/ReactomePathways.txt"
-    # pathway_short_names = "architecture/plotting/reactome_short_names.csv"
-    # plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
-    #             pathway_short_names, output_prefix="pnet_single_split")
+    #Sankey diagram of the first outer split's P-NET model.
+    pnet_run_dir = f"{run_dir}/pnet/test_0/best_auc"
+    dataset_id_mappings = "architecture/Reactome/ReactomePathways.txt"
+    pathway_short_names = "architecture/plotting/reactome_short_names.csv"
+    plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
+                pathway_short_names, output_prefix="pnet_single_split")
 
     significance_test(run_dir, wd)
 
