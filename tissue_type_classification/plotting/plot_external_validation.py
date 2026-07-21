@@ -111,5 +111,5 @@ def plot_external_validation(run_dir, figures_dir, dataset_tag="hpa"):
         fig, ax = plt.subplots(figsize=(10, 5))
         draw_metric(ax, metric)
         plt.tight_layout()
-        plt.savefig(os.path.join(figures_dir, f"external_validation_{metric}.png"), dpi=300)
+        plt.savefig(os.path.join(figures_dir, f"external_validation_{metric}.pdf"))
         plt.close()

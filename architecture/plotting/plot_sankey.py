@@ -700,13 +700,13 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
         font=dict(size=9, family='Arial')
     )
 
-    # prefix outputs with the run directory name, e.g. pnet_single_split_elmarakeby_sankey.png
+    # prefix outputs with the run directory name, e.g. pnet_single_split_elmarakeby_sankey.pdf
     # (override via output_prefix when the run dir ends in a sub-folder like 'best_auc')
     prefix = output_prefix or os.path.basename(os.path.normpath(pnet_run_dir))
 
     fig = go.Figure(dict(data=[data_trace], layout=layout))
-    fig.write_image(f"{figures_dir}/{prefix}_sankey.png", scale=5, width=width, height=height, format='png')
-    print(f"  Saved {prefix}_sankey.png")
+    fig.write_image(f"{figures_dir}/{prefix}_sankey.pdf", width=width, height=height, format='pdf')
+    print(f"  Saved {prefix}_sankey.pdf")
 
     # interactive HTML at larger size for exploration
     scale = 0.5

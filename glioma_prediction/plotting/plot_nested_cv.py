@@ -156,6 +156,6 @@ def plot_nested_CV(run_dir, figures_dir, selection_metric="auc"):
         draw_metric(ax, metric)
         plt.tight_layout()
         slug = "auroc" if metric == "auc" else metric
-        plt.savefig(os.path.join(figures_dir, f"nested_CV_{slug}.png"), dpi=300)
+        plt.savefig(os.path.join(figures_dir, f"nested_CV_{slug}.pdf"))
         plt.close()
 

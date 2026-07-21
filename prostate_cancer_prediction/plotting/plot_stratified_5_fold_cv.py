@@ -116,5 +116,5 @@ def plot_stratified_5_fold_CV(run_dir, figures_dir):
         # 'auc' is the data-column key; the file is named with the AUROC label
         slug = "auroc" if metric == "auc" else metric
         plt.tight_layout()
-        plt.savefig(os.path.join(figures_dir, f"stratified_5_fold_CV_{slug}.png"), dpi=300)
+        plt.savefig(os.path.join(figures_dir, f"stratified_5_fold_CV_{slug}.pdf"))
         plt.close()

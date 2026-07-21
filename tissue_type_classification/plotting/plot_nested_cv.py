@@ -144,5 +144,5 @@ def plot_nested_CV(run_dir, figures_dir):
         fig, ax = plt.subplots(figsize=(10, 5))
         draw_metric(ax, metric)
         plt.tight_layout()
-        plt.savefig(os.path.join(figures_dir, f"nested_CV_{metric}.png"), dpi=300)
+        plt.savefig(os.path.join(figures_dir, f"nested_CV_{metric}.pdf"))
         plt.close()

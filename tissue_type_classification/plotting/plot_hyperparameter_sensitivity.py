@@ -128,7 +128,7 @@ def plot_sensitivity(agg, figures_dir=FIGURES_DIR, metric=DEFAULT_METRIC):
         ax.spines["right"].set_visible(False)
 
         fig.tight_layout()
-        fig.savefig(os.path.join(figures_dir, f"sensitivity_{param}_{file_token}.png"), dpi=300)
+        fig.savefig(os.path.join(figures_dir, f"sensitivity_{param}_{file_token}.pdf"))
         plt.close(fig)
 
 

@@ -95,9 +95,9 @@ def plot_single_split_curves(run_dir, figures_dir, models=None, tag="", concat_v
         tabular.append(summary)
 
     suffix = f"_{tag}" if tag else ""
-    for plotter, fname in [(PlotAUPRC, f"single_split_auprc{suffix}.png"),
-                           (PlotROC, f"single_split_auroc{suffix}.png")]:
+    for plotter, fname in [(PlotAUPRC, f"single_split_auprc{suffix}.pdf"),
+                           (PlotROC, f"single_split_auroc{suffix}.pdf")]:
         fig, ax = plt.subplots()
         plotter(results).plot(ax, "")
-        fig.savefig(os.path.join(figures_dir, fname), dpi=300)
+        fig.savefig(os.path.join(figures_dir, fname))
         plt.close(fig)

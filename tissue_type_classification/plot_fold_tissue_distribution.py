@@ -8,7 +8,6 @@ DATA_DIR = "tissue_type_classification/data"
 FIGURES_DIR = "tissue_type_classification/figures"
 TT_SPLIT_SEED = 42
 OUTER_KFOLDS = 5
-DPI = 300
 
 
 def _get_dataset_ids_and_tissues():
@@ -77,9 +76,9 @@ def plot_fold_tissue_distribution():
 
     fig.tight_layout()
     os.makedirs(FIGURES_DIR, exist_ok=True)
-    fig.savefig(f"{FIGURES_DIR}/fold_tissue_distribution.png", dpi=DPI, bbox_inches="tight")
+    fig.savefig(f"{FIGURES_DIR}/fold_tissue_distribution.pdf", bbox_inches="tight")
     plt.close(fig)
-    print(f"Saved to {FIGURES_DIR}/fold_tissue_distribution.png")
+    print(f"Saved to {FIGURES_DIR}/fold_tissue_distribution.pdf")
     print(counts.to_string())
 
 

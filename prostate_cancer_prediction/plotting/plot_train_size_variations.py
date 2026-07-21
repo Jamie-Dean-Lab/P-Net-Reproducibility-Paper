@@ -274,7 +274,7 @@ def _render_train_size_comparisons(run_dir, figures_dir, loader, prefix_suffix, 
             metric,
             metric.upper() if metric in {"auprc", "f1"} else metric.capitalize(),
         )
-        # filename slug follows the display name so plots are named e.g. *_auroc.png
+        # filename slug follows the display name so plots are named e.g. *_auroc.pdf
         slug = METRIC_DISPLAY.get(metric, metric).lower()
 
         plots = [
@@ -282,13 +282,13 @@ def _render_train_size_comparisons(run_dir, figures_dir, loader, prefix_suffix, 
                 "",
                 _build_comparison_results(pnet_results, dense_results, pnet_dense_stats),
                 "Dense Single Layer",
-                f"{fname_prefix}_pnet_vs_dense_{slug}.png",
+                f"{fname_prefix}_pnet_vs_dense_{slug}.pdf",
             ),
             (
                 "",
                 _build_comparison_results(pnet_results, pnetfc_results, pnet_pnetfc_stats),
                 "P-NET-FC",
-                f"{fname_prefix}_pnet_vs_pnetfc_{slug}.png",
+                f"{fname_prefix}_pnet_vs_pnetfc_{slug}.pdf",
             ),
         ]
 
@@ -298,7 +298,7 @@ def _render_train_size_comparisons(run_dir, figures_dir, loader, prefix_suffix, 
                 ax, title, ylabel=ylabel, y_limit=y_limit, dense_label=dense_label
             )
             fig.tight_layout()
-            fig.savefig(os.path.join(figures_dir, fname), dpi=300)
+            fig.savefig(os.path.join(figures_dir, fname))
             plt.close(fig)
 
 

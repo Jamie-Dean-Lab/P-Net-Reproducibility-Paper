@@ -32,7 +32,6 @@ from scipy.stats import spearmanr
 # (e.g. plot_stratified_5_fold_CV, plot_network_order_variation).
 TICK_SIZE = 14
 LABEL_SIZE = 16
-DPI = 300
 
 
 def _load_fold_importance(fold_dirs, layer_key, value_col, connected_only, unit="fold"):
@@ -138,7 +137,7 @@ def _plot_topk_membership(table, display, top_k, out_dir, label_col=None, top_n=
     cbar.ax.tick_params(labelsize=TICK_SIZE)
 
     fig.tight_layout()
-    fig.savefig(f"{out_dir}/{display}_top{top_k}_membership.png", dpi=DPI)
+    fig.savefig(f"{out_dir}/{display}_top{top_k}_membership.pdf")
     plt.close(fig)
 
 
@@ -172,7 +171,7 @@ def _plot_top_importance(wide, table, display, top_n, out_dir, label_col=None, u
     ax.margins(y=0.05)
 
     fig.tight_layout()
-    fig.savefig(f"{out_dir}/{display}_top{top_n}_importance.png", dpi=DPI)
+    fig.savefig(f"{out_dir}/{display}_top{top_n}_importance.pdf")
     plt.close(fig)
 
 
@@ -207,7 +206,7 @@ def _plot_top_rank(ranks, table, display, top_n, out_dir, label_col=None, unit="
     ax.margins(y=0.05)
 
     fig.tight_layout()
-    fig.savefig(f"{out_dir}/{display}_top{top_n}_rank.png", dpi=DPI)
+    fig.savefig(f"{out_dir}/{display}_top{top_n}_rank.pdf")
     plt.close(fig)
 
 
@@ -230,9 +229,9 @@ def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
 
     Outputs to {figures_dir}/importance_stability/{run_id}/:
       * {layer}_stability.csv          -- per-feature metrics (consensus-ordered)
-      * {layer}_top{K}_membership.png  -- top-K membership frequency bars
-      * {layer}_top{K}_importance.png  -- mean +/- SD importance of the top-K features
-      * {layer}_top{K}_rank.png        -- median & IQR rank of the top-K features
+      * {layer}_top{K}_membership.pdf  -- top-K membership frequency bars
+      * {layer}_top{K}_importance.pdf  -- mean +/- SD importance of the top-K features
+      * {layer}_top{K}_rank.pdf        -- median & IQR rank of the top-K features
       * stability_summary.csv          -- one row per layer (mean Spearman)
     """
     if fold_dirs is None:

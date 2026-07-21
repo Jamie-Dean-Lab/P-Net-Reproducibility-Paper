@@ -103,5 +103,5 @@ def plot_external_validation(run_dir, figures_dir, dataset_tag="combined"):
         draw_metric(ax, metric)
         plt.tight_layout()
         slug = "auroc" if metric == "auc" else metric
-        plt.savefig(os.path.join(figures_dir, f"external_validation_{slug}.png"), dpi=300)
+        plt.savefig(os.path.join(figures_dir, f"external_validation_{slug}.pdf"))
         plt.close()

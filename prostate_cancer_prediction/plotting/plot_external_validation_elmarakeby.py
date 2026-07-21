@@ -32,7 +32,7 @@ def plot_external_validation(run_dir, figures_dir):
     fig = plt.figure(figsize=(4, 4))
     ax = fig.subplots(1, 1)
     _plot_confusion_matrix(ax, cm)
-    plt.savefig(f"{figures_dir}/pnet_external_validation.png", dpi=300)
+    plt.savefig(f"{figures_dir}/pnet_external_validation.pdf")
     plt.close()
 
 

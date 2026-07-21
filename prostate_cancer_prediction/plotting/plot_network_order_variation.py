@@ -50,7 +50,7 @@ def plot_network_order_variation(run_dir, figures_dir,
                                  chosen_seed_run="pnet_network_order_fixed_seed_0"):
     """
     Plot the distribution of each test metric across the network-order variation
-    runs (each run differs only in the network construction seed). One .png per
+    runs (each run differs only in the network construction seed). One .pdf per
     metric is written to figures_dir/network_order_variation/.
 
     args:
@@ -107,7 +107,7 @@ def plot_network_order_variation(run_dir, figures_dir,
         plt.tight_layout()
         # 'auc' is the data-column key; the file is named with the AUROC label
         slug = "auroc" if metric == "auc" else metric
-        plt.savefig(os.path.join(out_dir, f"{run_prefix}_{split}_{slug}.png"), dpi=300)
+        plt.savefig(os.path.join(out_dir, f"{run_prefix}_{split}_{slug}.pdf"))
         plt.close()
 
     # Save the collated metrics alongside the figures for reference.
