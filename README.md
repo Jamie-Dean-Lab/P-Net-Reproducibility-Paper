@@ -49,13 +49,13 @@ pip install -r requirements-mac.txt
 
 Kaleido (used to export Sankey diagrams as PNG) requires Google Chrome or Chromium to be installed on all platforms. If Chrome is not already installed, you can install a compatible version by running `kaleido_get_chrome` after installing the requirements.
 
-All scripts should be run from the root directory rather than from the individual experiment folders. `run_all.py` in the root directory will execute all models across all four tasks sequentially, but this is expected to take an extremely long time. It is strongly recommended to run each task's `run.py` individually instead. If you are running the radiosensitivity experiment scripts you will also need to have R installed with tidyverse.
+All scripts should be run from the root directory rather than from the individual experiment folders. `run_all.py` in the root directory will execute all models across all four tasks sequentially, but this is expected to take an extremely long time. It is strongly recommended to run each task's `run.py` individually instead. If you are running the radiosensitivity experiment scripts you will also need to have R installed.
 
 ## Datasets
 All datasets are downloaded automatically from Zenodo (https://zenodo.org/records/20829764) the first time each experiment's script is run. No manual data download is required.
 
 ## Structure of the repository
-All code pertaining to P-Net and supporting pipeline can be found in the architecture folder. All other folders are experiment specific and this is the intended way to use the repository.
+All code pertaining to P-Net and the supporting pipeline can be found in the architecture folder. All other folders are experiment specific and this is the intended way to use the repository.
 
 ### Architecture
 1. pnet_model.py - contains the code for constructing TensorFlow implementation of P-Net from Reactome.
@@ -72,7 +72,7 @@ All code pertaining to P-Net and supporting pipeline can be found in the archite
 12. train.py - small helper that takes a config, instantiates its pipeline_class, and invokes the configured run_method. This is the entry point each experiment's configs are passed through.
 
 ### Usage
-Each experiment folder contains a `configs/` directory holding a `base_config.py` with the shared settings for that task plus one config file per model/experiment (e.g. `adaboost.py`, `pnet.py`), and a `run.py` that imports the desired configs and passes each to `architecture.train.train`. To set up a new experiment, copy an existing config, spread in the relevant `base_config`, and edit it to suit your needs. There are a few config options that are experiment specific and listed below
+Each experiment folder contains a `configs/` directory holding a `base_config.py` with the shared settings for that task plus one config file per model/experiment (e.g. `adaboost.py`, `pnet.py`), and a `run.py` that imports the desired configs and passes each to `architecture.run_pipeline.run_pipeline`. To set up a new experiment, copy an existing config, spread in the relevant `base_config`, and edit it to suit your needs. There are a few config options that are experiment specific and listed below
 1. run_id - specifies the tag for the current experiment run
 2. data_dir - path to the folder containing all the data for the experiments
 3. run_dir - path to the folder you wish to store all the outputs of your experiments
