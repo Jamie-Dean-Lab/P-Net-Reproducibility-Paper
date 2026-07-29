@@ -128,33 +128,6 @@ def save_supervised_result(results: dict, split: str, run_dir: str, metrics: dic
     return out
 
 
-def evaluate_on_external(results: dict, external_df: pd.DataFrame, tag: str):
-    """
-    Evaluates the current best model on an external dataset.
-    """
-    sample_ids = external_df.index
-    model = results["model"]
-    model_inputs = set(results["train_df"].alignment_ids)
-    external_inputs = set(external_df.columns)
-    missing_inputs = list(model_inputs - external_inputs)
-    with open(results["save_dir"] + f"/{tag}_feature_info.csv", "w") as f:
-        f.write("model_features,dataset_features,overlap_features,missing_features\n")
-        f.write("{},{},{},{}".format(
-            len(model_inputs), len(external_inputs),
-            len(model_inputs.intersection(external_inputs)), len(missing_inputs)
-        ))
-    missing_df = pd.DataFrame(
-        np.zeros((external_df.shape[0], len(missing_inputs))),
-        index=external_df.index,
-        columns=missing_inputs
-    )
-    df = pd.concat((external_df, missing_df), axis=1)
-    df = df[results["train_df"].alignment_ids]
-    preds = model.predict(df)
-    preds = pd.DataFrame(preds, index=sample_ids, columns=["auc_pred"])
-    preds.to_csv(results["save_dir"] + f"/{tag}_results.csv", index=True)
-
-
 def plot_channels(
         history,
         channels,
