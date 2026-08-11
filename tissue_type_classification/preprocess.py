@@ -61,14 +61,22 @@ class Preprocessor:
         df = np.log2(df + 1)
         df = df.sample(df.shape[0], replace=False, random_state=42)
 
+        # Keep only one tissue sample per donor. GTEx sample IDs have the form
+        # "GTEX-<donor>-<tissue>-SM-<aliquot>".
+        donor = df.index.str.split("-").str[:2].str.join("-")
+        df = df[~donor.duplicated()]
+
         chunk = df.iloc[:1000]
         chunk.to_csv(self.data_dir / "GTEx_gene_log2_tpm_0.csv", index=True)
+
+        kept_samples = chunk.index.tolist()
 
         # Save sample order for the saved chunk only so process_gtex_tissue_labels can align to it
         pd.Series(chunk.index, name="sample_id").to_csv(
             self.data_dir / "sample_order.csv", index=False
         )
-        print(f"Saved first 1000 samples, {df.shape[1]} genes.")
+        print(f"Saved {chunk.shape[0]} samples (one per donor), {df.shape[1]} genes.")
+        print(f"Kept {len(kept_samples)} samples: {kept_samples}")
 
     def process_gtex_tissue_labels(self):
         print("Processing GTEx tissue labels...")
@@ -130,6 +138,7 @@ class Preprocessor:
             print(f"Dropping samples from {len(dropped_tissues)} unmapped tissues: {dropped_tissues}")
 
         kept_samples = sample_tissue[keep].index
+        print(f"Kept {len(kept_samples)} HPA samples after tissue mapping.")
         hpa = hpa.loc[kept_samples].copy()
         hpa.to_csv(self.data_dir / "hpa_expression_preprocessed.csv", index=True)
 
@@ -139,6 +148,7 @@ class Preprocessor:
         labels = pd.DataFrame(encoded.todense(), index=hpa.index, columns=encoder.categories_[0])
         labels.to_csv(self.data_dir / "hpa_tissue_classes_encoded.csv", index=True)
         print(f"HPA tissue labels saved: {labels.shape[0]} samples, {labels.shape[1]} classes.")
+        print(f"{gtex_tissues.nunique()} distinct tissue types remain in the external HPA validation set after filtering.")
         print(f"Samples per tissue:\n{gtex_tissues.value_counts().sort_index()}")
 
     # --- Shared ---
