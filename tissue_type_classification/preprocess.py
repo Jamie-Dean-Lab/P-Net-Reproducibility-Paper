@@ -66,16 +66,15 @@ class Preprocessor:
         donor = df.index.str.split("-").str[:2].str.join("-")
         df = df[~donor.duplicated()]
 
-        chunk = df.iloc[:1000]
-        chunk.to_csv(self.data_dir / "GTEx_gene_log2_tpm_0.csv", index=True)
+        df.to_csv(self.data_dir / "GTEx_gene_log2_tpm_0.csv", index=True)
 
-        kept_samples = chunk.index.tolist()
+        kept_samples = df.index.tolist()
 
-        # Save sample order for the saved chunk only so process_gtex_tissue_labels can align to it
-        pd.Series(chunk.index, name="sample_id").to_csv(
+        # Save sample order so process_gtex_tissue_labels can align to it
+        pd.Series(df.index, name="sample_id").to_csv(
             self.data_dir / "sample_order.csv", index=False
         )
-        print(f"Saved {chunk.shape[0]} samples (one per donor), {df.shape[1]} genes.")
+        print(f"Saved {df.shape[0]} samples (one per donor), {df.shape[1]} genes.")
         print(f"Kept {len(kept_samples)} samples: {kept_samples}")
 
     def process_gtex_tissue_labels(self):
