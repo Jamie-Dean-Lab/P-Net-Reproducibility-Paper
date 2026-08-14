@@ -8,6 +8,7 @@ from keras.callbacks import LearningRateScheduler
 
 from architecture.evaluation import plot_history, collate_folds
 from architecture.pipeline import TFPipeline
+from architecture.pnet_config import BINARY_CROSSENTROPY, pnet_model_params
 from architecture.pnet_model import compile_pnet
 from architecture.callbacks_custom import step_decay
 from .base_config import base_config, save_processor, auc_selection, data_dir
@@ -34,28 +35,6 @@ DEFAULT_BATCH = 50
 DEFAULT_H_DROPOUT_FIRST = 0.0
 DEFAULT_H_DROPOUT_REST = 0.0
 
-_model_params_fixed = {
-    "pathway_dataset": "reactome",
-    "pp_relations": "architecture/Reactome/ReactomePathwaysRelation.txt",
-    "gp_relations": "architecture/Reactome/ReactomePathways.gmt",
-    "n_hidden_layers": n_hidden_layers,
-    "h_activation": ["tanh"] * (n_hidden_layers + 1),
-    "o_activation": ["sigmoid"] * (n_hidden_layers + 1),
-    "h_kernel_initializer": ["lecun_uniform"] * (n_hidden_layers + 1),
-    "h_kernel_constraints": [None] * (n_hidden_layers + 1),
-    "h_bias_initializer": ["lecun_uniform"] * (n_hidden_layers + 1),
-    "h_bias_constraints": [None] * (n_hidden_layers + 1),
-    "batch_normal": False,
-    "sparse": True,
-    "dropout_testing": False,
-    "apply_training_dropout": True,
-    "loss": [{"class_name": "BinaryCrossentropy", "config": {"from_logits": False}}] * (n_hidden_layers + 1),
-    "loss_weights": [2, 7, 20, 54, 148, 400],
-    "map_seed": 42,
-    "h_reg": [(L2, {"l2": SELECTED_H_REG})] * (n_hidden_layers + 1),
-    "o_reg": [(L2, {"l2": SELECTED_O_REG})] * (n_hidden_layers + 1),
-}
-
 _results_processors = [
     save_processor,
     plot_history
@@ -65,11 +44,18 @@ _results_processors = [
 def _make_model_params(learning_rate=DEFAULT_LEARNING_RATE,
                        h_dropout_first=DEFAULT_H_DROPOUT_FIRST,
                        h_dropout_rest=DEFAULT_H_DROPOUT_REST):
-    return {
-        **copy.deepcopy(_model_params_fixed),
-        "h_dropout": [h_dropout_first] + [h_dropout_rest] * n_hidden_layers,
-        "optimizer": {"class_name": "Adam", "config": {"learning_rate": learning_rate}},
-    }
+    return pnet_model_params(
+        loss=BINARY_CROSSENTROPY,
+        o_activation="sigmoid",
+        n_hidden_layers=n_hidden_layers,
+        learning_rate=learning_rate,
+        h_dropout=(h_dropout_first, h_dropout_rest),
+        # Dropout is inert in the main configs (see build_pnet in pnet_model.py);
+        # this sweep switches it on so the rates above actually take effect.
+        apply_training_dropout=True,
+        h_reg=[(L2, {"l2": SELECTED_H_REG})] * (n_hidden_layers + 1),
+        o_reg=[(L2, {"l2": SELECTED_O_REG})] * (n_hidden_layers + 1),
+    )
 
 
 DEFAULT_EPOCHS = 300

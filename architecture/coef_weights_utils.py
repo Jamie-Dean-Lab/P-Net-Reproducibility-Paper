@@ -3,7 +3,7 @@ from keras import backend as K
 import tensorflow as tf
 import keras
 import shap
-import sys, os
+import sys
 
 from keras.layers import InputLayer
 from keras.layers import Dropout, BatchNormalization
@@ -11,7 +11,6 @@ from keras.models import Sequential
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 
-sys.path.insert(0, os.getcwd())
 from architecture.deepexplain.tensorflow_ import DeepExplain
 import architecture.evaluation as mm
 

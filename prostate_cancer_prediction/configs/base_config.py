@@ -34,7 +34,7 @@ if not os.path.exists(_PREPROCESSING_SENTINEL):
 selected_genes = set(pd.read_csv(f"{data_dir}/genes/tcga_prostate_expressed_genes_and_cancer_genes.csv")["genes"])
 hugo_genes = set(pd.read_csv(f"{data_dir}/genes/HUGO_genes/protein-coding_gene_with_coordinate_minimal.txt",
                           sep="\t", header=None).iloc[:, 3].unique())
-selected_genes = list(selected_genes.intersection(hugo_genes))
+selected_genes = sorted(selected_genes.intersection(hugo_genes))
 
 
 train_samples = pd.read_csv(f"{data_dir}/prostate/splits/training_set.csv")["id"].to_list()

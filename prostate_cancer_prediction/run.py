@@ -1,5 +1,9 @@
 import os, sys
 
+
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
+
 from prostate_cancer_prediction.configs.adaboost_nested_CV import adaboost_nested_CV_config
 from prostate_cancer_prediction.configs.adaboost_single_split import adaboost_single_split_config
 from prostate_cancer_prediction.configs.adaboost_single_split_elmarakeby import adaboost_single_split_elmarakeby_config
@@ -69,9 +73,6 @@ from prostate_cancer_prediction.configs.pnet_network_order_variation import pnet
 from prostate_cancer_prediction.configs.pnet_test_set_stability import pnet_test_set_stability_configs
 from prostate_cancer_prediction.configs.pnet_GO_test_set_stability import pnet_GO_test_set_stability_configs
 from prostate_cancer_prediction.plotting.plot_train_size_variations import plot_train_size_comparisons, plot_train_size_comparisons_nested_CV
-
-project_root = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, project_root)
 
 from prostate_cancer_prediction.configs.base_config import download_dir, run_dir, wd, selected_genes, figures_dir
 from prostate_cancer_prediction.configs.pnet_single_split import n_hidden_layers

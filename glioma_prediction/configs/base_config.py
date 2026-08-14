@@ -27,7 +27,8 @@ if not os.path.exists(os.path.join(data_dir, "tcga_labels_preprocessed.csv")):
     print("Preprocessed data not found — running preprocessing pipeline...")
     Preprocessor(Path(data_dir)).run_all()
 
-selected_genes = list(set(pd.read_csv(f"{data_dir}/hugo_genes.txt", sep="\t", low_memory=False)["symbol"]))
+
+selected_genes = sorted(set(pd.read_csv(f"{data_dir}/hugo_genes.txt", sep="\t", low_memory=False)["symbol"]))
 
 views = [
     ("mut_important", "tcga_mutations_preprocessed.csv", selected_genes, 0, mut_binary, lambda x: x),

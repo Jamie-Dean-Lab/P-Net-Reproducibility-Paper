@@ -5,6 +5,7 @@ from keras.regularizers import L2
 from keras.callbacks import LearningRateScheduler
 
 from architecture.pipeline import TFPipeline
+from architecture.pnet_config import CATEGORICAL_CROSSENTROPY, pnet_model_params
 from architecture.pnet_model import compile_pnet
 from architecture.callbacks_custom import step_decay
 from architecture.evaluation import plot_history, get_deeplift_global
@@ -25,26 +26,12 @@ _fitting_params = {
     "class_weight": None,
 }
 
-_model_params_base = {
-    "pathway_dataset": "reactome",
-    "pp_relations": "architecture/Reactome/ReactomePathwaysRelation.txt",
-    "gp_relations": "architecture/Reactome/ReactomePathways.gmt",
-    "n_hidden_layers": n_hidden_layers,
-    "h_dropout": [0.5] + [0.1] * n_hidden_layers,
-    "h_activation": ["tanh"] * (n_hidden_layers + 1),
-    "o_activation": ["softmax"] * (n_hidden_layers + 1),
-    "h_kernel_initializer": ["lecun_uniform"] * (n_hidden_layers + 1),
-    "h_kernel_constraints": [None] * (n_hidden_layers + 1),
-    "h_bias_initializer": ["lecun_uniform"] * (n_hidden_layers + 1),
-    "h_bias_constraints": [None] * (n_hidden_layers + 1),
-    "batch_normal": False,
-    "sparse": True,
-    "dropout_testing": False,
-    "loss": [{"class_name": "CategoricalCrossentropy", "config": {"from_logits": False}}] * (n_hidden_layers + 1),
-    "loss_weights": [2, 7, 20, 54, 148, 400],
-    "optimizer": {"class_name": "Adam", "config": {"learning_rate": learning_rate}},
-    "map_seed": 42
-}
+_model_params_base = pnet_model_params(
+    loss=CATEGORICAL_CROSSENTROPY,
+    o_activation="softmax",
+    n_hidden_layers=n_hidden_layers,
+    learning_rate=learning_rate,
+)
 
 pnet_config = {
     **copy.deepcopy(base_config),

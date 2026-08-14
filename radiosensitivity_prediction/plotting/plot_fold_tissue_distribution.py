@@ -1,50 +1,32 @@
+"""
+Tissue composition of each outer crossvalidation test fold.
+
+Fold membership comes from architecture.data_loading.outer_fold_ids, i.e. the same
+dataset construction and splitter run_crossvalidation uses, so this figure cannot
+drift from the folds the experiments actually run on.
+"""
+
 import os
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
-
-DATA_DIR = "radiosensitivity_prediction/data"
-FIGURES_DIR = "radiosensitivity_prediction/figures"
-TT_SPLIT_SEED = 42
-OUTER_KFOLDS = 5
-
-
-def _get_dataset_ids():
-    """Return sorted sample IDs used by the pipeline: intersection of both views and labels."""
-    expr_ids = set(pd.read_csv(f"{DATA_DIR}/ccle_gene_expression_preprocessed.csv",
-                               index_col=0, usecols=[0]).index)
-    meth_ids = set(pd.read_csv(f"{DATA_DIR}/methylation_preprocessed.csv",
-                               index_col=0, usecols=[0]).index)
-    label_ids = set(pd.read_csv(f"{DATA_DIR}/cleveland_auc_preprocessed.csv",
-                                index_col=0).dropna().index)
-    return sorted(expr_ids & meth_ids & label_ids)
-
-
-def _get_outer_test_folds(ids, n_splits=5, seed=42):
-    """Replicate pipeline's _get_k_splits (non-stratified). Returns list of test-fold ID lists."""
-    idxs = np.arange(len(ids))
-    step = len(ids) // n_splits
-    splits = range(0, len(ids), step)
-    np.random.default_rng(seed).shuffle(idxs)
-    folds = []
-    for i in range(n_splits):
-        test_idxs = idxs[splits[i]:splits[i + 1]] if i < n_splits - 1 else idxs[splits[i]:]
-        folds.append([ids[j] for j in test_idxs])
-    return folds
+from architecture.data_loading import outer_fold_ids
+from radiosensitivity_prediction.configs.base_config import base_config, data_dir, figures_dir
 
 
 def plot_fold_tissue_distribution():
-    ids = _get_dataset_ids()
-    folds = _get_outer_test_folds(ids, n_splits=OUTER_KFOLDS, seed=TT_SPLIT_SEED)
+    folds = outer_fold_ids(base_config)
+    n_folds = len(folds)
 
-    model_list = pd.read_csv(f"{DATA_DIR}/model_list_20250630.csv",
+    model_list = pd.read_csv(f"{data_dir}/model_list_20250630.csv",
                              usecols=["model_id", "tissue"], index_col="model_id")
 
     fold_tissues = []
-    for i, fold_ids in enumerate(folds):
-        tissues = model_list.reindex(fold_ids)["tissue"].fillna("Unknown")
+    for i, (_, test_ids) in enumerate(folds):
+        tissues = model_list.reindex(test_ids)["tissue"].fillna("Unknown")
         fold_tissues.append(tissues.value_counts().rename(str(i + 1)))
 
     counts = pd.concat(fold_tissues, axis=1).fillna(0).astype(int)
@@ -54,7 +36,7 @@ def plot_fold_tissue_distribution():
     colours = {tissue: cmap(i) for i, tissue in enumerate(counts.index)}
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    bottoms = np.zeros(OUTER_KFOLDS)
+    bottoms = np.zeros(n_folds)
     for tissue in counts.index:
         vals = counts.loc[tissue].values
         ax.bar(counts.columns, vals, bottom=bottoms, color=colours[tissue], label=tissue)
@@ -71,10 +53,10 @@ def plot_fold_tissue_distribution():
               fontsize=10, frameon=False)
 
     fig.tight_layout()
-    os.makedirs(FIGURES_DIR, exist_ok=True)
-    fig.savefig(f"{FIGURES_DIR}/fold_tissue_distribution.pdf", bbox_inches="tight")
+    os.makedirs(figures_dir, exist_ok=True)
+    fig.savefig(f"{figures_dir}/fold_tissue_distribution.pdf", bbox_inches="tight")
     plt.close(fig)
-    print(f"Saved to {FIGURES_DIR}/fold_tissue_distribution.pdf")
+    print(f"Saved to {figures_dir}/fold_tissue_distribution.pdf")
     print(counts.to_string())
 
 

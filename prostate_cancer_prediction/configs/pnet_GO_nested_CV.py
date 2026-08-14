@@ -5,6 +5,7 @@ from keras.regularizers import L2
 from keras.callbacks import LearningRateScheduler
 
 from architecture.pipeline import TFPipeline
+from architecture.pnet_config import BINARY_CROSSENTROPY, pnet_model_params
 from architecture.pnet_model import compile_pnet
 from architecture.callbacks_custom import step_decay
 from architecture.evaluation import plot_history, get_deeplift_global
@@ -17,26 +18,13 @@ learning_rate = 1e-3
 step_decay_part = partial(step_decay, init_lr=learning_rate, drop=0.25, epochs_drop=50)
 
 
-_model_params_base = {
-        "pathway_dataset":        "go",
-        "pp_relations":           "architecture/GO/go_hierarchy.tsv",
-        "gp_relations":           "architecture/GO/go_gene_sets.gmt",
-        "n_hidden_layers":        n_hidden_layers,
-        "h_dropout":              [0.5] + [0.1] * n_hidden_layers,
-        "h_activation":           ["tanh"] * (n_hidden_layers + 1),
-        "o_activation":           ["sigmoid"] * (n_hidden_layers + 1),
-        "h_kernel_initializer":   ["lecun_uniform"] * (n_hidden_layers + 1),
-        "h_kernel_constraints":   [None] * (n_hidden_layers + 1),
-        "h_bias_initializer":     ["lecun_uniform"] * (n_hidden_layers + 1),
-        "h_bias_constraints":     [None] * (n_hidden_layers + 1),
-        "batch_normal":           False,
-        "sparse":                 True,
-        "dropout_testing":        False,
-        "loss":                   [{"class_name": "BinaryCrossentropy", "config": {"from_logits": False}}] * (n_hidden_layers + 1),
-        "loss_weights":           [2, 7, 20, 54, 148, 400],
-        "optimizer":              {"class_name": "Adam", "config": {"learning_rate": learning_rate}},
-        "map_seed":               42
-}
+_model_params_base = pnet_model_params(
+    loss=BINARY_CROSSENTROPY,
+    o_activation="sigmoid",
+    n_hidden_layers=n_hidden_layers,
+    pathway_dataset="go",
+    learning_rate=learning_rate,
+)
 
 pnet_GO_nested_CV_config = {
     **copy.deepcopy(nested_CV_base_config),

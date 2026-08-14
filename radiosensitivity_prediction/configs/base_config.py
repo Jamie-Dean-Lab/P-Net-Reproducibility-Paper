@@ -28,7 +28,7 @@ if not os.path.exists(os.path.join(data_dir, _PREPROCESSING_SENTINEL)):
     print("Preprocessed data not found — running preprocessing pipeline...")
     Preprocessor(data_dir).run_all()
 
-selected_genes = list(set(pd.read_csv(f"{data_dir}/hugo_genes.txt", sep="\t", low_memory=False)["symbol"]))
+selected_genes = sorted(set(pd.read_csv(f"{data_dir}/hugo_genes.txt", sep="\t", low_memory=False)["symbol"]))
 
 views = [
     ("gexpr", "ccle_gene_expression_preprocessed.csv", selected_genes, 0, lambda x: x, lambda x: x),

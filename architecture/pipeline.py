@@ -2,6 +2,7 @@ import copy
 import logging, os
 import numpy as np
 import pandas as pd
+from architecture.data_loading import load_dataset
 from architecture.pnet_model import TFModel
 
 
@@ -317,23 +318,7 @@ class Pipeline:
         Loads in the data specified in config file
         """
         self.log.info("Loading data")
-        # Instantiate the particular type of dataset to use
-        self.data = self.config["dataloader"]()
-        # Load in the individual view files
-        view_aligner = {}
-        for info in self.config["views"]:
-            view_name, data_fn, selected_columns, id_col, preprocessor, aligner = info
-            self.data.load_data_view(view_name, os.path.join(self.config["data_dir"], data_fn),
-                                     selected_columns, id_col, preprocessor)
-            view_aligner[view_name] = aligner
-        # Load in the label files
-        for label_fn, id_col in self.config["labels"]:
-            self.data.load_data_label(os.path.join(self.config["data_dir"], label_fn), id_col)
-
-        # Align views
-        self.data.align_views(self.config["view_alignment_method"], view_aligner,
-                              drop_labels=self.config["drop_labels"],
-                              shuffle_seed=shuffle_seed)
+        self.data = load_dataset(self.config, shuffle_seed)
 
     def _summarise_data(self):
         self.log.info("Total number of samples {}".format(len(self.data)))
