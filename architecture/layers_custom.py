@@ -35,8 +35,16 @@ class Diagonal(Layer):
     def build(self, input_shape):
         # Create a trainable weight variable for this layer.
         input_dimension = input_shape[1]
+        if input_dimension % self.units != 0:
+            # Each unit reads one contiguous block of views for a single gene, so a
+            # ragged split means the feature matrix is misaligned. call() would
+            # otherwise reshape straight through it and mix features across genes.
+            raise ValueError(
+                f"Diagonal input dimension {input_dimension} is not divisible by "
+                f"{self.units} units; features are not in equal per-gene blocks."
+            )
         self.kernel_shape = (input_dimension, self.units)
-        self.n_inputs_per_node = input_dimension / self.units
+        self.n_inputs_per_node = input_dimension // self.units
 
         rows = np.arange(input_dimension)
         cols = np.arange(self.units)

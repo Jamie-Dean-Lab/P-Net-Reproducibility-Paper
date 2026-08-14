@@ -61,9 +61,7 @@ matplotlib.use("Agg")
 # ---------------------------------------------------------------------------
 # Import module under test
 #
-# The stubs are only in sys.modules while evaluation.py is being executed. It
-# binds the names it needs at import time, so it keeps seeing the fakes, and
-# later test modules still get the real architecture package.
+# Stubs are scoped to the import so later test modules get the real package.
 # ---------------------------------------------------------------------------
 import importlib.util
 from pathlib import Path
@@ -253,6 +251,66 @@ class TestSaveSupervisedResult(unittest.TestCase):
         self.assertTrue(isinstance(out, dict))
 
 
+class TestSaveSupervisedResultUsesTheRightSplit(unittest.TestCase):
+    """Metrics must be computed on the labels and predictions of the split being saved."""
+
+    N = 6
+    N_LABELS = 2
+    MARKER = {"train": 1.0, "val": 2.0, "test": 3.0}
+
+    def _results(self, tmp):
+        results = {"save_dir": tmp}
+        for split, marker in self.MARKER.items():
+            df = _make_mock_df(self.N, self.N_LABELS)
+            df.ys = np.full((self.N, self.N_LABELS), marker)
+            df.ids = [f"{split}_{i}" for i in range(self.N)]
+            results[f"{split}_df"] = df
+            results[f"{split}_preds"] = np.full((self.N, self.N_LABELS), marker * 10)
+        return results
+
+    def _capture(self, split, task):
+        seen = {}
+
+        def metric(y_true, y_pred):
+            seen["y_true"], seen["y_pred"] = np.asarray(y_true), np.asarray(y_pred)
+            return 0.0
+
+        with tempfile.TemporaryDirectory() as tmp:
+            ru.save_supervised_result(self._results(tmp), split, tmp, {"m": metric}, task)
+            csv = pd.read_csv(f"{tmp}/{split}_results.csv", index_col=0)
+        return seen, csv
+
+    def test_individual_metric_gets_that_splits_labels(self):
+        for split, marker in self.MARKER.items():
+            seen, _ = self._capture(split, "individual")
+            self.assertTrue((seen["y_true"] == marker).all(), msg=split)
+
+    def test_individual_metric_gets_that_splits_predictions(self):
+        for split, marker in self.MARKER.items():
+            seen, _ = self._capture(split, "individual")
+            self.assertTrue((seen["y_pred"] == marker * 10).all(), msg=split)
+
+    def test_group_metric_gets_that_splits_labels(self):
+        for split, marker in self.MARKER.items():
+            seen, _ = self._capture(split, "group")
+            self.assertTrue((seen["y_true"] == marker).all(), msg=split)
+
+    def test_labels_and_predictions_not_swapped(self):
+        seen, _ = self._capture("test", "individual")
+        self.assertTrue((seen["y_true"] < seen["y_pred"]).all())
+
+    def test_csv_rows_indexed_by_that_splits_ids(self):
+        for split in self.MARKER:
+            _, csv = self._capture(split, "individual")
+            self.assertEqual(csv.index.tolist(), [f"{split}_{i}" for i in range(self.N)])
+
+    def test_csv_holds_that_splits_labels_and_predictions(self):
+        for split, marker in self.MARKER.items():
+            _, csv = self._capture(split, "individual")
+            self.assertTrue((csv["label_0"] == marker).all())
+            self.assertTrue((csv["label_0_pred"] == marker * 10).all())
+
+
 class TestSaveResults(unittest.TestCase):
 
     def test_summary_csv_created_with_all_splits(self):
@@ -311,10 +369,7 @@ class TestPlotChannels(unittest.TestCase):
 
 class TestGetLayers(unittest.TestCase):
 
-    # get_layers() recurses on isinstance(l, Sequential), where Sequential is the
-    # class evaluation.py bound at import time — i.e. _FakeSequential. Build the
-    # test doubles from that same class rather than re-importing keras.models,
-    # which resolves to the real Keras once the import stubs are torn down.
+    # Must be the class evaluation.py bound at import time, not real keras.
     def _make_seq_model(self, layers):
         model = _FakeSequential()
         model.layers = layers
@@ -471,9 +526,7 @@ class TestCollateAggregateResults(unittest.TestCase):
             self.assertEqual(sorted(cols), sorted(["index", "metric", "performance_metric", "mean", "std", "sem"]))
 
     def test_sem_correct_with_multiple_val_metrics(self):
-        # Each fold's results appear once per val_metric (f1/auprc/auc).
-        # Without deduplication, n would be n_folds * n_val_metrics, making sem too small.
-        # drop_duplicates ensures n = n_folds.
+        # One row per fold per val_metric; without dedup, sem would be too small.
         import math
         fold_values = [0.2, 0.4, 0.6, 0.8, 1.0]
         expected_sem = np.std(fold_values, ddof=1) / math.sqrt(len(fold_values))
@@ -516,6 +569,137 @@ class TestCollateAggregateResults(unittest.TestCase):
             ru.collate_aggregate_results({"save_dir": tmp})
             df = pd.read_csv(os.path.join(tmp, "aggregated_results.csv"))
             self.assertEqual(sorted(df["index"].tolist()), ["test", "train", "val"])
+
+
+def _layer_maps():
+    """Two-layer hierarchy: g1..g4 -> p1..p3 -> t1..t2."""
+    gene_to_pathway = pd.DataFrame(
+        [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 0]],
+        index=["g1", "g2", "g3", "g4"], columns=["p1", "p2", "p3"]).astype(float)
+    pathway_to_top = pd.DataFrame(
+        [[1, 0], [1, 1], [0, 1]],
+        index=["p1", "p2", "p3"], columns=["t1", "t2"]).astype(float)
+    return [gene_to_pathway, pathway_to_top]
+
+
+class TestAdjustDeepliftForDegree(unittest.TestCase):
+
+    def setUp(self):
+        self.maps = _layer_maps()
+        self.coefs = pd.DataFrame([1.0, 2.0, 3.0, 4.0],
+                                  index=["g1", "g2", "g3", "g4"], columns=["x"])
+
+    def _adjust(self, layer_idx=0, coefs=None):
+        return ru.adjust_deeplift_for_degree(
+            self.coefs if coefs is None else coefs, self.maps, layer_idx)
+
+    def test_layer_zero_degree_is_fan_out(self):
+        df = self._adjust(0)
+        self.assertEqual(df.loc["g1", "coef_graph"], 1.0)
+        self.assertEqual(df.loc["g3", "coef_graph"], 3.0)
+
+    def test_deeper_layer_degree_sums_fan_in_and_fan_out(self):
+        coefs = pd.DataFrame([1.0, 1.0, 1.0], index=["p1", "p2", "p3"], columns=["x"])
+        df = ru.adjust_deeplift_for_degree(coefs, self.maps, 1)
+        # p1: fan_in 4 genes, fan_out 1 top-level node
+        self.assertEqual(df.loc["p1", "coef_graph"], 5.0)
+
+    def test_node_absent_from_the_map_gets_zero_degree(self):
+        coefs = pd.DataFrame([1.0], index=["ghost"], columns=["x"])
+        df = self._adjust(0, coefs)
+        self.assertEqual(df.loc["ghost", "coef_graph"], 0.0)
+
+    def test_original_coefficient_preserved(self):
+        df = self._adjust(0)
+        self.assertEqual(df["coef"].tolist(), [1.0, 2.0, 3.0, 4.0])
+
+    def test_non_hub_nodes_are_not_rescaled(self):
+        df = self._adjust(0)
+        pd.testing.assert_series_equal(df["coef_combined"], df["coef"],
+                                       check_names=False)
+
+    def test_hub_nodes_divided_by_their_degree(self):
+        wide = self.maps[0].copy()
+        wide["hub"] = [1.0, 1.0, 1.0, 1.0]
+        maps = [wide, self.maps[1]]
+        coefs = pd.DataFrame([10.0] * 4, index=["g1", "g2", "g3", "g4"], columns=["x"])
+        df = ru.adjust_deeplift_for_degree(coefs, maps, 0)
+        hubs = df[df["coef_graph"] > df["coef_graph"].mean() + 5 * df["coef_graph"].std()]
+        for node in hubs.index:
+            self.assertAlmostEqual(df.loc[node, "coef_combined"],
+                                   df.loc[node, "coef"] / df.loc[node, "coef_graph"])
+
+    def test_adjusted_importance_is_a_zscore(self):
+        df = self._adjust(0)
+        self.assertAlmostEqual(df["feature_importance_adjusted"].mean(), 0.0, places=10)
+        self.assertAlmostEqual(df["feature_importance_adjusted"].std(ddof=0), 1.0, places=10)
+
+    def test_adjusted_importance_preserves_ranking_without_hubs(self):
+        df = self._adjust(0)
+        self.assertEqual(df["feature_importance_adjusted"].rank().tolist(),
+                         df["coef"].rank().tolist())
+
+    def test_index_unchanged(self):
+        df = self._adjust(0)
+        self.assertEqual(df.index.tolist(), ["g1", "g2", "g3", "g4"])
+
+    def test_input_frame_not_mutated(self):
+        before = self.coefs.copy()
+        self._adjust(0)
+        pd.testing.assert_frame_equal(self.coefs, before)
+
+    def test_maps_not_mutated(self):
+        before = [m.copy() for m in self.maps]
+        self._adjust(0)
+        for after, original in zip(self.maps, before):
+            pd.testing.assert_frame_equal(after, original)
+
+
+class _FakeSparseLayer:
+    def __init__(self, name, weights, nonzero_ind, kernel_shape):
+        self.__class__.__name__ = name
+        self._weights = weights
+        self.nonzero_ind = nonzero_ind
+        self.kernel_shape = kernel_shape
+
+    def get_weights(self):
+        return [self._weights]
+
+
+class TestGetLayerWeights(unittest.TestCase):
+
+    def _diagonal(self):
+        layer = _FakeSparseLayer(
+            "Diagonal", np.array([1.0, 2.0, 3.0, 4.0]),
+            np.array([[0, 0], [1, 0], [2, 1], [3, 1]]), (4, 2))
+        return layer
+
+    def test_diagonal_densified_to_kernel_shape(self):
+        self.assertEqual(ru.get_layer_weights(self._diagonal()).shape, (4, 2))
+
+    def test_diagonal_values_land_at_their_indices(self):
+        w = ru.get_layer_weights(self._diagonal())
+        np.testing.assert_allclose(w, [[1, 0], [2, 0], [0, 3], [0, 4]])
+
+    def test_unconnected_positions_are_zero(self):
+        w = ru.get_layer_weights(self._diagonal())
+        self.assertEqual(w[0, 1], 0.0)
+        self.assertEqual(w[3, 0], 0.0)
+
+    def test_sparsetf_densified_the_same_way(self):
+        layer = _FakeSparseLayer("SparseTF", np.array([5.0, 6.0]),
+                                 np.array([[0, 1], [2, 0]]), (3, 2))
+        np.testing.assert_allclose(ru.get_layer_weights(layer),
+                                   [[0, 5], [0, 0], [6, 0]])
+
+    def test_nonzero_count_matches_the_weight_vector(self):
+        w = ru.get_layer_weights(self._diagonal())
+        self.assertEqual((w != 0).sum(), 4)
+
+    def test_dense_layer_returned_unchanged(self):
+        layer = _FakeSparseLayer("Dense", np.arange(6).reshape(3, 2), None, None)
+        np.testing.assert_array_equal(ru.get_layer_weights(layer),
+                                      np.arange(6).reshape(3, 2))
 
 
 if __name__ == "__main__":

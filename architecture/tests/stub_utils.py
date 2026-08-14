@@ -20,25 +20,7 @@ _MISSING = object()
 
 @contextlib.contextmanager
 def stubbed_modules(stubs: dict):
-    """
-    Context manager which installs stub modules into sys.modules and restores the
-    previous state on exit.
-
-    Only the named keys are touched, so modules imported inside the block (for
-    instance matplotlib.pyplot, pulled in by the module under test) are left
-    alone. Names absent beforehand are removed again; names that were already
-    present are put back unchanged.
-
-    A module imported inside the block keeps its own references to the stubs it
-    bound at import time, so the code under test carries on seeing the fakes
-    after sys.modules has been restored.
-
-    args:
-        stubs (dict[str, ModuleType]) : mapping of module name to stub module
-
-    yields:
-        None
-    """
+    """Context manager which installs stub modules into sys.modules and restores the previous state on exit."""
     saved = {name: sys.modules.get(name, _MISSING) for name in stubs}
     sys.modules.update(stubs)
     try:

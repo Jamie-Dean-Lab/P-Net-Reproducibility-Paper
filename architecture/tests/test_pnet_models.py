@@ -196,9 +196,7 @@ class TestPnetModels(unittest.TestCase):
 
     def train_model(self, config):
         config = copy.deepcopy(config)
-        # _train uses config["model_params"] directly; for configs that only define
-        # model_params inside grid_search, pull the first entry so the test can run
-        # without going through the full crossvalidation loop.
+        # _train reads config["model_params"]; lift the first grid_search entry.
         if "model_params" not in config:
             gs = config.get("grid_search", {})
             if isinstance(gs, dict) and "model_params" in gs:

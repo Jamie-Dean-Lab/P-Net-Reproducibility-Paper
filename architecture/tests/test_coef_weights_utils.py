@@ -98,11 +98,8 @@ import matplotlib; matplotlib.use("Agg")
 # ---------------------------------------------------------------------------
 # Load module under test
 #
-# The stubs are only in sys.modules while coef_weights_utils.py is being
-# executed. It binds the names it needs at import time, so it keeps seeing the
-# fakes, and later test modules still get the real tensorflow/sklearn/keras.
-# Scoping them also confines the module-level disable_eager_execution() call to
-# the stub, leaving the real TensorFlow execution mode untouched.
+# Stubs are scoped to the import so later test modules get the real packages, and
+# the module-level disable_eager_execution() lands on the stub.
 # ---------------------------------------------------------------------------
 import importlib.util
 from pathlib import Path
@@ -147,11 +144,7 @@ def _typed_layer(name, cls):
 # ---------------------------------------------------------------------------
 
 class TestGetDeepExplainScores(unittest.TestCase):
-    """
-    Covers get_deep_explain_scores() with method_name='deeplift'
-    (the deepexplain_deeplift feature_importance pathway).
-    get_deep_explain_score_layer is mocked — TF session not required.
-    """
+    """Covers get_deep_explain_scores() with method_name='deeplift' (the deepexplain_deeplift feature_importance pathway)."""
 
     def test_processes_h_prefix_layer(self):
         cw.mm.get_layers.return_value = [_plain_layer("hidden_1")]

@@ -9,15 +9,10 @@ from unittest.mock import MagicMock
 logging.disable(logging.CRITICAL)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Shared fixtures
-# ══════════════════════════════════════════════════════════════════════════════
+# ── Shared fixtures ───────────────────────────────────────────────────────────
 
 def make_dataset(n_samples=60, n_features=10, seed=0):
-    """
-    Build a real ConcatMultiViewDataset in memory with known string IDs ("0".."n-1")
-    and balanced binary labels — no filesystem required.
-    """
+    """Build a real ConcatMultiViewDataset in memory with known string IDs ("0".."n-1") and balanced binary labels — no filesystem required."""
     from architecture.data_utils import ConcatMultiViewDataset
 
     rng = np.random.default_rng(seed)
@@ -47,11 +42,7 @@ def ids_of(fold):
 # ── Spy preprocessor / feature selector ──────────────────────────────────────
 
 class SpyTransformer:
-    """
-    Records every set of IDs passed to fit_transform across all calls.
-    transform() is a no-op but handles the empty-list case that _fold_run
-    passes when val or test fold is [].
-    """
+    """Records every set of IDs passed to fit_transform across all calls."""
     def __init__(self):
         self.all_fitted_ids = []   # one entry per fit_transform call
 
@@ -73,11 +64,7 @@ class SpyTransformer:
 
 
 def make_pipeline(tmp_dir, ds, config_overrides=None):
-    """
-    Build a Pipeline backed by a real ConcatMultiViewDataset.
-    _get_logger writes into tmp_dir but suppresses console output.
-    _train returns a trivial mock model.
-    """
+    """Build a Pipeline backed by a real ConcatMultiViewDataset."""
     from architecture.pipeline import Pipeline
 
     mock_model = MagicMock()
@@ -145,9 +132,7 @@ def make_pipeline(tmp_dir, ds, config_overrides=None):
     return p
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Dataset split correctness
-# ══════════════════════════════════════════════════════════════════════════════
+# ── Dataset split correctness ─────────────────────────────────────────────────
 
 class TestGetSpecificSplitByList(unittest.TestCase):
 
@@ -337,9 +322,7 @@ class TestGetKSplitsStratified(unittest.TestCase):
             self.assertIn(1.0, counts.index)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# run_single_split
-# ══════════════════════════════════════════════════════════════════════════════
+# ── run_single_split ──────────────────────────────────────────────────────────
 
 class TestRunSingleSplitNoGridSearch(unittest.TestCase):
     """No grid search — one straight fold run."""
@@ -484,9 +467,66 @@ class TestRunSingleSplitUseValidationOnTest(unittest.TestCase):
         self.assertEqual(gs_val, final_val)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# run_crossvalidation
-# ══════════════════════════════════════════════════════════════════════════════
+# ── grid search — the winning config is the highest scoring one ────────────────
+
+class TestGridSearchSelectsBestConfig(unittest.TestCase):
+    """The recorded winner must be the highest-scoring config, not the first or last."""
+
+    # Highest score sits in the middle of the list so "always take index 0" and
+    # "always take index -1" both fail too.
+    GS = [
+        {"model_params": {"C": 0.1}, "model_params_choice": "worst"},
+        {"model_params": {"C": 0.9}, "model_params_choice": "best"},
+        {"model_params": {"C": 0.5}, "model_params_choice": "middle"},
+    ]
+
+    def setUp(self):
+        self.ds = make_dataset(n_samples=60)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.gs_collator = MagicMock()
+        self.holder = [None]
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _score(self, results):
+        return self.holder[0].config["model_params"]["C"]
+
+    def _build(self, **overrides):
+        p = make_pipeline(self.tmp.name, self.ds, {
+            "grid_search":           [dict(g) for g in self.GS],
+            "val_metric":            {"auc": self._score},
+            "grid_search_collators": [self.gs_collator],
+            **overrides,
+        })
+        self.holder[0] = p
+        return p
+
+    def _winners(self):
+        return self.gs_collator.call_args[0][0]["params"]
+
+    def test_single_split_picks_the_highest_scoring_config(self):
+        self._build(test_samples=0.2).run_single_split(load_data=False)
+        self.assertEqual(set(self._winners()), {"best"})
+
+    def test_single_split_never_picks_the_lowest(self):
+        self._build(test_samples=0.2).run_single_split(load_data=False)
+        self.assertNotIn("worst", self._winners())
+
+    def test_crossvalidation_picks_the_highest_scoring_config(self):
+        self._build(outer_kfolds=2, inner_kfolds=2).run_crossvalidation(load_data=False)
+        self.assertEqual(set(self._winners()), {"best"})
+
+    def test_crossvalidation_never_picks_the_lowest(self):
+        self._build(outer_kfolds=2, inner_kfolds=2).run_crossvalidation(load_data=False)
+        self.assertNotIn("worst", self._winners())
+
+    def test_one_winner_recorded_per_outer_fold(self):
+        self._build(outer_kfolds=2, inner_kfolds=2).run_crossvalidation(load_data=False)
+        self.assertEqual(len(self._winners()), 2)
+
+
+# ── run_crossvalidation ───────────────────────────────────────────────────────
 
 class TestRunCrossvalidationWithTestSamples(unittest.TestCase):
     """test_samples in config → single outer fold via get_specific_split."""
@@ -720,9 +760,7 @@ class TestRunCrossvalidationGridSearch(unittest.TestCase):
 
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# run_single_split — load_data=True path
-# ══════════════════════════════════════════════════════════════════════════════
+# ── run_single_split — load_data=True path ────────────────────────────────────
 
 class TestRunSingleSplitLoadData(unittest.TestCase):
     """Verify _load_data is called when load_data=True and skipped when False."""
@@ -742,17 +780,10 @@ class TestRunSingleSplitLoadData(unittest.TestCase):
         p._load_data.assert_not_called()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# run_crossvalidation — hold_out_validation_for_final_fit branch
-# ══════════════════════════════════════════════════════════════════════════════
+# ── run_crossvalidation — hold_out_validation_for_final_fit branch ────────────
 
 class TestRunCrossvalidationUseValidationOnTest(unittest.TestCase):
-    """
-    hold_out_validation_for_final_fit=True  → final refit uses get_train_test_split(1-prop, ...)
-                                   so val fold is non-empty and train is a subset of outer train.
-    hold_out_validation_for_final_fit=False → final refit uses get_train_test_split(1, ...)
-                                   so the entire outer train pool is used and val fold is empty.
-    """
+    """hold_out_validation_for_final_fit=True: final refit keeps a non-empty val fold."""
 
     def _run(self, use_val_on_test):
         ds = make_dataset(n_samples=60)
@@ -786,17 +817,12 @@ class TestRunCrossvalidationUseValidationOnTest(unittest.TestCase):
         # gs train for outer fold 0 is call 0; best refit for outer fold 0 is call 1
         gs_train   = ids_of(calls[0][0][0])
         best_train = ids_of(calls[1][0][0])
-        # With validation_prop=0.2 and hold_out_validation_for_final_fit=False we call
-        # get_train_test_split(1, ...) so best_train should equal the full outer train pool
-        # i.e. it must be a superset of (or equal to) the gs train
+        # hold_out_validation_for_final_fit=False refits on the full outer train pool
         self.assertTrue(gs_train.issubset(best_train),
                         "hold_out_validation_for_final_fit=False: final refit train should include all of gs train")
 
     def test_use_val_false_final_refit_train_larger_than_gs_train(self):
-        # hold_out_validation_for_final_fit=False merges val back into train for the final
-        # refit via get_train_test_split(1,...). The best refit train must therefore
-        # be strictly larger than the gs train (which only used 1-validation_prop).
-        # calls layout: [outer0_gs, outer0_best, outer1_gs, outer1_best]
+        # calls: [outer0_gs, outer0_best, outer1_gs, outer1_best]
         _, calls = self._run(use_val_on_test=False)
         for fold_idx, (gs_call, best_call) in enumerate(zip(calls[::2], calls[1::2])):
             gs_train   = ids_of(gs_call[0][0])
@@ -827,35 +853,22 @@ class TestRunCrossvalidationUseValidationOnTest(unittest.TestCase):
         p._load_data.assert_not_called()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# run_crossvalidation — inner k-folds combined with grid search
-# ══════════════════════════════════════════════════════════════════════════════
+# ── run_crossvalidation — inner k-folds combined with grid search ─────────────
 
 class TestRunCrossvalidationInnerKFoldsWithGridSearch(unittest.TestCase):
-    """
-    inner_kfolds=2 + 2 gs configs + 2 outer folds.
-    Verifies call counts, leakage, fold directories, and collator invocation.
-    """
+    """inner_kfolds=2 + 2 gs configs + 2 outer folds."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
         self.tmp = tempfile.TemporaryDirectory()
         self.fold_collator = MagicMock()
         self.gs_collator   = MagicMock()
-        # "large" (C=1.0) always wins: its metric score is higher regardless of fold
-        def metric_fn(results):
-            return 0.9 if results["train_df"].config_choice == "large" else 0.6
         gs = [
             {"model_params": {"C": 0.1}, "model_params_choice": "small"},
             {"model_params": {"C": 1.0}, "model_params_choice": "large"},
         ]
-        # Score by the C value currently set on the pipeline config so the
-        # winner is deterministic regardless of inner fold call order:
-        # C=0.1 ("small") → 0.6, C=1.0 ("large") → 0.9
-        def metric_fn(results):
-            c = results["train_df"].xs.shape[1]   # dummy — use config instead
-            return 0.6  # placeholder; real score injected via p reference below
-        # We need access to p inside metric_fn, so we use a late-binding closure
+        # Score by the C currently on the config, so the winner is deterministic
+        # regardless of inner fold call order.
         p_ref = [None]
         def metric_fn(results):
             return 0.9 if p_ref[0].config.get("model_params", {}).get("C", 0) >= 1.0 else 0.6
@@ -929,16 +942,10 @@ class TestRunCrossvalidationInnerKFoldsWithGridSearch(unittest.TestCase):
 
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# run_crossvalidation — samples_to_include pool restriction
-# ══════════════════════════════════════════════════════════════════════════════
+# ── run_crossvalidation — samples_to_include pool restriction ─────────────────
 
 class TestRunCrossvalidationSamplesToInclude(unittest.TestCase):
-    """
-    When samples_to_include is set and test_samples is absent, the outer CV
-    folds must be drawn only from those IDs — not from the full dataset.
-    Samples outside the pool must never appear in any fold.
-    """
+    """When samples_to_include is set and test_samples is absent, the outer CV folds must be drawn only from those IDs — not from the full dataset."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -985,10 +992,7 @@ class TestRunCrossvalidationSamplesToInclude(unittest.TestCase):
 
 
 class TestRunCrossvalidationSamplesToIncludeWithGridSearch(unittest.TestCase):
-    """
-    Pool restriction propagates into inner folds and grid search: excluded
-    samples must not appear in any inner fold either.
-    """
+    """Pool restriction propagates into inner folds and grid search: excluded samples must not appear in any inner fold either."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -1032,10 +1036,7 @@ class TestRunCrossvalidationSamplesToIncludeWithGridSearch(unittest.TestCase):
 
 
 class TestRunCrossvalidationSamplesToIncludeAbsentUsesAllData(unittest.TestCase):
-    """
-    When samples_to_include is not set, all loaded data is used for the outer
-    CV — existing behaviour is unchanged.
-    """
+    """When samples_to_include is not set, all loaded data is used for the outer CV — existing behaviour is unchanged."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -1053,9 +1054,7 @@ class TestRunCrossvalidationSamplesToIncludeAbsentUsesAllData(unittest.TestCase)
         self.tmp.cleanup()
 
     def test_second_half_samples_appear_in_training(self):
-        # With all 60 samples the outer CV assigns the second half to outer fold 1's
-        # training set. If samples_to_include erroneously activated, those IDs would
-        # be excluded entirely.
+        # If samples_to_include wrongly activated, the second half would be excluded
         second_half = set(self.ds.ids[30:])
         all_train = set()
         for call in self.all_calls:
@@ -1066,9 +1065,7 @@ class TestRunCrossvalidationSamplesToIncludeAbsentUsesAllData(unittest.TestCase)
         )
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ConcatMultiViewDataset — NA handling strategies
-# ══════════════════════════════════════════════════════════════════════════════
+# ── ConcatMultiViewDataset — NA handling strategies ───────────────────────────
 
 class TestAlignViewsDropSamples(unittest.TestCase):
     """align_views with method='drop samples' removes rows that have any NaN."""
@@ -1150,9 +1147,7 @@ class TestAlignViewsDropFeatures(unittest.TestCase):
         self.assertEqual(len(self.ds.alignment_ids), self.ds.xs.shape[1])
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ConcatMultiViewDataset — get_k_splits edge case: n_splits=1
-# ══════════════════════════════════════════════════════════════════════════════
+# ── ConcatMultiViewDataset — get_k_splits edge case: n_splits=1 ───────────────
 
 class TestGetKSplitsOne(unittest.TestCase):
     """n_splits=1 should return the entire dataset as train with an empty val."""
@@ -1173,15 +1168,10 @@ class TestGetKSplitsOne(unittest.TestCase):
         self.assertEqual(len(val), 0)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# data_augmentor — applied only to train, not val or test
-# ══════════════════════════════════════════════════════════════════════════════
+# ── data_augmentor — applied only to train, not val or test ───────────────────
 
 class TestDataAugmentorAppliedOnlyToTrain(unittest.TestCase):
-    """
-    The augmentor must be called on the training fold inside _fold_run and
-    must never receive val samples.
-    """
+    """The augmentor must be called on the training fold inside _fold_run and must never receive val samples."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -1248,15 +1238,10 @@ class TestDataAugmentorNotAppliedInCrossval(unittest.TestCase):
             )
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# results_processors — called with correct keys and values
-# ══════════════════════════════════════════════════════════════════════════════
+# ── results_processors — called with correct keys and values ──────────────────
 
 class TestResultsProcessorReceivesCorrectKeys(unittest.TestCase):
-    """
-    results_processors must be called with a dict containing the documented
-    keys, with predictions whose lengths match the corresponding fold sizes.
-    """
+    """results_processors receive the documented keys, with predictions sized to each fold."""
 
     REQUIRED_KEYS = {
         "train_preds", "val_preds", "test_preds",
@@ -1329,15 +1314,10 @@ class TestResultsProcessorValNoneWhenNoVal(unittest.TestCase):
                                   "val_preds should be None when val fold is empty")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# run_single_split — grid search with no val_metric
-# ══════════════════════════════════════════════════════════════════════════════
+# ── run_single_split — grid search with no val_metric ─────────────────────────
 
 class TestRunSingleSplitGridSearchNoValMetric(unittest.TestCase):
-    """
-    Grid search present but val_metric={}: runs all gs configs but skips
-    best-dir creation and final refit entirely.
-    """
+    """Grid search present but val_metric={}: runs all gs configs but skips best-dir creation and final refit entirely."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -1372,15 +1352,10 @@ class TestRunSingleSplitGridSearchNoValMetric(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(run_dir, f"cv_{i}")))
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# run_crossvalidation — grid search with no val_metric
-# ══════════════════════════════════════════════════════════════════════════════
+# ── run_crossvalidation — grid search with no val_metric ──────────────────────
 
 class TestRunCrossvalidationGridSearchNoValMetric(unittest.TestCase):
-    """
-    Grid search present but val_metric={}: runs all gs configs per outer fold
-    but skips best-dir creation. gs_collator is still called at the end.
-    """
+    """Grid search present but val_metric={}: runs all gs configs per outer fold but skips best-dir creation."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -1418,15 +1393,10 @@ class TestRunCrossvalidationGridSearchNoValMetric(unittest.TestCase):
         self.gs_collator.assert_called_once()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# run_crossvalidation — stratified splitting at pipeline level
-# ══════════════════════════════════════════════════════════════════════════════
+# ── run_crossvalidation — stratified splitting at pipeline level ──────────────
 
 class TestRunCrossvalidationStratified(unittest.TestCase):
-    """
-    stratified=True propagates into the k-split calls so every outer train
-    fold contains both classes in roughly equal proportions.
-    """
+    """stratified=True propagates into the k-split calls so every outer train fold contains both classes in roughly equal proportions."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -1484,16 +1454,10 @@ class TestRunSingleSplitStratified(unittest.TestCase):
         self.assertAlmostEqual(counts[0.0], 0.5, delta=0.15)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# run_crossvalidation — inner_kfolds=1 with val_metric
-# ══════════════════════════════════════════════════════════════════════════════
+# ── run_crossvalidation — inner_kfolds=1 with val_metric ──────────────────────
 
 class TestRunCrossvalidationInnerOneFoldWithValMetric(unittest.TestCase):
-    """
-    inner_kfolds=1 with a val_metric: pipeline produces a non-empty val fold
-    via get_train_test_split(1-validation_prop, ...) and still selects the
-    best config and creates best dirs.
-    """
+    """inner_kfolds=1 with a val_metric still yields a val fold and selects a best config."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -1543,10 +1507,7 @@ class TestRunCrossvalidationInnerOneFoldWithValMetric(unittest.TestCase):
         self.assertEqual(self.val_metric.call_count, 4)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  collator scope — fold_collators and grid_search_collators not called
-#      by run_single_split
-# ══════════════════════════════════════════════════════════════════════════════
+# ── collator scope — fold_collators and grid_search_collators not called by run_single_split ───
 
 class TestFoldCollatorNotCalledInSingleSplit(unittest.TestCase):
     """fold_collators belong to run_crossvalidation's inner loop only."""
@@ -1572,10 +1533,7 @@ class TestFoldCollatorNotCalledInSingleSplit(unittest.TestCase):
 
 
 class TestGridSearchCollatorCalledInSingleSplit(unittest.TestCase):
-    """
-    grid_search_collators ARE called by run_single_split (not only by
-    run_crossvalidation) once the best-refit loop completes.
-    """
+    """grid_search_collators ARE called by run_single_split (not only by run_crossvalidation) once the best-refit loop completes."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -1608,15 +1566,10 @@ class TestGridSearchCollatorCalledInSingleSplit(unittest.TestCase):
         self.assertNotIn("test_dirs", arg)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# fold_collator payload — results list contains correct fold directories
-# ══════════════════════════════════════════════════════════════════════════════
+# ── fold_collator payload — results list contains correct fold directories ────
 
 class TestFoldCollatorPayloadContainsCorrectDirs(unittest.TestCase):
-    """
-    The 'results' key passed to fold_collators must be a list of directory
-    paths that exist on disk, one per inner fold, each under save_dir.
-    """
+    """The 'results' key passed to fold_collators must be a list of directory paths that exist on disk, one per inner fold, each under save_dir."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -1655,15 +1608,10 @@ class TestFoldCollatorPayloadContainsCorrectDirs(unittest.TestCase):
                                 f"Fold dir {fold_dir} is not under save_dir {save_dir}")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# feature_selector.get_features() called after fit_transform
-# ══════════════════════════════════════════════════════════════════════════════
+# ── feature_selector.get_features() called after fit_transform ────────────────
 
 class TestFeatureSelectorGetFeaturesCalledAfterFit(unittest.TestCase):
-    """
-    _fold_run logs the number of selected features by calling
-    feature_selector.get_features(). It must be called after fit_transform.
-    """
+    """_fold_run logs the number of selected features by calling feature_selector.get_features()."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -1701,12 +1649,7 @@ class TestFeatureSelectorGetFeaturesCalledAfterFit(unittest.TestCase):
 
 
 class TestRunSingleSplitMultipleValMetricsNoClobber(unittest.TestCase):
-    """
-    When multiple val_metrics are present, the best-refit loop iterates once
-    per metric. The hold_out_validation_for_final_fit=False branch reassigns local split
-    variables — this test verifies that later metric iterations are not
-    corrupted by earlier ones.
-    """
+    """When multiple val_metrics are present, the best-refit loop iterates once per metric."""
 
     def setUp(self):
         self.ds = make_dataset(n_samples=60)
@@ -1772,10 +1715,8 @@ class TestRunSingleSplitMultipleValMetricsNoClobber(unittest.TestCase):
             )
 
     def test_all_best_refits_have_identical_training_sets(self):
-        # All three best refits (train calls 2, 3, 4) must see the same train IDs
-        # because they all call get_specific_split with the same arguments.
-        # If train_df is clobbered, later refits train on the combined pool from
-        # the previous iteration which will have different (larger) IDs.
+        # All three best refits must see the same train IDs; a clobbered train_df
+        # would leave later refits with the previous iteration's larger pool.
         best_refit_train_ids = [
             ids_of(self.all_calls[i][0][0]) for i in range(2, 5)
         ]
@@ -1805,9 +1746,7 @@ class TestRunSingleSplitMultipleValMetricsNoClobber(unittest.TestCase):
                 f"best_{metric} directory was not created"
             )
 
-# ══════════════════════════════════════════════════════════════════════════════
-# MLPipeline — real sklearn training
-# ══════════════════════════════════════════════════════════════════════════════
+# ── MLPipeline — real sklearn training ────────────────────────────────────────
 
 def make_ml_pipeline(tmp_dir, ds, config_overrides=None):
     """Build an MLPipeline backed by a real ConcatMultiViewDataset."""
@@ -1990,10 +1929,7 @@ class TestMLPipelineExternalValidation(unittest.TestCase):
 
 
 class TestShuffleSeedChangesColumnOrder(unittest.TestCase):
-    """
-    End-to-end check on the real dataset class: two different shuffle_seeds must
-    produce different input-feature orderings, and the same seed must reproduce.
-    """
+    """shuffle_seed changes the input-feature ordering, and the same seed reproduces it."""
 
     def _build(self, shuffle_seed):
         from architecture.data_utils import ConcatMultiViewDataset

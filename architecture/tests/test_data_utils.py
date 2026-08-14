@@ -278,11 +278,7 @@ class TestConcatMultiViewDatasetAlignViews(unittest.TestCase):
         self.assertIsInstance(y, np.ndarray)
 
     def test_shuffle_keeps_views_paired_per_gene(self):
-        """
-        After align_views, each gene's views must appear as a contiguous block.
-        alignment_ids has n_views entries per gene, so for every consecutive
-        pair of entries the gene name should be identical.
-        """
+        """After align_views, each gene's views must appear as a contiguous block."""
         ds = self._build()
         n_views = 2
         aids = ds.alignment_ids
@@ -295,10 +291,7 @@ class TestConcatMultiViewDatasetAlignViews(unittest.TestCase):
             )
 
     def test_different_seeds_give_different_order(self):
-        """
-        Two datasets built with different shuffle seeds should produce
-        different column orderings (extremely unlikely to collide by chance).
-        """
+        """Two datasets built with different shuffle seeds should produce different column orderings (extremely unlikely to collide by chance)."""
         ds1 = ConcatMultiViewDataset()
         ds1.load_data_view("v1", self.path_v1)
         ds1.load_data_view("v2", self.path_v2)
@@ -336,10 +329,7 @@ class TestConcatMultiViewDatasetAlignViews(unittest.TestCase):
         np.testing.assert_array_equal(ds1.xs, ds2.xs)
 
     def test_all_genes_present_after_shuffle(self):
-        """
-        Shuffling must not drop or duplicate any gene — the set of unique
-        alignment_ids should equal the full union of genes across both views.
-        """
+        """Shuffling must not drop or duplicate any gene — the set of unique alignment_ids should equal the full union of genes across both views."""
         ds = self._build()
         expected_genes = {"g1", "g2", "g3", "g4"}
         actual_genes = set(ds.alignment_ids)
@@ -347,15 +337,7 @@ class TestConcatMultiViewDatasetAlignViews(unittest.TestCase):
 
 
 class TestAlignViewsMethods(unittest.TestCase):
-    """
-    Exhaustive tests for every branch of align_views:
-      - method: "zero fill", "drop samples", "drop features"
-      - drop_labels: True / False
-
-    Setup creates two views with a partial-overlap in sample IDs so that
-    NaN values exist in xs before any NA-handling method is applied, giving
-    each branch something real to act on.
-    """
+    """Every align_views branch. Views partially overlap so real NaNs reach the NA handling."""
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -773,11 +755,7 @@ class TestSpecificSplitOverlappingLists(unittest.TestCase):
             self.ds.get_specific_split(train_ids, val_ids, test_ids)
 
     def test_train_plus_val_as_train_raises(self):
-        """
-        Realistic scenario: passing train+val IDs as train_ids while val_ids is the
-        original val list. The pairwise check must catch the train/val overlap even
-        though no sample appears in all three sets simultaneously.
-        """
+        """Realistic scenario: passing train+val IDs as train_ids while val_ids is the original val list."""
         val_ids   = self.ids[10:15]
         train_ids = self.ids[:10] + val_ids  # deliberately includes val samples
         test_ids  = self.ids[15:]
@@ -785,10 +763,7 @@ class TestSpecificSplitOverlappingLists(unittest.TestCase):
             self.ds.get_specific_split(train_ids, val_ids, test_ids)
 
     def test_list_split_respects_remaining_after_test(self):
-        """
-        When test_ids is given as a list, those samples must not appear in train or
-        val even if the caller accidentally includes them in those lists.
-        """
+        """An explicit test_ids list wins over the same IDs appearing in train or val."""
         test_ids  = self.ids[:5]
         # train_ids contains test samples — should either raise or silently exclude them
         train_ids = self.ids[:15]  # overlaps test
@@ -803,10 +778,7 @@ class TestSpecificSplitOverlappingLists(unittest.TestCase):
             pass
 
     def test_list_split_respects_remaining_after_val(self):
-        """
-        When val_ids is given as a list, those samples must not appear in train even
-        if the caller accidentally includes them in train_ids.
-        """
+        """When val_ids is given as a list, those samples must not appear in train even if the caller accidentally includes them in train_ids."""
         test_ids  = self.ids[15:]
         val_ids   = self.ids[10:15]
         train_ids = self.ids[:15]   # overlaps val
@@ -819,12 +791,7 @@ class TestSpecificSplitOverlappingLists(unittest.TestCase):
 
 
     def test_val_proportion_uses_remaining_not_full_dataset(self):
-        """
-        With large test set as a list, val proportion 0.5 should be 50% of the
-        *remaining* samples, not 50% of the full dataset.  If len(self.ids) is used
-        as the denominator the val set may exceed remaining and should raise; if
-        remaining is used the call must succeed and produce the right count.
-        """
+        """With large test set as a list, val proportion 0.5 should be 50% of the *remaining* samples, not 50% of the full dataset."""
         # Reserve 15 samples as test, leaving only 5 remaining
         test_ids  = self.ids[:15]
         remaining_count = len(self.ids) - len(test_ids)  # 5
@@ -847,11 +814,7 @@ class TestSpecificSplitOverlappingLists(unittest.TestCase):
             pass
 
     def test_train_proportion_uses_remaining_after_test_and_val(self):
-        """
-        With test and val lists consuming most samples, train proportion 0.9 of the
-        full dataset would exceed what is left — the implementation must use
-        len(remaining) as the denominator or raise.
-        """
+        """A train proportion larger than the remaining pool must raise, not overdraw."""
         test_ids = self.ids[:10]
         val_ids  = self.ids[10:17]
         # 3 samples remain; asking for 0.9 of 20 = 18 would obviously overflow
@@ -1088,12 +1051,7 @@ class TestLoadDataLabelEdgeCases(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestStratifiedSingleLabel(unittest.TestCase):
-    """
-    _get_train_test_split and _get_k_splits each have two stratification paths:
-      (a) multi-column one-hot  -> labels.shape[1] > 1
-      (b) single binary column  -> labels.shape[1] == 1
-    All existing stratified tests use (a). These tests exercise (b).
-    """
+    """The single-binary-column stratification path; other stratified tests cover one-hot."""
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -1225,10 +1183,7 @@ class TestSpecificSplitErrors(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestAlignViewsViewAligner(unittest.TestCase):
-    """
-    The view_aligner dict lets callers supply a function per view that maps
-    raw column names to canonical alignment IDs.
-    """
+    """The view_aligner dict lets callers supply a function per view that maps raw column names to canonical alignment IDs."""
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -1285,12 +1240,7 @@ class TestAlignViewsViewAligner(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestStratifiedKSplitsSmallClass(unittest.TestCase):
-    """
-    Regression test for ValueError: range() arg 3 must not be zero.
-    When a class has fewer samples than n_splits, integer division gives 0
-    and range() was called with step=0 before the guard check could fire.
-    The fix moves the range() call inside the guard.
-    """
+    """Regression test for ValueError: range() arg 3 must not be zero."""
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -1317,10 +1267,7 @@ class TestStratifiedKSplitsSmallClass(unittest.TestCase):
 
 
 class TestStratifiedTrainTestSplitSmallClass(unittest.TestCase):
-    """
-    Regression test: get_train_test_split with stratified=True must raise ValueError
-    when a class has fewer than 2 instances, rather than silently continuing.
-    """
+    """Stratified split must raise on a class with fewer than 2 instances, not continue."""
 
     def _build(self, tmp, labels):
         ids = list(labels.index)
@@ -1367,22 +1314,12 @@ class TestStratifiedTrainTestSplitSmallClass(unittest.TestCase):
 
 
 class TestStratifiedKSplitsAfterDropLabels(unittest.TestCase):
-    """
-    Regression test for the bug where align_views(drop_labels=True) filtered
-    self.ids/self.xs/self.ys but left self.labels at its original (larger) size.
-    _get_k_splits stratified mode indexed into self.labels, producing row numbers
-    >= len(self.ids), which caused IndexError in _copy.
-    """
+    """Regression: drop_labels must shrink self.labels alongside ids/xs/ys."""
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
-        # View covers s0..s19; labels only cover s0..s15 (8 per class).
-        # After zero fill + drop_labels, the dataset has 16 samples.
-        # Before the fix, self.labels still had 20 rows; group_idx from
-        # np.argwhere on a 20-row labels could yield indices 16..19,
-        # which are out of range for len(self.ids) == 16.
-        # Using 8 samples per class ensures len(group_idx) > n_splits=4
-        # so the stratified path is exercised without hitting the warning branch.
+        # View covers s0..s19, labels only s0..s15, so drop_labels leaves 16 samples.
+        # A stale 20-row self.labels would yield indices 16..19, out of range.
         view_ids  = [f"s{i}" for i in range(20)]
         label_ids = [f"s{i}" for i in range(16)]
 
@@ -1428,21 +1365,7 @@ class TestStratifiedKSplitsAfterDropLabels(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestDataViewsSyncedWhenSamplesDropped(unittest.TestCase):
-    """
-    Regression test for the bug where align_views(method="drop samples") wrote
-
-        for k, v in self.data_views.items():
-            v = v.loc[valid_samples]
-
-    which rebinds the loop variable and is a no-op, so self.data_views kept its
-    original row count while self.ids/xs/ys/labels were filtered. The identical
-    omission existed in the drop_labels branch.
-
-    The dropped samples are deliberately placed in the MIDDLE of the id order:
-    _copy() indexes data_views positionally against the already-filtered
-    self.ids, so a stale view silently returns the wrong rows rather than
-    raising, and only a middle drop exposes it.
-    """
+    """Regression: "drop samples" must filter data_views too, not just ids/xs/ys/labels."""
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -1491,10 +1414,7 @@ class TestDataViewsSyncedWhenSamplesDropped(unittest.TestCase):
         self.assertNotIn("s04", ds.ids)
 
     def test_copy_after_drop_samples_selects_correct_view_rows(self):
-        """
-        The payload case: split indices past the dropped middle samples must
-        still select the rows named by the resulting fold's ids.
-        """
+        """The payload case: split indices past the dropped middle samples must still select the rows named by the resulting fold's ids."""
         ds = self._build()
         # Indices 3,4,5 sit after the removed s03/s04, so a stale view would
         # return s03,s04,s05 here instead of s05,s06,s07.
@@ -1539,25 +1459,28 @@ class TestDataViewsSyncedWhenSamplesDropped(unittest.TestCase):
 # Stratified splits must actually be randomised, not merely balanced
 # ---------------------------------------------------------------------------
 
-class TestStratifiedSplitsAreSeeded(unittest.TestCase):
-    """
-    Regression test for the bug where the stratified branches of _get_k_splits
-    and _get_train_test_split sliced per-class indices straight out of
-    np.argwhere (ascending order) and only called rng.shuffle afterwards.
+class _StratifiedSeedingMixin:
+    """Regression: stratified splits must shuffle per-class indices before slicing folds.
+
+    _get_k_splits and _get_train_test_split each branch on the label encoding, so
+    both branches are exercised by the two concrete subclasses below.
     """
 
     N = 100
     K = 5
+
+    def _labels(self):
+        raise NotImplementedError
+
+    def _positive_rate(self, ids):
+        raise NotImplementedError
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
         self.ids = [f"s{i:03d}" for i in range(self.N)]
         path = _make_view_csv(self.tmp, "v.csv", self.ids, ["g1", "g2"], seed=0)
 
-        # Balanced binary labels, deliberately NOT correlated with id order so
-        # that class-balance assertions stay clean.
-        labels = pd.DataFrame({"binary": [0, 1] * (self.N // 2)},
-                              index=self.ids, dtype=np.float32)
+        labels = self._labels()
         labels.index.name = "id"
         lpath = os.path.join(self.tmp, "labels.csv")
         _write_csv(labels, lpath)
@@ -1588,7 +1511,7 @@ class TestStratifiedSplitsAreSeeded(unittest.TestCase):
     def test_k_splits_class_balance_still_preserved(self):
         """Stratification must survive the fix."""
         for _, val in self.ds.get_k_splits(self.K, True, 42):
-            rate = self.ds.labels.loc[list(val.ids)]["binary"].mean()
+            rate = self._positive_rate(list(val.ids))
             self.assertAlmostEqual(rate, 0.5, delta=0.05)
 
     def test_k_splits_folds_disjoint_and_cover_everything(self):
@@ -1603,12 +1526,7 @@ class TestStratifiedSplitsAreSeeded(unittest.TestCase):
         self.assertEqual(sizes, [20, 20, 20, 20, 20])
 
     def test_folds_are_not_contiguous_id_blocks(self):
-        """
-        The diagnostic that separates 'balanced' from 'randomised'. Under the
-        old behaviour each fold's mean position in sorted-id space marched
-        steadily upward (0.10, 0.34, 0.56, 0.68, 0.81 on the real prostate
-        cohort). Randomised folds all sit near 0.5.
-        """
+        """The diagnostic that separates 'balanced' from 'randomised'."""
         n = len(self.ds.ids)
         for i, (_, val_idx) in enumerate(self.ds._get_k_splits(self.K, True, 42)):
             mean_rank = np.asarray(val_idx).mean() / n
@@ -1633,7 +1551,7 @@ class TestStratifiedSplitsAreSeeded(unittest.TestCase):
     def test_train_test_class_balance_still_preserved(self):
         train, test = self.ds.get_train_test_split(0.8, True, 42)
         for split in (train, test):
-            rate = self.ds.labels.loc[list(split.ids)]["binary"].mean()
+            rate = self._positive_rate(list(split.ids))
             self.assertAlmostEqual(rate, 0.5, delta=0.05)
 
     def test_train_test_sizes_unchanged(self):
@@ -1645,6 +1563,29 @@ class TestStratifiedSplitsAreSeeded(unittest.TestCase):
         train, test = self.ds.get_train_test_split(0.8, True, 42)
         self.assertEqual(set(train.ids) & set(test.ids), set())
         self.assertEqual(set(train.ids) | set(test.ids), set(self.ds.ids))
+
+
+class TestStratifiedSplitsAreSeededBinary(_StratifiedSeedingMixin, unittest.TestCase):
+    """Single binary label column: the labels.shape[1] == 1 branch."""
+
+    def _labels(self):
+        return pd.DataFrame({"binary": [0, 1] * (self.N // 2)},
+                            index=self.ids, dtype=np.float32)
+
+    def _positive_rate(self, ids):
+        return self.ds.labels.loc[ids]["binary"].mean()
+
+
+class TestStratifiedSplitsAreSeededOneHot(_StratifiedSeedingMixin, unittest.TestCase):
+    """Two one-hot columns: the labels.shape[1] > 1 branch."""
+
+    def _labels(self):
+        pos = [0, 1] * (self.N // 2)
+        return pd.DataFrame({"class_a": [1 - p for p in pos], "class_b": pos},
+                            index=self.ids, dtype=np.float32)
+
+    def _positive_rate(self, ids):
+        return self.ds.labels.loc[ids]["class_b"].mean()
 
 
 if __name__ == "__main__":

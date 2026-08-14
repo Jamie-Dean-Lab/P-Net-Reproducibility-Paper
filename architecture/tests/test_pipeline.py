@@ -8,9 +8,7 @@ import pandas as pd
 from unittest.mock import MagicMock, patch
 import logging
 
-# architecture/ and the project root must both be on sys.path:
-#   - architecture/  → lets tests do `from pipeline import ...`
-#   - project root   → satisfies `from architecture.pnet_model import TFModel` inside pipeline.py
+# architecture/ for `from pipeline import ...`, project root for its own imports.
 _ARCH_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 _ROOT_DIR = os.path.normpath(os.path.join(_ARCH_DIR, ".."))
 for _p in (_ARCH_DIR, _ROOT_DIR):
@@ -84,13 +82,7 @@ def make_fold(n=10, n_features=5):
 
 def make_ext_pipeline(tmp_dir, ext_data=None, model=None, metrics=None,
                       final_model_params=None):
-    """
-    Build a Pipeline stub with all external-validation dependencies wired up.
-
-    Uses IdentityProcessor for feature_selector and feature_preprocessor so that
-    real numpy arrays flow through unchanged, making it easy to assert on output
-    files without fighting with MagicMock return values.
-    """
+    """Build a Pipeline stub with all external-validation dependencies wired up."""
     from pipeline import Pipeline, IdentityProcessor
 
     n_features = 4
@@ -796,11 +788,7 @@ class TestGetModalHyperparams(unittest.TestCase):
         return next(g["model_params"] for g in self._GRID if g["model_params_choice"] == choice)
 
     def _pipeline_with_results(self, rows, grid=None, selection_metric="auc"):
-        """
-        Writes rows to results.csv and returns a pipeline configured to select
-        hyperparams using selection_metric. Each row that lacks a 'metric' key
-        is stamped with selection_metric so existing helpers stay concise.
-        """
+        """Writes rows to results.csv and returns a pipeline configured to select hyperparams using selection_metric."""
         stamped = [
             {**r, "metric": r.get("metric", selection_metric)} for r in rows
         ]
