@@ -32,10 +32,6 @@ keras_layers_stub.InputLayer = _FakeInputLayer
 keras_stub.models = keras_models_stub
 keras_stub.layers = keras_layers_stub
 keras_stub.backend = MagicMock()
-sys.modules.setdefault("keras", keras_stub)
-sys.modules.setdefault("keras.models", keras_models_stub)
-sys.modules.setdefault("keras.layers", keras_layers_stub)
-sys.modules["keras.backend"] = keras_backend_stub
 
 # tensorflow stubs
 tf_stub = types.ModuleType("tensorflow")
@@ -45,13 +41,9 @@ tf_v1.disable_eager_execution = MagicMock()
 tf_v1.Session = MagicMock()
 tf_compat.v1 = tf_v1
 tf_stub.compat = tf_compat
-sys.modules.setdefault("tensorflow", tf_stub)
-sys.modules.setdefault("tensorflow.compat", tf_compat)
-sys.modules.setdefault("tensorflow.compat.v1", tf_v1)
 
 # shap stub
 shap_stub = types.ModuleType("shap")
-sys.modules.setdefault("shap", shap_stub)
 
 # sklearn stubs
 sklearn_stub = types.ModuleType("sklearn")
@@ -61,9 +53,6 @@ sklearn_linear.LogisticRegression = MagicMock()
 sklearn_metrics.accuracy_score = MagicMock(return_value=0.9)
 sklearn_stub.linear_model = sklearn_linear
 sklearn_stub.metrics = sklearn_metrics
-sys.modules.setdefault("sklearn", sklearn_stub)
-sys.modules.setdefault("sklearn.linear_model", sklearn_linear)
-sys.modules.setdefault("sklearn.metrics", sklearn_metrics)
 
 # architecture stubs
 arch_stub = types.ModuleType("architecture")
@@ -84,27 +73,50 @@ tf_de_stub.DeepExplain = _FakeDeepExplain
 deepexplain_stub.tensorflow_ = tf_de_stub
 arch_stub.evaluation = eval_stub
 arch_stub.deepexplain = deepexplain_stub
-sys.modules.setdefault("architecture", arch_stub)
-sys.modules.setdefault("architecture.evaluation", eval_stub)
-sys.modules.setdefault("architecture.deepexplain", deepexplain_stub)
-sys.modules.setdefault("architecture.deepexplain.tensorflow_", tf_de_stub)
-sys.modules.setdefault("architecture.coef_weights_utils", types.ModuleType("architecture.coef_weights_utils"))
+
+_STUBS = {
+    "keras": keras_stub,
+    "keras.models": keras_models_stub,
+    "keras.layers": keras_layers_stub,
+    "keras.backend": keras_backend_stub,
+    "tensorflow": tf_stub,
+    "tensorflow.compat": tf_compat,
+    "tensorflow.compat.v1": tf_v1,
+    "shap": shap_stub,
+    "sklearn": sklearn_stub,
+    "sklearn.linear_model": sklearn_linear,
+    "sklearn.metrics": sklearn_metrics,
+    "architecture": arch_stub,
+    "architecture.evaluation": eval_stub,
+    "architecture.deepexplain": deepexplain_stub,
+    "architecture.deepexplain.tensorflow_": tf_de_stub,
+    "architecture.coef_weights_utils": types.ModuleType("architecture.coef_weights_utils"),
+}
 
 import matplotlib; matplotlib.use("Agg")
 
 # ---------------------------------------------------------------------------
 # Load module under test
+#
+# The stubs are only in sys.modules while coef_weights_utils.py is being
+# executed. It binds the names it needs at import time, so it keeps seeing the
+# fakes, and later test modules still get the real tensorflow/sklearn/keras.
+# Scoping them also confines the module-level disable_eager_execution() call to
+# the stub, leaving the real TensorFlow execution mode untouched.
 # ---------------------------------------------------------------------------
 import importlib.util
 from pathlib import Path
+
+from stub_utils import stubbed_modules
 
 MODULE_PATH = Path(__file__).resolve().parent.parent / "coef_weights_utils.py"
 if not MODULE_PATH.exists():
     raise ImportError(f"Could not find coef_weights_utils.py at {MODULE_PATH}")
 
-_spec = importlib.util.spec_from_file_location("coef_weights_utils", str(MODULE_PATH))
-cw = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(cw)
+with stubbed_modules(_STUBS):
+    _spec = importlib.util.spec_from_file_location("coef_weights_utils", str(MODULE_PATH))
+    cw = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(cw)
 
 # Patch type-check names into module namespace after load
 cw.Sequential = _FakeSequential

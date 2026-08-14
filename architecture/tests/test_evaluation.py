@@ -22,14 +22,11 @@ class _FakeSequential:
 
 keras_models_stub.Sequential = _FakeSequential
 keras_stub.models = keras_models_stub
-sys.modules["keras"] = keras_stub
-sys.modules["keras.models"] = keras_models_stub
 
 # pnet_model — stub just the two names evaluation.py imports
 pnet_stub = types.ModuleType("pnet_model")
 pnet_stub.get_layer_maps = MagicMock()
 pnet_stub.PNetArchitectureGenerator = MagicMock()
-sys.modules["pnet_model"] = pnet_stub
 
 # architecture.coef_weights_utils — stub just the functions evaluation.py calls
 mcw_stub = types.ModuleType("architecture.coef_weights_utils")
@@ -48,27 +45,40 @@ for _fn in [
 arch_stub = types.ModuleType("architecture")
 arch_stub.coef_weights_utils = mcw_stub
 arch_stub.pnet_model = pnet_stub
-sys.modules["architecture"] = arch_stub
-sys.modules["architecture.coef_weights_utils"] = mcw_stub
-sys.modules["architecture.pnet_model"] = pnet_stub
+
+_STUBS = {
+    "keras": keras_stub,
+    "keras.models": keras_models_stub,
+    "pnet_model": pnet_stub,
+    "architecture": arch_stub,
+    "architecture.coef_weights_utils": mcw_stub,
+    "architecture.pnet_model": pnet_stub,
+}
 
 import matplotlib
 matplotlib.use("Agg")
 
 # ---------------------------------------------------------------------------
 # Import module under test
+#
+# The stubs are only in sys.modules while evaluation.py is being executed. It
+# binds the names it needs at import time, so it keeps seeing the fakes, and
+# later test modules still get the real architecture package.
 # ---------------------------------------------------------------------------
 import importlib.util
 from pathlib import Path
+
+from stub_utils import stubbed_modules
 
 TEST_DIR = Path(__file__).resolve().parent
 MODULE_PATH = TEST_DIR.parent / "evaluation.py"
 if not MODULE_PATH.exists():
     raise ImportError(f"Could not find evaluation.py at {MODULE_PATH}")
 
-_spec = importlib.util.spec_from_file_location("results_utils", str(MODULE_PATH))
-ru = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(ru)
+with stubbed_modules(_STUBS):
+    _spec = importlib.util.spec_from_file_location("results_utils", str(MODULE_PATH))
+    ru = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(ru)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -301,9 +311,12 @@ class TestPlotChannels(unittest.TestCase):
 
 class TestGetLayers(unittest.TestCase):
 
+    # get_layers() recurses on isinstance(l, Sequential), where Sequential is the
+    # class evaluation.py bound at import time — i.e. _FakeSequential. Build the
+    # test doubles from that same class rather than re-importing keras.models,
+    # which resolves to the real Keras once the import stubs are torn down.
     def _make_seq_model(self, layers):
-        from keras.models import Sequential as Seq
-        model = Seq()
+        model = _FakeSequential()
         model.layers = layers
         return model
 
@@ -317,9 +330,7 @@ class TestGetLayers(unittest.TestCase):
     def test_nested_sequential_flattened(self):
         inner_layer = MagicMock(spec=[])
 
-        from keras.models import Sequential as Seq
-        nested = Seq()
-        nested.layers = [inner_layer]
+        nested = self._make_seq_model([inner_layer])
 
         outer_layer = MagicMock(spec=[])
         model = self._make_seq_model([nested, outer_layer])

@@ -222,7 +222,7 @@ class MultiViewDataset:
                     group_idx = np.argwhere(self.labels.iloc[:, 0] == i)
                     if len(group_idx) <= n_splits:
                         raise ValueError(f"Label '{self.labels.columns[0]}' class {i} has {len(group_idx)} instances, need more than {n_splits} for stratified {n_splits}-fold split.")
-                    rng.shuffle(group_idx)   # see note above: must precede the chunking
+                    rng.shuffle(group_idx)
                     splits.append(range(0, len(group_idx), len(group_idx) // n_splits))
                     idxs.append(group_idx)
             folds = []
@@ -370,11 +370,8 @@ class ConcatMultiViewDataset(MultiViewDataset):
         # Realign according to shuffle order
         self.xs = self.xs.iloc[:, column_order]
         self.alignment_ids = list(np.array(self.alignment_ids)[column_order])
-        # Save columns as features for reference if neded
         self.features = self.xs.columns.to_list()
-        # Save data as tensors for actual computation later
         self.xs = self.xs.to_numpy()
-        # Convert labels to tensors as well for computation
         self.ys = self.labels.to_numpy()
 
         # Deal with NAs
