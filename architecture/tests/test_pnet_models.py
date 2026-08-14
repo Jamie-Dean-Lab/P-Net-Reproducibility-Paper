@@ -1,26 +1,68 @@
 import copy
+import importlib
 import os
+import pkgutil
 import unittest
 
 from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, accuracy_score
 
+from prostate_cancer_prediction import configs as configs_package
 from prostate_cancer_prediction.configs.dense_single_layer_train_size_variation import \
     dense_single_layer_train_size_variation_configs
 from prostate_cancer_prediction.configs.pnet_single_split import pnet_single_split_config
+from prostate_cancer_prediction.configs.pnetfc_single_split_elmarakeby import pnetfc_single_split_elmarakeby_config
 from architecture.pipeline import TFPipeline
+from architecture.pnet_model import compile_pnet
 import tensorflow as tf
 import numpy as np
-
-from prostate_cancer_prediction.configs.pnet_train_size_variation import pnet_train_size_variation_configs
-from prostate_cancer_prediction.configs.pnetfc_train_size_variation import pnetfc_train_size_variation_configs
 
 
 # Build models and check they are as described by P-NET's authors in the original paper.
 
+# The assertions below describe the architecture, which is shared by every config in a
+# family, so any sparse P-NET / fully connected P-NET config can be substituted here.
+# train_model normalises the differences between config shapes (grid-searched vs fixed
+# model_params, held-out splits vs cross-validated sample pools).
+PNET_CONFIG = pnet_single_split_config
+PNETFC_CONFIG = pnetfc_single_split_elmarakeby_config
+
+
+def collect_pnet_configs():
+    """
+    Returns every P-NET / P-NET-FC config defined in the configs package as
+    (run_id, config) pairs, identified by the model builder they use rather than by
+    module name, so renamed or newly added configs are picked up automatically.
+    """
+    configs = {}
+    for module_info in pkgutil.iter_modules(configs_package.__path__):
+        module = importlib.import_module(f"{configs_package.__name__}.{module_info.name}")
+        for value in vars(module).values():
+            # Configs are either defined singly or as a list of variants.
+            candidates = value if isinstance(value, list) else [value]
+            for candidate in candidates:
+                if isinstance(candidate, dict) and candidate.get("model") is compile_pnet:
+                    configs.setdefault(candidate["run_id"], candidate)
+    return sorted(configs.items())
+
+
 class TestPnetModels(unittest.TestCase):
 
+    def test_helpers_support_every_pnet_config(self):
+        # Guard for the helpers below: the architecture assertions in this file hold for
+        # any P-NET config, so no single config should be a hard dependency of the tests.
+        pnet_configs = collect_pnet_configs()
+        self.assertTrue(pnet_configs, "No P-NET configs found")
+
+        for run_id, config in pnet_configs:
+            with self.subTest(config=run_id):
+                model_params = self.resolve_model_params(config)
+                self.assertIn("sparse", model_params)
+                train_ids, _, _ = self.resolve_split_ids(config)
+                self.assertTrue(isinstance(train_ids, float) or len(train_ids) > 0,
+                                f"Config '{run_id}' selects no training samples")
+
     def test_pnet_model_attributes(self):
-        model, keras_model = self.train_model(pnet_single_split_config)
+        model, keras_model = self.train_model(PNET_CONFIG)
 
         # Quick summary
         keras_model.summary()
@@ -86,7 +128,7 @@ class TestPnetModels(unittest.TestCase):
                          f"got {model.model_params['loss_weights']}")
 
     def test_fully_connected_pnet_model_attributes(self):
-        model, keras_model = self.train_model(pnetfc_train_size_variation_configs[0])
+        model, keras_model = self.train_model(PNETFC_CONFIG)
 
         # Quick summary
         keras_model.summary()
@@ -196,20 +238,16 @@ class TestPnetModels(unittest.TestCase):
 
     def train_model(self, config):
         config = copy.deepcopy(config)
-        # _train reads config["model_params"]; lift the first grid_search entry.
-        if "model_params" not in config:
-            gs = config.get("grid_search", {})
-            if isinstance(gs, dict) and "model_params" in gs:
-                first_key = next(iter(gs["model_params"]))
-                config["model_params"] = gs["model_params"][first_key]
+        config["model_params"] = self.resolve_model_params(config)
+        train_ids, val_ids, test_ids = self.resolve_split_ids(config)
         pipeline = TFPipeline(config)
 
         pipeline.log = pipeline._get_logger("main_logger", config["run_dir"])
         pipeline._load_data(shuffle_seed=42)
 
-        train_df, val_df, test_df = pipeline.data.get_specific_split(config["train_samples"],
-                                                                     config["val_samples"],
-                                                                     config["test_samples"],
+        train_df, val_df, test_df = pipeline.data.get_specific_split(train_ids,
+                                                                     val_ids,
+                                                                     test_ids,
                                                                      config["tt_split_seed"])
         train_fold = train_df
         val_fold = val_df
@@ -229,6 +267,34 @@ class TestPnetModels(unittest.TestCase):
         model, _ = pipeline._train(train_fold, val_fold)
 
         return model, model.predictor
+
+    @staticmethod
+    def resolve_model_params(config):
+        """
+        _train reads config["model_params"], but configs that grid search over
+        hyperparameters nest them under config["grid_search"] instead. Any single
+        grid entry builds the same architecture, so take the first one.
+        """
+        if "model_params" in config:
+            return config["model_params"]
+        grid_search = config.get("grid_search")
+        if isinstance(grid_search, dict) and grid_search.get("model_params"):
+            first_key = next(iter(grid_search["model_params"]))
+            return grid_search["model_params"][first_key]
+        raise ValueError(f"Config '{config.get('run_id')}' defines no model_params, either "
+                         f"directly or under grid_search")
+
+    @staticmethod
+    def resolve_split_ids(config):
+        """
+        Returns the (train, val, test) sample ids to build the model from. Single split
+        configs name all three explicitly, whereas crossvalidation configs generate their
+        own folds instead — they either restrict the sample pool with "samples_to_include"
+        or name no samples at all, in which case the whole dataset is used for training.
+        Only the training split matters here: it just has to be non-empty to fit on.
+        """
+        train_ids = config.get("samples_to_include", config.get("train_samples", 1.0))
+        return train_ids, config.get("val_samples", []), config.get("test_samples", [])
 
 
 
