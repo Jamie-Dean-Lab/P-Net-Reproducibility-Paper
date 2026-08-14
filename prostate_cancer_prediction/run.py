@@ -116,7 +116,6 @@ def run():
 
         # Train size variation
         *pnet_train_size_variation_configs,
-        *pnetfc_train_size_variation_configs,
         *dense_single_layer_train_size_variation_configs,
         *pnet_train_size_variation_nested_CV_configs,
         *pnetfc_train_size_variation_nested_CV_configs,
