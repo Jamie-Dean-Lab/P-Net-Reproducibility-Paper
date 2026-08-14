@@ -1989,5 +1989,53 @@ class TestMLPipelineExternalValidation(unittest.TestCase):
                          {f"ext_{i}" for i in range(self.N_EXT)})
 
 
+class TestShuffleSeedChangesColumnOrder(unittest.TestCase):
+    """
+    End-to-end check on the real dataset class: two different shuffle_seeds must
+    produce different input-feature orderings, and the same seed must reproduce.
+    """
+
+    def _build(self, shuffle_seed):
+        from architecture.data_utils import ConcatMultiViewDataset
+
+        tmp = tempfile.mkdtemp()
+        ids = [f"s{i:02d}" for i in range(12)]
+        genes = [f"g{i:02d}" for i in range(20)]
+        rng = np.random.default_rng(0)
+
+        view = pd.DataFrame(rng.random((len(ids), len(genes))).astype(np.float32),
+                            index=ids, columns=genes)
+        view.index.name = "id"
+        vpath = os.path.join(tmp, "v.csv")
+        view.to_csv(vpath)
+
+        labels = pd.DataFrame({"binary": [0, 1] * 6}, index=ids, dtype=np.float32)
+        labels.index.name = "id"
+        lpath = os.path.join(tmp, "labels.csv")
+        labels.to_csv(lpath)
+
+        ds = ConcatMultiViewDataset()
+        ds.load_data_view("v", vpath)
+        ds.load_data_label(lpath)
+        ds.align_views(method="zero fill", drop_labels=True, shuffle_seed=shuffle_seed)
+        return ds
+
+    def test_different_seeds_give_different_feature_order(self):
+        a = self._build(42)
+        b = self._build(20240617)
+        self.assertNotEqual(a.get_features(), b.get_features())
+
+    def test_same_seed_is_reproducible(self):
+        a = self._build(20240617)
+        b = self._build(20240617)
+        self.assertEqual(a.get_features(), b.get_features())
+
+    def test_feature_set_is_unchanged_by_seed(self):
+        """Shuffling reorders features; it must not add or drop any."""
+        a = self._build(42)
+        b = self._build(20240617)
+        self.assertEqual(sorted(a.get_features()), sorted(b.get_features()))
+
+
 if __name__ == "__main__":
     unittest.main()

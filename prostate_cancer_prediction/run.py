@@ -170,8 +170,6 @@ def run():
 
     plot_train_size_comparisons_nested_CV(run_dir, figures_dir)
 
-    plot_external_validation(run_dir, figures_dir)
-
     # Sankey diagram for P-NET
     pnet_run_dir = f"{run_dir}/pnet_single_split_elmarakeby"
     dataset_id_mappings = "architecture/Reactome/ReactomePathways.txt"

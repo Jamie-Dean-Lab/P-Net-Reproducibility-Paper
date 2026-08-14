@@ -331,8 +331,9 @@ class Pipeline:
             self.data.load_data_label(os.path.join(self.config["data_dir"], label_fn), id_col)
 
         # Align views
-        self.data.align_views(self.config["view_alignment_method"], view_aligner, self.config["drop_labels"],
-                              shuffle_seed)
+        self.data.align_views(self.config["view_alignment_method"], view_aligner,
+                              drop_labels=self.config["drop_labels"],
+                              shuffle_seed=shuffle_seed)
 
     def _summarise_data(self):
         self.log.info("Total number of samples {}".format(len(self.data)))

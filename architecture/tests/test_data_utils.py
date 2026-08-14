@@ -1423,5 +1423,229 @@ class TestStratifiedKSplitsAfterDropLabels(unittest.TestCase):
             self.assertEqual(len(set(train.ids) & set(val.ids)), 0)
 
 
+# ---------------------------------------------------------------------------
+# align_views — data_views must stay in sync when samples are dropped
+# ---------------------------------------------------------------------------
+
+class TestDataViewsSyncedWhenSamplesDropped(unittest.TestCase):
+    """
+    Regression test for the bug where align_views(method="drop samples") wrote
+
+        for k, v in self.data_views.items():
+            v = v.loc[valid_samples]
+
+    which rebinds the loop variable and is a no-op, so self.data_views kept its
+    original row count while self.ids/xs/ys/labels were filtered. The identical
+    omission existed in the drop_labels branch.
+
+    The dropped samples are deliberately placed in the MIDDLE of the id order:
+    _copy() indexes data_views positionally against the already-filtered
+    self.ids, so a stale view silently returns the wrong rows rather than
+    raising, and only a middle drop exposes it.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.ids = [f"s{i:02d}" for i in range(10)]
+
+        # View "a" covers every sample.
+        self.path_a = _make_view_csv(self.tmp, "a.csv", self.ids, ["g1", "g2"], seed=0)
+        # View "b" is missing s03 and s04, so those rows become NaN after
+        # alignment and are removed by method="drop samples".
+        kept = [i for i in self.ids if i not in ("s03", "s04")]
+        self.path_b = _make_view_csv(self.tmp, "b.csv", kept, ["g1", "g2"], seed=1)
+
+        labels = pd.DataFrame({"binary": [0, 1] * 5}, index=self.ids, dtype=np.float32)
+        labels.index.name = "id"
+        self.lpath = os.path.join(self.tmp, "labels.csv")
+        _write_csv(labels, self.lpath)
+
+    def _build(self, method="drop samples", drop_labels=False):
+        ds = ConcatMultiViewDataset()
+        ds.load_data_view("a", self.path_a)
+        ds.load_data_view("b", self.path_b)
+        ds.load_data_label(self.lpath)
+        ds.align_views(method=method, drop_labels=drop_labels)
+        return ds
+
+    def test_drop_samples_filters_data_views(self):
+        """Every data view must have the same row count as self.ids."""
+        ds = self._build()
+        self.assertEqual(len(ds.ids), 8)
+        for name, view in ds.data_views.items():
+            self.assertEqual(
+                len(view), len(ds.ids),
+                f"data_views[{name!r}] has {len(view)} rows but self.ids has {len(ds.ids)}",
+            )
+
+    def test_drop_samples_data_views_index_matches_ids(self):
+        """Row identity, not just row count, must match."""
+        ds = self._build()
+        for name, view in ds.data_views.items():
+            self.assertEqual(list(view.index), list(ds.ids),
+                             f"data_views[{name!r}] index diverged from self.ids")
+
+    def test_drop_samples_removed_the_expected_samples(self):
+        ds = self._build()
+        self.assertNotIn("s03", ds.ids)
+        self.assertNotIn("s04", ds.ids)
+
+    def test_copy_after_drop_samples_selects_correct_view_rows(self):
+        """
+        The payload case: split indices past the dropped middle samples must
+        still select the rows named by the resulting fold's ids.
+        """
+        ds = self._build()
+        # Indices 3,4,5 sit after the removed s03/s04, so a stale view would
+        # return s03,s04,s05 here instead of s05,s06,s07.
+        fold = ds._copy([3, 4, 5])
+        self.assertEqual(fold.ids, ["s05", "s06", "s07"])
+        for name, view in fold.data_views.items():
+            self.assertEqual(list(view.index), fold.ids,
+                             f"fold data_views[{name!r}] rows do not match fold ids")
+
+    def test_drop_labels_also_filters_data_views(self):
+        """The drop_labels branch had the same omission."""
+        ids = [f"s{i:02d}" for i in range(10)]
+        path = _make_view_csv(self.tmp, "full.csv", ids, ["g1", "g2"], seed=2)
+        # Labels cover only the first 6 samples; the rest are dropped.
+        labels = pd.DataFrame({"binary": [0, 1] * 3}, index=ids[:6], dtype=np.float32)
+        labels.index.name = "id"
+        lpath = os.path.join(self.tmp, "partial_labels.csv")
+        _write_csv(labels, lpath)
+
+        ds = ConcatMultiViewDataset()
+        ds.load_data_view("a", path)
+        ds.load_data_label(lpath)
+        ds.align_views(method="zero fill", drop_labels=True)
+
+        self.assertEqual(len(ds.ids), 6)
+        for name, view in ds.data_views.items():
+            self.assertEqual(list(view.index), list(ds.ids),
+                             f"data_views[{name!r}] not filtered by drop_labels")
+
+    def test_all_sample_indexed_structures_agree(self):
+        """xs, ys, ids, labels and every data view must share one length."""
+        ds = self._build(drop_labels=True)
+        n = len(ds.ids)
+        self.assertEqual(ds.xs.shape[0], n)
+        self.assertEqual(ds.ys.shape[0], n)
+        self.assertEqual(len(ds.labels), n)
+        for view in ds.data_views.values():
+            self.assertEqual(len(view), n)
+
+
+# ---------------------------------------------------------------------------
+# Stratified splits must actually be randomised, not merely balanced
+# ---------------------------------------------------------------------------
+
+class TestStratifiedSplitsAreSeeded(unittest.TestCase):
+    """
+    Regression test for the bug where the stratified branches of _get_k_splits
+    and _get_train_test_split sliced per-class indices straight out of
+    np.argwhere (ascending order) and only called rng.shuffle afterwards.
+    """
+
+    N = 100
+    K = 5
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.ids = [f"s{i:03d}" for i in range(self.N)]
+        path = _make_view_csv(self.tmp, "v.csv", self.ids, ["g1", "g2"], seed=0)
+
+        # Balanced binary labels, deliberately NOT correlated with id order so
+        # that class-balance assertions stay clean.
+        labels = pd.DataFrame({"binary": [0, 1] * (self.N // 2)},
+                              index=self.ids, dtype=np.float32)
+        labels.index.name = "id"
+        lpath = os.path.join(self.tmp, "labels.csv")
+        _write_csv(labels, lpath)
+
+        self.ds = ConcatMultiViewDataset()
+        self.ds.load_data_view("v", path)
+        self.ds.load_data_label(lpath)
+        self.ds.align_views(method="zero fill", drop_labels=True)
+
+    def _fold_id_sets(self, seed):
+        return [frozenset(val.ids) for _, val in self.ds.get_k_splits(self.K, True, seed)]
+
+    # -- k-fold ------------------------------------------------------------
+
+    def test_k_splits_different_seeds_give_different_folds(self):
+        a = self._fold_id_sets(1)
+        b = self._fold_id_sets(20080808)
+        self.assertNotEqual(a, b, "stratified k-fold membership did not respond to the seed")
+
+    def test_k_splits_many_seeds_are_mostly_distinct(self):
+        """A single lucky collision should not pass this."""
+        partitions = {tuple(self._fold_id_sets(s)) for s in (1, 7, 42, 999, 20080808)}
+        self.assertGreater(len(partitions), 1)
+
+    def test_k_splits_same_seed_is_reproducible(self):
+        self.assertEqual(self._fold_id_sets(42), self._fold_id_sets(42))
+
+    def test_k_splits_class_balance_still_preserved(self):
+        """Stratification must survive the fix."""
+        for _, val in self.ds.get_k_splits(self.K, True, 42):
+            rate = self.ds.labels.loc[list(val.ids)]["binary"].mean()
+            self.assertAlmostEqual(rate, 0.5, delta=0.05)
+
+    def test_k_splits_folds_disjoint_and_cover_everything(self):
+        folds = self._fold_id_sets(42)
+        union = set().union(*folds)
+        self.assertEqual(union, set(self.ds.ids))
+        self.assertEqual(sum(len(f) for f in folds), len(self.ds.ids))
+
+    def test_k_splits_fold_sizes_unchanged(self):
+        """The fix reorders membership; it must not change fold sizes."""
+        sizes = [len(f) for f in self._fold_id_sets(42)]
+        self.assertEqual(sizes, [20, 20, 20, 20, 20])
+
+    def test_folds_are_not_contiguous_id_blocks(self):
+        """
+        The diagnostic that separates 'balanced' from 'randomised'. Under the
+        old behaviour each fold's mean position in sorted-id space marched
+        steadily upward (0.10, 0.34, 0.56, 0.68, 0.81 on the real prostate
+        cohort). Randomised folds all sit near 0.5.
+        """
+        n = len(self.ds.ids)
+        for i, (_, val_idx) in enumerate(self.ds._get_k_splits(self.K, True, 42)):
+            mean_rank = np.asarray(val_idx).mean() / n
+            self.assertAlmostEqual(
+                mean_rank, 0.5, delta=0.15,
+                msg=f"fold {i} mean id-rank {mean_rank:.3f} looks like a contiguous block",
+            )
+
+    # -- train/test split --------------------------------------------------
+
+    def test_train_test_different_seeds_give_different_split(self):
+        a, _ = self.ds.get_train_test_split(0.8, True, 1)
+        b, _ = self.ds.get_train_test_split(0.8, True, 20080808)
+        self.assertNotEqual(set(a.ids), set(b.ids),
+                            "stratified train/test membership did not respond to the seed")
+
+    def test_train_test_same_seed_is_reproducible(self):
+        a, _ = self.ds.get_train_test_split(0.8, True, 42)
+        b, _ = self.ds.get_train_test_split(0.8, True, 42)
+        self.assertEqual(set(a.ids), set(b.ids))
+
+    def test_train_test_class_balance_still_preserved(self):
+        train, test = self.ds.get_train_test_split(0.8, True, 42)
+        for split in (train, test):
+            rate = self.ds.labels.loc[list(split.ids)]["binary"].mean()
+            self.assertAlmostEqual(rate, 0.5, delta=0.05)
+
+    def test_train_test_sizes_unchanged(self):
+        train, test = self.ds.get_train_test_split(0.8, True, 42)
+        self.assertEqual(len(train.ids), 80)
+        self.assertEqual(len(test.ids), 20)
+
+    def test_train_test_disjoint_and_covers_everything(self):
+        train, test = self.ds.get_train_test_split(0.8, True, 42)
+        self.assertEqual(set(train.ids) & set(test.ids), set())
+        self.assertEqual(set(train.ids) | set(test.ids), set(self.ds.ids))
+
+
 if __name__ == "__main__":
     unittest.main()

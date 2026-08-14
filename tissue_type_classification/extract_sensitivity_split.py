@@ -22,8 +22,8 @@ def extract_sensitivity_split():
     data.align_views(
         base_config["view_alignment_method"],
         view_aligner,
-        base_config["drop_labels"],
-        base_config["shuffle_seed"],
+        drop_labels=base_config["drop_labels"],
+        shuffle_seed=base_config["shuffle_seed"],
     )
 
     folds = list(data.get_k_splits(base_config["outer_kfolds"], base_config["stratified"], base_config["tt_split_seed"]))

@@ -162,6 +162,7 @@ class MultiViewDataset:
                     group_idx = np.argwhere(self.labels.iloc[:, i] == 1)
                     if len(group_idx) <= 1:
                         raise ValueError(f"Label '{self.labels.columns[i]}' has {len(group_idx)} instances, need more than 1 for stratified split.")
+                    rng.shuffle(group_idx)
                     splits.append(int(len(group_idx) * train_proportion))
                     idxs.append(group_idx)
             else:
@@ -169,6 +170,7 @@ class MultiViewDataset:
                     group_idx = np.argwhere(self.labels.iloc[:, 0] == i)
                     if len(group_idx) <= 1:
                         raise ValueError(f"Label '{self.labels.columns[0]}' class {i} has {len(group_idx)} instances, need more than 1 for stratified split.")
+                    rng.shuffle(group_idx)
                     splits.append(int(len(group_idx) * train_proportion))
                     idxs.append(group_idx)
             train_idxs = np.concatenate([idxs[i][:splits[i]].ravel() for i in range(len(idxs))])
@@ -212,6 +214,7 @@ class MultiViewDataset:
                     group_idx = np.argwhere(self.labels.iloc[:, i] == 1)
                     if len(group_idx) <= n_splits:
                         raise ValueError(f"Label '{self.labels.columns[i]}' has {len(group_idx)} instances, need more than {n_splits} for stratified {n_splits}-fold split.")
+                    rng.shuffle(group_idx)
                     splits.append(range(0, len(group_idx), len(group_idx) // n_splits))
                     idxs.append(group_idx)
             else:
@@ -219,6 +222,7 @@ class MultiViewDataset:
                     group_idx = np.argwhere(self.labels.iloc[:, 0] == i)
                     if len(group_idx) <= n_splits:
                         raise ValueError(f"Label '{self.labels.columns[0]}' class {i} has {len(group_idx)} instances, need more than {n_splits} for stratified {n_splits}-fold split.")
+                    rng.shuffle(group_idx)   # see note above: must precede the chunking
                     splits.append(range(0, len(group_idx), len(group_idx) // n_splits))
                     idxs.append(group_idx)
             folds = []
@@ -377,13 +381,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
         if method == "zero fill":
             self.xs[np.isnan(self.xs)] = 0.0
         elif method == "drop samples":
-            valid_samples = np.isnan(self.xs).sum(axis=1) == 0
-            for k, v in self.data_views.items():
-                v = v.loc[valid_samples]
-            self.labels = self.labels.loc[valid_samples]
-            self.xs = self.xs[valid_samples, :]
-            self.ys = self.ys[valid_samples, :]
-            self.ids = list(np.array(self.ids)[valid_samples])
+            self._filter_samples(np.isnan(self.xs).sum(axis=1) == 0)
         elif method == "drop features":
             valid_features = np.isnan(self.xs).sum(axis=0) == 0
             self.xs = self.xs[:, valid_features]
@@ -391,15 +389,29 @@ class ConcatMultiViewDataset(MultiViewDataset):
             self.alignment_ids = list(np.array(self.alignment_ids)[valid_features])
 
         if drop_labels:
-            valid_samples = np.isnan(self.ys).sum(axis=1) == 0
-            self.xs = self.xs[valid_samples, :]
-            self.ys = self.ys[valid_samples, :]
-            self.ids = list(np.array(self.ids)[valid_samples])
-            self.labels = self.labels.loc[valid_samples]
+            self._filter_samples(np.isnan(self.ys).sum(axis=1) == 0)
         if drop_zero_label_cols:
             valid_labels = np.nansum(self.ys, axis=0) > 0
             self.ys = self.ys[:, valid_labels]
             self.labels = self.labels.loc[:, valid_labels]
+
+    def _filter_samples(self, valid_samples):
+        """
+        Internal method to drop samples from every sample-indexed structure at once.
+
+        args:
+            valid_samples (np.ndarray[bool]) : boolean mask over the current
+                                               samples, in self.ids order
+
+        returns:
+            None
+        """
+        for k, v in self.data_views.items():
+            self.data_views[k] = v.loc[valid_samples]
+        self.labels = self.labels.loc[valid_samples]
+        self.xs = self.xs[valid_samples, :]
+        self.ys = self.ys[valid_samples, :]
+        self.ids = list(np.array(self.ids)[valid_samples])
 
     def get_features(self):
         """
