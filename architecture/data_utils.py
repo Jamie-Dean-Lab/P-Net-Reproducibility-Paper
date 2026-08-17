@@ -439,6 +439,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
 
         args:
             train_proportion (float) : Number between 0 and 1 to determine size of train split
+            stratified (bool) : whether to perform stratified train test split. Assumes categorical label one hot encoded
             seed (int) : Integer to seed the random number generator for random split
 
         returns:
