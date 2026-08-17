@@ -1721,7 +1721,7 @@ class TestKFoldBalanceStratifiedOneHot(_KFoldBalanceMixin, unittest.TestCase):
                             index=ids, dtype=np.float32)
 
 
-class TestKFoldRemainderPathological(unittest.TestCase):
+class TestKFoldRemainder(unittest.TestCase):
     """The remainder dumping is unbounded, not a rounding nicety: with k just over
     n / 2 the last fold takes the majority of the dataset."""
 
