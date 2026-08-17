@@ -8,7 +8,7 @@ import pandas as pd
 from pathlib import Path
 from scipy.integrate import quad
 
-_ZENODO_URL = "https://zenodo.org/records/20829764/files/rs_data.zip"
+_ZENODO_URL = "https://zenodo.org/records/21979483/files/rs_data.zip"
 
 # HCC56_LARGE_INTESTINE is contaminated and has been intentionally excluded from the model list.
 

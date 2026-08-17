@@ -6,7 +6,7 @@ import pandas as pd
 import requests
 from pathlib import Path
 
-_ZENODO_URL = "https://zenodo.org/records/20829764/files/data_glioma.zip"
+_ZENODO_URL = "https://zenodo.org/records/21979483/files/data_glioma.zip"
 
 CGGA_EXCLUDED_MUTATION_TYPES = {
     'synonymous_variant',               # silent

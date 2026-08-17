@@ -8,7 +8,7 @@ import requests
 from pathlib import Path
 from sklearn.preprocessing import OneHotEncoder
 
-_ZENODO_URL = "https://zenodo.org/records/20829764/files/data_tt.zip"
+_ZENODO_URL = "https://zenodo.org/records/21979483/files/data_tt.zip"
 
 _EXPRESSION_GCT = "GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_tpm.gct"
 _METADATA_TSV = "GTEx_Analysis_v8_Annotations_SampleAttributesDS.tsv"
