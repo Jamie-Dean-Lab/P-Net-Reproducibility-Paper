@@ -1588,5 +1588,171 @@ class TestStratifiedSplitsAreSeededOneHot(_StratifiedSeedingMixin, unittest.Test
         return self.ds.labels.loc[ids]["class_b"].mean()
 
 
+# ---------------------------------------------------------------------------
+# k-fold sizes must be balanced, not remainder-dumped into the last fold
+# ---------------------------------------------------------------------------
+
+class _KFoldBalanceMixin:
+    """_get_k_splits sizes folds with ``range(0, n, n // n_splits)`` and gives the
+    final fold everything from its start offset to the end, so the ``n % n_splits``
+    leftover samples are all dumped into the last fold instead of being spread one
+    per fold. Standard k-fold sizes folds within 1 of each other.
+
+    Stratification amplifies it: the truncating division is applied per class, so
+    every class's remainder lands in the same last fold.
+    """
+
+    N = 20
+    K = 6
+    STRATIFIED = None
+
+    def _labels(self, ids):
+        raise NotImplementedError
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.ids = [f"s{i:03d}" for i in range(self.N)]
+        path = _make_view_csv(self.tmp, "v.csv", self.ids, ["g1", "g2"], seed=0)
+
+        labels = self._labels(self.ids)
+        labels.index.name = "id"
+        lpath = os.path.join(self.tmp, "labels.csv")
+        _write_csv(labels, lpath)
+
+        self.ds = ConcatMultiViewDataset()
+        self.ds.load_data_view("v", path)
+        self.ds.load_data_label(lpath)
+        self.ds.align_views(method="zero fill", drop_labels=True)
+
+    def _val_sizes(self, k=None, seed=42):
+        k = self.K if k is None else k
+        return [len(val) for _, val in self.ds._get_k_splits(k, self.STRATIFIED, seed)]
+
+    def test_fold_sizes_differ_by_at_most_one(self):
+        sizes = self._val_sizes()
+        self.assertLessEqual(
+            max(sizes) - min(sizes), 1,
+            msg=f"n={self.N}, k={self.K} produced validation folds of sizes {sizes}; "
+                f"k-fold sizes must differ by at most 1",
+        )
+
+    def test_fold_sizes_are_floor_or_ceil(self):
+        """Every fold must hold either n // k or n // k + 1 samples."""
+        sizes = self._val_sizes()
+        lo = self.N // self.K
+        self.assertTrue(
+            all(s in (lo, lo + 1) for s in sizes),
+            msg=f"fold sizes {sizes} are not all {lo} or {lo + 1} (n={self.N}, k={self.K})",
+        )
+
+    def test_last_fold_is_not_a_dumping_ground(self):
+        """The diagnostic for the remainder-dumping itself: the final fold must not
+        be systematically larger than the folds before it."""
+        sizes = self._val_sizes()
+        self.assertLessEqual(
+            sizes[-1], max(sizes[:-1]) + 1,
+            msg=f"last fold holds {sizes[-1]} samples against {sizes[:-1]} for the "
+                f"earlier folds — the n % k remainder was dumped into it",
+        )
+
+    def test_remainder_is_spread_across_folds(self):
+        """n % k folds should be one larger; the rest should all be n // k."""
+        sizes = self._val_sizes()
+        lo = self.N // self.K
+        self.assertEqual(
+            sum(1 for s in sizes if s > lo), self.N % self.K,
+            msg=f"expected exactly {self.N % self.K} oversized folds, got sizes {sizes}",
+        )
+
+    def test_imbalance_does_not_grow_with_k(self):
+        """The worst case: with k close to n the last fold swallows almost everything."""
+        for k in (3, 4, 6, 7):
+            sizes = self._val_sizes(k=k)
+            self.assertLessEqual(
+                max(sizes) - min(sizes), 1,
+                msg=f"k={k} on n={self.N} produced fold sizes {sizes}",
+            )
+
+    # -- controls: these hold today and must keep holding after any fix -----
+
+    def test_folds_still_partition_the_dataset(self):
+        """Whatever the sizes, folds stay disjoint and cover every sample."""
+        seen = []
+        for _, val in self.ds._get_k_splits(self.K, self.STRATIFIED, 42):
+            seen.extend(np.asarray(val).ravel().tolist())
+        self.assertEqual(sorted(seen), list(range(len(self.ds.ids))))
+
+    def test_divisible_case_is_already_balanced(self):
+        """n divisible by k has no remainder to dump, so it passes today too —
+        this keeps the failures above attributable to the remainder handling."""
+        sizes = self._val_sizes(k=5)
+        self.assertEqual(sizes, [self.N // 5] * 5)
+
+
+class TestKFoldBalanceUnstratified(_KFoldBalanceMixin, unittest.TestCase):
+    """Unstratified branch: n=20, k=6 currently yields [3, 3, 3, 3, 3, 5]."""
+
+    STRATIFIED = False
+
+    def _labels(self, ids):
+        return pd.DataFrame({"binary": [i % 2 for i in range(len(ids))]},
+                            index=ids, dtype=np.float32)
+
+
+class TestKFoldBalanceStratifiedBinary(_KFoldBalanceMixin, unittest.TestCase):
+    """Single binary column: n=20, k=6 currently yields [2, 2, 2, 2, 2, 10] —
+    the last fold is half the dataset."""
+
+    STRATIFIED = True
+
+    def _labels(self, ids):
+        return pd.DataFrame({"binary": [i % 2 for i in range(len(ids))]},
+                            index=ids, dtype=np.float32)
+
+
+class TestKFoldBalanceStratifiedOneHot(_KFoldBalanceMixin, unittest.TestCase):
+    """Two one-hot columns: the labels.shape[1] > 1 branch, same remainder handling."""
+
+    STRATIFIED = True
+
+    def _labels(self, ids):
+        pos = [i % 2 for i in range(len(ids))]
+        return pd.DataFrame({"class_a": [1 - p for p in pos], "class_b": pos},
+                            index=ids, dtype=np.float32)
+
+
+class TestKFoldRemainderPathological(unittest.TestCase):
+    """The remainder dumping is unbounded, not a rounding nicety: with k just over
+    n / 2 the last fold takes the majority of the dataset."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        ids = [f"s{i:02d}" for i in range(11)]
+        path = _make_view_csv(self.tmp, "v.csv", ids, ["g1"], seed=0)
+        labels = pd.DataFrame({"binary": [i % 2 for i in range(11)]},
+                              index=ids, dtype=np.float32)
+        labels.index.name = "id"
+        lpath = os.path.join(self.tmp, "labels.csv")
+        _write_csv(labels, lpath)
+        self.ds = ConcatMultiViewDataset()
+        self.ds.load_data_view("v", path)
+        self.ds.load_data_label(lpath)
+        self.ds.align_views(method="zero fill", drop_labels=True)
+
+    def test_last_fold_does_not_hold_the_majority(self):
+        """n=11, k=6 currently gives [1, 1, 1, 1, 1, 6]."""
+        sizes = [len(val) for _, val in self.ds._get_k_splits(6, False, 42)]
+        self.assertLess(
+            sizes[-1], len(self.ds.ids) / 2,
+            msg=f"last of 6 folds holds {sizes[-1]} of {len(self.ds.ids)} samples "
+                f"(fold sizes {sizes})",
+        )
+
+    def test_no_fold_is_more_than_twice_another(self):
+        sizes = [len(val) for _, val in self.ds._get_k_splits(6, False, 42)]
+        self.assertLessEqual(max(sizes), 2 * min(sizes),
+                             msg=f"fold sizes {sizes} are wildly uneven")
+
+
 if __name__ == "__main__":
     unittest.main()

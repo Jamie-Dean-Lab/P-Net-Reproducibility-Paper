@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import copy
+from sklearn.model_selection import KFold, StratifiedKFold
 
 class MultiViewDataset:
     """
@@ -138,6 +139,58 @@ class MultiViewDataset:
         """
         pass
 
+    def _get_stratification_classes(self, min_per_class : int, context : str):
+        """
+        Internal method turning self.labels into the flat vector of class indices that
+        the stratified splitters expect, one entry per sample in self.ids order.
+
+        Handles both supported label encodings: a single column of class values, or
+        one-hot columns where the column index is the class.
+
+        args:
+            min_per_class (int) : every class must have strictly more than this many
+                                  instances for the split to be well defined
+            context (str) : phrase describing the split, used in error messages
+
+        returns:
+            np.ndarray : class index per sample
+        """
+        if self.labels.shape[1] > 1:
+            onehot = self.labels.to_numpy()
+            n_positive = (onehot == 1).sum(axis=1)
+            bad = np.flatnonzero(n_positive != 1)
+            if len(bad) > 0:
+                raise ValueError(
+                    f"Stratification needs exactly one positive label per sample, but "
+                    f"{len(bad)} sample(s) have {sorted(set(n_positive[bad].tolist()))} "
+                    f"(e.g. '{self.ids[bad[0]]}').")
+            classes = np.argmax(onehot, axis=1)
+            names = {i : f"'{c}'" for i, c in enumerate(self.labels.columns)}
+        else:
+            column = self.labels.columns[0]
+            values = self.labels.iloc[:, 0].to_numpy()
+            if np.isnan(values).any():
+                raise ValueError(
+                    f"Label '{column}' has {int(np.isnan(values).sum())} missing value(s), "
+                    f"which cannot be stratified.")
+            if not np.all(values == np.round(values)):
+                raise ValueError(
+                    f"Label '{column}' holds non-integer values (e.g. {values[np.argmax(values != np.round(values))]}), "
+                    f"which is a continuous target and cannot be stratified.")
+            classes = values.astype(int)
+            names = {c : f"'{column}' class {c}" for c in np.unique(classes)}
+        # sklearn only warns about under-populated classes, so check up front
+        present, counts = np.unique(classes, return_counts=True)
+        if len(present) < 2:
+            raise ValueError(
+                f"Stratification needs at least 2 classes, found {len(present)}.")
+        for cls, count in zip(present, counts):
+            if count <= min_per_class:
+                raise ValueError(
+                    f"Label {names[cls]} has {count} instances, need more than "
+                    f"{min_per_class} for {context}.")
+        return classes
+
     def _get_train_test_split(self, train_proportion : float, stratified : bool = False, seed : int = 42):
         """
         Internal method which returns a random split of the data by indices
@@ -155,26 +208,17 @@ class MultiViewDataset:
             train_idxs = idxs[:split]
             test_idxs = idxs[split:]
         else:
-            idxs = []
-            splits = []
-            if self.labels.shape[1] > 1:
-                for i in range(self.labels.shape[1]):
-                    group_idx = np.argwhere(self.labels.iloc[:, i] == 1)
-                    if len(group_idx) <= 1:
-                        raise ValueError(f"Label '{self.labels.columns[i]}' has {len(group_idx)} instances, need more than 1 for stratified split.")
-                    rng.shuffle(group_idx)
-                    splits.append(int(len(group_idx) * train_proportion))
-                    idxs.append(group_idx)
-            else:
-                for i in range(2):
-                    group_idx = np.argwhere(self.labels.iloc[:, 0] == i)
-                    if len(group_idx) <= 1:
-                        raise ValueError(f"Label '{self.labels.columns[0]}' class {i} has {len(group_idx)} instances, need more than 1 for stratified split.")
-                    rng.shuffle(group_idx)
-                    splits.append(int(len(group_idx) * train_proportion))
-                    idxs.append(group_idx)
-            train_idxs = np.concatenate([idxs[i][:splits[i]].ravel() for i in range(len(idxs))])
-            test_idxs = np.concatenate([idxs[i][splits[i]:].ravel() for i in range(len(idxs))])
+            classes = self._get_stratification_classes(1, "stratified split")
+            train_idxs = []
+            test_idxs = []
+            for cls in np.unique(classes):
+                group_idx = np.flatnonzero(classes == cls)
+                rng.shuffle(group_idx)
+                split = int(len(group_idx) * train_proportion)
+                train_idxs.append(group_idx[:split])
+                test_idxs.append(group_idx[split:])
+            train_idxs = np.concatenate(train_idxs)
+            test_idxs = np.concatenate(test_idxs)
             rng.shuffle(train_idxs)
             rng.shuffle(test_idxs)
 
@@ -195,46 +239,13 @@ class MultiViewDataset:
         """
         if n_splits == 1:
             return [(np.arange(len(self.ids)), [])]
-        rng = np.random.default_rng(seed)
+        idxs = np.arange(len(self.ids))
         if not stratified:
-            idxs = np.arange(len(self.ids))
-            splits = range(0, len(self.ids), len(self.ids) // n_splits)
-            rng.shuffle(idxs)
-            folds = []
-            for i in range(n_splits):
-                val_split = idxs[splits[i]:splits[i+1]].ravel() if i < n_splits - 1 else idxs[splits[i]:].ravel()
-                train_split = idxs[~np.isin(idxs, val_split)]
-                folds.append((train_split, val_split))
-            return folds
-        else:
-            idxs = []
-            splits = []
-            if self.labels.shape[1] > 1:
-                for i in range(self.labels.shape[1]):
-                    group_idx = np.argwhere(self.labels.iloc[:, i] == 1)
-                    if len(group_idx) <= n_splits:
-                        raise ValueError(f"Label '{self.labels.columns[i]}' has {len(group_idx)} instances, need more than {n_splits} for stratified {n_splits}-fold split.")
-                    rng.shuffle(group_idx)
-                    splits.append(range(0, len(group_idx), len(group_idx) // n_splits))
-                    idxs.append(group_idx)
-            else:
-                for i in range(2):
-                    group_idx = np.argwhere(self.labels.iloc[:, 0] == i)
-                    if len(group_idx) <= n_splits:
-                        raise ValueError(f"Label '{self.labels.columns[0]}' class {i} has {len(group_idx)} instances, need more than {n_splits} for stratified {n_splits}-fold split.")
-                    rng.shuffle(group_idx)
-                    splits.append(range(0, len(group_idx), len(group_idx) // n_splits))
-                    idxs.append(group_idx)
-            folds = []
-            for i in range(n_splits):
-                val_split = [idxs[j][splits[j][i]:splits[j][i+1]].ravel() if i < n_splits - 1 else idxs[j][splits[j][i]:].ravel() for j in range(len(idxs))]
-                train_split = [idxs[j][~np.isin(idxs[j], val_split[j])] for j in range(len(idxs))]
-                val_split = np.concatenate(val_split)
-                train_split = np.concatenate(train_split)
-                rng.shuffle(train_split)
-                rng.shuffle(val_split)
-                folds.append((train_split, val_split))
-            return folds
+            splitter = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
+            return list(splitter.split(idxs))
+        classes = self._get_stratification_classes(n_splits, f"stratified {n_splits}-fold split")
+        splitter = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+        return list(splitter.split(idxs, classes))
 
     def _get_specific_split(self, train_ids, val_ids, test_ids, seed: int = 42):
         if isinstance(train_ids, float) and isinstance(val_ids, float) and isinstance(test_ids, float):
