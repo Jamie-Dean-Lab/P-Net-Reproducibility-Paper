@@ -458,7 +458,8 @@ class Pipeline:
         # Set rng seeds and try to make everything as deterministic as possible
         self.fold_logger.info("Number of samples in training folds : {}".format(len(train_fold)))
         self.fold_logger.info("Number of samples in validation fold : {}".format(len(val_fold)))
-        feature_selector = self.config["feature_selector"]
+
+        feature_selector = copy.deepcopy(self.config["feature_selector"])
         train_fold = feature_selector.fit_transform(train_fold)
         train_fold = self.config["data_augmentor"](train_fold)
         if len(val_fold) > 0:
