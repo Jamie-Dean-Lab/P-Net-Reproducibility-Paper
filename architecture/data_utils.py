@@ -444,6 +444,7 @@ class ConcatMultiViewDataset(MultiViewDataset):
 
         args:
             n_splits (int) : Positive integer specifying the number of splits
+            stratified (bool) : whether to perform stratified train test split. Assumes categorical label one hot encoded
             seed : Integer used to determine the randomness of the split
 
         returns:
