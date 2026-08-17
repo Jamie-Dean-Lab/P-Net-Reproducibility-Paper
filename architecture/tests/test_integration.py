@@ -46,6 +46,19 @@ class SpyTransformer:
     def __init__(self):
         self.all_fitted_ids = []   # one entry per fit_transform call
 
+    def __deepcopy__(self, memo):
+        """_fold_run deep copies the selector/preprocessor so per-fold state cannot
+        leak between folds. The spy still has to observe those copies: without this,
+        the config's instance would record nothing and every leakage assertion below
+        would pass vacuously against an empty set. The copy is a distinct object (so
+        it cannot be used to detect the deep copy) but shares the recording buffer.
+        """
+        clone = type(self).__new__(type(self))
+        clone.__dict__.update(self.__dict__)
+        clone.all_fitted_ids = self.all_fitted_ids   # shared on purpose
+        memo[id(self)] = clone
+        return clone
+
     @property
     def fitted_ids(self):
         """Union of all IDs ever seen during fitting."""
@@ -1971,6 +1984,173 @@ class TestShuffleSeedChangesColumnOrder(unittest.TestCase):
         a = self._build(42)
         b = self._build(20240617)
         self.assertEqual(sorted(a.get_features()), sorted(b.get_features()))
+
+
+# ── Per-fold isolation of the selector and preprocessor ──────────────────────
+
+class StatefulSelector:
+    """A selector that keeps genuine per-instance state, the way a real one would.
+
+    It records the fold it was fitted on and refuses to be fitted twice, which is how
+    a selector that caches its chosen features would behave. Sharing one instance
+    across folds therefore shows up as fold 0's state still being present in fold 1.
+    """
+
+    #: every instance ever fitted, in fit order — shared across instances by design
+    fitted_instances = []
+
+    def __init__(self, role):
+        self.role = role          # survives deepcopy, so copies stay attributable
+        self.fitted_ids = None
+        self.fit_count = 0
+
+    def fit_transform(self, fold):
+        self.fit_count += 1
+        self.fitted_ids = set(fold.ids)
+        StatefulSelector.fitted_instances.append(self)
+        return fold
+
+    def transform(self, fold):
+        return fold
+
+    def get_features(self):
+        return []
+
+
+class TestFoldRunIsolatesSelectorAndPreprocessor(unittest.TestCase):
+    """_fold_run must fit a per-fold copy, not the shared config instance.
+
+    A stateful selector fitted on fold 0 and then reused on fold 1 would carry fold 0's
+    chosen features into fold 1 — silent leakage that no metric would reveal.
+    """
+
+    def setUp(self):
+        StatefulSelector.fitted_instances = []
+        self.ds = make_dataset(n_samples=60)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.selector = StatefulSelector("selector")
+        self.preprocessor = StatefulSelector("preprocessor")
+        self.p = make_pipeline(self.tmp.name, self.ds, {
+            "outer_kfolds":          3,
+            "inner_kfolds":          1,
+            "feature_selector":      self.selector,
+            "feature_preprocessor":  self.preprocessor,
+        })
+        self.p.run_crossvalidation(load_data=False)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+        StatefulSelector.fitted_instances = []
+
+    def test_config_selector_instance_is_never_fitted(self):
+        """The instance held in the config must stay pristine for the next fold."""
+        self.assertEqual(
+            self.selector.fit_count, 0,
+            "the config's feature_selector was fitted in place, so its state carries "
+            "into every later fold and grid search point")
+
+    def test_config_preprocessor_instance_is_never_fitted(self):
+        self.assertEqual(
+            self.preprocessor.fit_count, 0,
+            "the config's feature_preprocessor was fitted in place")
+
+    def test_each_fold_fits_a_distinct_selector_object(self):
+        """Three outer folds must fit three different objects, not one three times."""
+        fitted = [s for s in StatefulSelector.fitted_instances if s.role == "selector"]
+        self.assertGreaterEqual(len(fitted), 3, "expected at least one fit per outer fold")
+        self.assertEqual(
+            len(fitted), len({id(s) for s in fitted}),
+            "the same selector object was fitted on more than one fold")
+
+    def test_no_fitted_copy_carries_another_folds_ids(self):
+        """The payload: each fitted copy must know only its own fold's samples."""
+        for s in StatefulSelector.fitted_instances:
+            self.assertEqual(
+                s.fit_count, 1,
+                f"a selector was fitted {s.fit_count} times, so it holds state from "
+                f"more than one fold")
+
+
+class TestSpyStillObservesDeepCopiedTransformers(unittest.TestCase):
+    """Guards the leakage assertions elsewhere in this file from going vacuous.
+
+    Those tests assert `spy.fitted_ids.isdisjoint(val_ids)`. Since _fold_run deep
+    copies the transformers, a spy that failed to observe its copies would report an
+    empty set — and an empty set is disjoint from everything, so the assertions would
+    pass while testing nothing. This fails loudly instead.
+    """
+
+    def setUp(self):
+        self.ds = make_dataset(n_samples=60)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.p = make_pipeline(self.tmp.name, self.ds, {"test_samples": 0.2})
+        self.p.run_single_split(load_data=False)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_selector_spy_recorded_a_fit(self):
+        self.assertGreater(
+            len(self.p._spy_fs.fitted_ids), 0,
+            "selector spy recorded nothing, so leakage assertions against it are vacuous")
+
+    def test_preprocessor_spy_recorded_a_fit(self):
+        self.assertGreater(
+            len(self.p._spy_pp.fitted_ids), 0,
+            "preprocessor spy recorded nothing, so leakage assertions against it are vacuous")
+
+
+class TestFoldRunSkipsEmptyFoldsInPreprocessor(unittest.TestCase):
+    """An empty val/test fold never goes through the selector, so it must not be
+    handed to the preprocessor either — its feature width would not match."""
+
+    def setUp(self):
+        self.ds = make_dataset(n_samples=60)
+        self.tmp = tempfile.TemporaryDirectory()
+        seen = []
+
+        class RecordingPreprocessor(SpyTransformer):
+            def transform(self, fold):
+                seen.append(fold)
+                return fold
+
+        self.seen = seen
+        self.p = make_pipeline(self.tmp.name, self.ds, {
+            # A non-empty val_metric reaches the best-hyperparameter refit, which with
+            # hold_out_validation_for_final_fit=False calls get_train_test_split(1, ...)
+            # and so hands _fold_run an empty val fold. inner_kfolds=1 additionally
+            # calls _fold_run with test_fold=[] — a bare list rather than a dataset.
+            "inner_kfolds":                      1,
+            "outer_kfolds":                      2,
+            "hold_out_validation_for_final_fit": False,
+            "val_metric":                        {"m": lambda results: 0.5},
+            "feature_preprocessor":              RecordingPreprocessor(),
+        })
+        self.p.run_crossvalidation(load_data=False)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_preprocessor_never_transforms_an_empty_fold(self):
+        empties = [f for f in self.seen if len(f) == 0]
+        self.assertEqual(
+            empties, [],
+            f"preprocessor.transform was called on {len(empties)} empty fold(s); those "
+            f"folds skipped feature selection, so their feature width is inconsistent")
+
+    def test_preprocessor_never_transforms_a_bare_list(self):
+        """_fold_run is called with test_fold=[] for inner folds — a plain list, not a
+        dataset, which a real preprocessor cannot handle."""
+        bare = [f for f in self.seen if isinstance(f, list)]
+        self.assertEqual(
+            bare, [],
+            "preprocessor.transform was handed a plain [] instead of a dataset")
+
+    def test_preprocessor_still_runs_on_non_empty_folds(self):
+        """Control: the guard must not skip folds that do have samples."""
+        self.assertTrue(
+            any(len(f) > 0 for f in self.seen),
+            "preprocessor.transform was never called on a populated fold")
 
 
 if __name__ == "__main__":

@@ -20,6 +20,21 @@ logging.disable(logging.CRITICAL)
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
 
+def transformer_mock():
+    """A MagicMock standing in for a feature selector / preprocessor.
+
+    _fold_run deep copies both so per-fold state cannot leak between folds. A plain
+    MagicMock does not survive that: copy.deepcopy looks up __deepcopy__ on the
+    instance, and MagicMock auto-creates one that returns a *different* mock, so every
+    assertion against the config's instance would silently observe nothing. Copying to
+    itself keeps these call assertions meaningful; the per-fold isolation behaviour is
+    covered separately in test_integration.py.
+    """
+    m = MagicMock()
+    m.__deepcopy__ = lambda memo=None: m
+    return m
+
+
 def make_pipeline(config_overrides=None):
     from pipeline import Pipeline
     base = {
@@ -29,9 +44,9 @@ def make_pipeline(config_overrides=None):
         "val_metric": {},
         "fold_collators": [],
         "grid_search_collators": [],
-        "feature_selector": MagicMock(),
+        "feature_selector": transformer_mock(),
         "data_augmentor": MagicMock(side_effect=lambda x: x),
-        "feature_preprocessor": MagicMock(),
+        "feature_preprocessor": transformer_mock(),
         "results_processors": [],
         "rng_seed": 42,
     }
@@ -53,9 +68,9 @@ def make_ml_pipeline(config_overrides=None):
         "val_metric": {},
         "fold_collators": [],
         "grid_search_collators": [],
-        "feature_selector": MagicMock(),
+        "feature_selector": transformer_mock(),
         "data_augmentor": MagicMock(side_effect=lambda x: x),
-        "feature_preprocessor": MagicMock(),
+        "feature_preprocessor": transformer_mock(),
         "results_processors": [],
         "rng_seed": 42,
         "model": MagicMock(return_value=MagicMock(fit=MagicMock())),

@@ -458,9 +458,7 @@ class Pipeline:
         # Set rng seeds and try to make everything as deterministic as possible
         self.fold_logger.info("Number of samples in training folds : {}".format(len(train_fold)))
         self.fold_logger.info("Number of samples in validation fold : {}".format(len(val_fold)))
-        # Perform feature selection step by fold
         feature_selector = self.config["feature_selector"]
-        # Set the features for each fold
         train_fold = feature_selector.fit_transform(train_fold)
         train_fold = self.config["data_augmentor"](train_fold)
         if len(val_fold) > 0:
@@ -468,11 +466,12 @@ class Pipeline:
         if len(test_fold) > 0:
             test_fold = feature_selector.transform(test_fold)
         self.fold_logger.info("Number of selected features : {}".format(len(train_fold.get_features())))
-        # Apply preprocessing
-        preprocessor = self.config["feature_preprocessor"]
+        preprocessor = copy.deepcopy(self.config["feature_preprocessor"])
         train_fold = preprocessor.fit_transform(train_fold)
-        val_fold = preprocessor.transform(val_fold)
-        test_fold = preprocessor.transform(test_fold)
+        if len(val_fold) > 0:
+            val_fold = preprocessor.transform(val_fold)
+        if len(test_fold) > 0:
+            test_fold = preprocessor.transform(test_fold)
         # Train model and save results
         self.fold_logger.info("Training model")
         model, train_hx = self._train(train_fold, val_fold)
