@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 from enum import Enum
 from scipy.stats import ttest_ind
 
+from statsmodels.stats.multitest import multipletests
+
+from architecture.significance_utils import corrected_paired_stats
+
 
 class FigureComparativeAnalysisConfiguration(Enum):
     plot_size = (10, 7)
@@ -222,16 +226,90 @@ def _aggregate_train_size(df):
     )
 
 
-def _compute_stats(pnet_results, other_results):
+def _compute_stats(pnet_results, other_results, alpha=0.05):
+    """Unpaired Student t-test per training-set size.
+
+    Retained *only* for :func:`plot_train_size_comparisons`, whose scores are
+    inner-fold validation metrics from a single outer split. This test is
+    statistically wrong for cross-validation scores — the folds are paired and
+    their training sets overlap, so it is both unpaired and uncorrected — but the
+    published figure was produced with it and is kept reproducible. New analyses
+    should use :func:`_compute_stats_corrected`.
+    """
     # sorted() ensures order matches _aggregate_train_size output
     shared_sizes = sorted(pnet_results["n_samples"].unique())
     return [
         ttest_ind(
             pnet_results.loc[pnet_results["n_samples"] == n, "response_metric"].to_numpy(),
             other_results.loc[other_results["n_samples"] == n, "response_metric"].to_numpy(),
-        ).pvalue < 0.05
+        ).pvalue < alpha
         for n in shared_sizes
     ]
+
+
+def _compute_pvalues_corrected(pnet_results, other_results):
+    """Raw Nadeau & Bengio corrected resampled paired t-test p-values, one per
+    training-set size.
+
+    Both models are evaluated on the same outer k-fold split of the same sample
+    pool (same ``samples_to_include`` and ``tt_split_seed``), so scores pair by
+    outer fold index. Each size therefore contributes one score per outer fold
+    and the default ``rho = 1/(k-1)`` in
+    :func:`~architecture.significance_utils.corrected_paired_stats` is the
+    correct ``n_test/n_train`` ratio — the same test the per-task
+    ``significance_testing.py`` scripts run.
+
+    Returns the *raw* p-values; multiplicity correction across sizes and
+    comparisons is applied by :func:`_significance_corrected_fdr`.
+    """
+    # sorted() ensures order matches _aggregate_train_size output
+    shared_sizes = sorted(pnet_results["n_samples"].unique())
+    pvalues = []
+    for n in shared_sizes:
+        # Sorting by fold aligns the two models on the outer fold they share;
+        # without it the pairing would follow directory listing order.
+        pnet_fold = pnet_results.loc[pnet_results["n_samples"] == n].sort_values("fold")
+        other_fold = other_results.loc[other_results["n_samples"] == n].sort_values("fold")
+        if list(pnet_fold["fold"]) != list(other_fold["fold"]):
+            raise ValueError(
+                f"Fold mismatch at n_samples={n}: the corrected paired test needs "
+                f"both models scored on the same outer folds, got "
+                f"{list(pnet_fold['fold'])} and {list(other_fold['fold'])}."
+            )
+        stats = corrected_paired_stats(
+            pnet_fold["response_metric"].to_numpy(),
+            other_fold["response_metric"].to_numpy(),
+        )
+        pvalues.append(stats["p_raw"])
+    return pvalues
+
+
+def _significance_legacy(pnet_results, dense_results, pnetfc_results, alpha=0.05):
+    """Per-comparison significance flags with no multiplicity correction.
+
+    Retained for :func:`plot_train_size_comparisons` exactly as published: each
+    training-set size is thresholded at ``alpha`` on its own.
+    """
+    return (
+        _compute_stats(pnet_results, dense_results, alpha=alpha),
+        _compute_stats(pnet_results, pnetfc_results, alpha=alpha),
+    )
+
+
+def _significance_corrected_fdr(pnet_results, dense_results, pnetfc_results, alpha=0.05):
+    """Corrected paired p-values with Benjamini-Hochberg FDR, one family per
+    comparison.
+    """
+    return (
+        _fdr_across_sizes(_compute_pvalues_corrected(pnet_results, dense_results), alpha),
+        _fdr_across_sizes(_compute_pvalues_corrected(pnet_results, pnetfc_results), alpha),
+    )
+
+
+def _fdr_across_sizes(pvalues, alpha):
+    """Benjamini-Hochberg across the training-set sizes of a single comparison."""
+    rejected, _, _, _ = multipletests(pvalues, alpha=alpha, method="fdr_bh")
+    return list(rejected)
 
 
 def _build_comparison_results(pnet_df, other_df, stats):
@@ -251,16 +329,20 @@ def _build_comparison_results(pnet_df, other_df, stats):
     }
 
 
-def _render_train_size_comparisons(run_dir, figures_dir, loader, prefix_suffix, fname_prefix, metrics):
+def _render_train_size_comparisons(run_dir, figures_dir, loader, stats_fn, prefix_suffix,
+                                   fname_prefix, metrics):
     for metric in metrics:
         pnet_results = loader(run_dir, f"pnet_train_size_variation{prefix_suffix}", metric)
         pnetfc_results = loader(run_dir, f"pnetfc_train_size_variation{prefix_suffix}", metric)
         dense_results = loader(run_dir, f"dense_single_layer_train_size_variation{prefix_suffix}", metric)
 
-        # compute stats before aggregation (need per-fold values for t-test),
-        # sorted() in _compute_stats ensures order matches _aggregate_train_size
-        pnet_dense_stats = _compute_stats(pnet_results, dense_results)
-        pnet_pnetfc_stats = _compute_stats(pnet_results, pnetfc_results)
+        # compute stats before aggregation (need per-fold values for the t-test).
+        # Both comparisons go through one call so a multiplicity correction can
+        # span them; sorted() inside the stats functions keeps the per-size order
+        # matching _aggregate_train_size.
+        pnet_dense_stats, pnet_pnetfc_stats = stats_fn(
+            pnet_results, dense_results, pnetfc_results
+        )
 
         # aggregate after stats — both will be sorted by n_samples
         pnet_results = _aggregate_train_size(pnet_results)
@@ -304,15 +386,21 @@ def _render_train_size_comparisons(run_dir, figures_dir, loader, prefix_suffix, 
 
 def plot_train_size_comparisons(run_dir, figures_dir, metrics=METRICS):
     # Inner-fold validation metric (mean +- SD across inner CV folds).
+    # Significance stars come from the original unpaired, uncorrected t-test —
+    # kept as published for reproducibility. See _compute_stats.
     _render_train_size_comparisons(
-        run_dir, figures_dir, _load_train_size_results,
+        run_dir, figures_dir, _load_train_size_results, _significance_legacy,
         prefix_suffix="", fname_prefix="train_size", metrics=metrics,
     )
 
 
 def plot_train_size_comparisons_nested_CV(run_dir, figures_dir, metrics=METRICS):
     # Held-out test metric (mean +- SD across the outer CV folds).
+    # Significance stars come from the Nadeau & Bengio corrected resampled
+    # paired t-test, with BH-FDR across the training-set sizes within each
+    # comparison (the two comparisons are separate families — see
+    # _significance_corrected_fdr).
     _render_train_size_comparisons(
-        run_dir, figures_dir, _load_train_size_results_nested_CV,
+        run_dir, figures_dir, _load_train_size_results_nested_CV, _significance_corrected_fdr,
         prefix_suffix="_nested_CV", fname_prefix="train_size_nested_CV", metrics=metrics,
     )
