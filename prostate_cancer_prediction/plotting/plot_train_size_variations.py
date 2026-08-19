@@ -233,8 +233,7 @@ def _compute_stats(pnet_results, other_results, alpha=0.05):
     inner-fold validation metrics from a single outer split. This test is
     statistically wrong for cross-validation scores — the folds are paired and
     their training sets overlap, so it is both unpaired and uncorrected — but the
-    published figure was produced with it and is kept reproducible. New analyses
-    should use :func:`_compute_stats_corrected`.
+    published figure was produced with it and is kept reproducible.
     """
     # sorted() ensures order matches _aggregate_train_size output
     shared_sizes = sorted(pnet_results["n_samples"].unique())
