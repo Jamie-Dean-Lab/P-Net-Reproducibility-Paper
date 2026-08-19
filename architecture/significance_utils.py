@@ -45,8 +45,7 @@ def corrected_paired_stats(scores1, scores2, rho=None, alpha=0.05):
 
     if corrected_se == 0.0:
         # The two models scored identically on every fold. The t statistic is
-        # undefined rather than merely large, so resolve it by limit: no
-        # difference at all is no evidence, a constant difference is certainty.
+        # undefined.
         t_stat = 0.0 if mean_diff == 0.0 else np.copysign(np.inf, mean_diff)
         p_raw = 1.0 if mean_diff == 0.0 else 0.0
         cohens_d = 0.0 if mean_diff == 0.0 else np.copysign(np.inf, mean_diff)
