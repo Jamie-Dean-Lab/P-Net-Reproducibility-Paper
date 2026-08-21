@@ -18,8 +18,8 @@ n_hidden_layers = 5
 
 # Fixed at the values selected by the main tissue-type h_reg/o_reg grid search
 # (pnet.py)
-SELECTED_H_REG = 1e-2
-SELECTED_O_REG = 1e-5
+SELECTED_H_REG = 1e-5
+SELECTED_O_REG = 1e-4
 
 # Baseline hyperparameter values (matching pnet.py / Elmarakeby et al.).
 DEFAULT_LEARNING_RATE = 1e-3
