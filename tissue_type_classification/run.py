@@ -25,17 +25,17 @@ from tissue_type_classification.plotting.plot_external_validation import plot_ex
 
 def run():
     configs = [
-        # pnet_config,
-        # dense_config,
-        # svc_config,
-        # adaboost_config,
-        # decision_tree_config,
-        # lgbm_config,
-        # random_forest_config,
-        # rbf_svm_config,
-        # sgd_logistic_regression_config,
-        # xgb_config,
-        # pnet_hyperparameter_sensitivity_config
+        pnet_config,
+        dense_config,
+        svc_config,
+        adaboost_config,
+        decision_tree_config,
+        lgbm_config,
+        random_forest_config,
+        rbf_svm_config,
+        sgd_logistic_regression_config,
+        xgb_config,
+        pnet_hyperparameter_sensitivity_config
     ]
 
     for config in configs:
