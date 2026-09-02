@@ -1,15 +1,5 @@
 """
 Factory for the P-NET model_params block shared by every task's configs.
-
-The architecture spec (activations, initialisers, constraints, layer-wise loss
-weights, dropout rates) is identical across all four tasks and only a handful of
-axes actually vary: which pathway hierarchy backs the sparse layers, the loss and
-output activation for the task type, whether the hidden layers are sparse
-(P-NET) or dense (P-NET-FC), and the L2 regularisation, which is usually swept by
-grid search rather than fixed.
-
-Building the block here rather than restating it per config means a config file
-shows only what it actually changes.
 """
 
 # Pathway hierarchy backing the sparse layers. pathway_dataset, pp_relations and
