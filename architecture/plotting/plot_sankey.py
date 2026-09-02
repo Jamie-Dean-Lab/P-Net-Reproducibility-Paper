@@ -501,12 +501,11 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     # 7. node x/y positions
     #    x: replicates original get_x_y() which hard-codes layers 0,1,2 then
     #       uses np.linspace(0.14, 1, 6, endpoint=False) for layers 3-7
-    #    y: flow-weighted cumulative positioning within each layer
-    #       matching original get_x_y() logic:
-    #       - node flow = max(total outgoing, total incoming) per node
-    #       - residual nodes zeroed before sort (forced to bottom) then restored
-    #       - y = (cumsum - 0.5*flow) / (1.5 * layer_total)
-    #       - root fixed at y=0.33
+    #    y: nodes stacked top-to-bottom within each layer, ordered by descending
+    #       flow with residual/root nodes forced to the bottom. The stack is laid
+    #       out in *pixels* using the same node heights Plotly will draw (see
+    #       packed_y_positions), so the positions we hand it are already
+    #       collision-free. Root fixed at y=0.33.
     # -------------------------------------------------------------------
     print(f"\n--- Section 7: Node positions ---")
 
@@ -545,7 +544,7 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     print(f"  node_flow range: [{node_flow.min():.2f}, {node_flow.max():.2f}]")
 
     x_pos = [0.0] * n_nodes
-    y_pos = [0.0] * n_nodes
+    layer_order = {}       # layer -> node indices, top-to-bottom
 
     for layer_idx in sorted(layer_nodes.keys()):
         nodes = layer_nodes[layer_idx]
@@ -567,28 +566,57 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
         # stable descending sort of the real nodes by flow
         real_order = real_idx[np.argsort(flows[real_idx], kind="stable")[::-1]]
         sort_order = np.concatenate([real_order, others_idx]).astype(int)
-        flows = flows[sort_order]              # apply sort order
 
         print(f"  Layer {layer_idx} sort order: {[nodes[i] for i in sort_order]}")
 
-        # cumulative y positioning: each node centred on its cumulative flow fraction
-        # divided by 1.5 to compress nodes into top 2/3 of the plot area
-        layer_total = flows.sum() or 1.0
-        cumulative = np.cumsum(flows)
-        ys = (cumulative - 0.5 * flows) / (1.5 * layer_total)
-
         x_val = x_positions_map.get(layer_idx, 0.99)
-        for rank, orig_rank in enumerate(sort_order):
-            node_idx = idxs[orig_rank]
+        layer_order[layer_idx] = [idxs[i] for i in sort_order]
+        for node_idx in layer_order[layer_idx]:
             x_pos[node_idx] = x_val
-            y_pos[node_idx] = float(ys[rank])
-            print(f"    rank={rank} node={nodes[orig_rank]} x={x_val:.4f} y={ys[rank]:.3f}")
 
-    # root/outcome node fixed at y=0.33 matching original
-    y_pos[root_idx] = 0.33
-    print(f"  root y fixed at 0.33")
     print(f"  x_pos range: [{min(x_pos):.4f}, {max(x_pos):.4f}]")
-    print(f"  y_pos range: [{min(y_pos):.4f}, {max(y_pos):.4f}]")
+
+    def packed_y_positions(plot_height, pad):
+        """
+        Node y centres (normalised) that stack each layer from the top of the plot
+        area without overlapping, in the order held in layer_order.
+
+        Plotly's node.y is the *centre* of a node, but the node's height is not ours
+        to choose: Plotly hands the trace to d3-sankey first, which sizes every node
+        as flow * ky with
+
+            py = min(node.pad, plot_height / (longest_layer - 1))
+            ky = min over layers of (plot_height - (n_layer - 1) * py) / layer_flow
+
+        so the densest layer fills the plot area top to bottom. Positions must be
+        computed against those pixel heights. Deriving them from flow *fractions*
+        instead (the original's cumsum / (1.5 * layer_total)) describes a stack 1.5x
+        shorter than the one Plotly draws, and the two disagreements it creates are
+        both silent: arrangement='snap' re-sorts each layer by node *top* edge, which
+        floats a tall residual above the small nodes it should sit under, and its
+        collision pass only ever pushes nodes *down* — never back up onto the canvas
+        — so the overflow lands past the bottom of the page.
+
+        Recomputed per output because pad is in pixels while y is normalised, so the
+        PDF and the (differently sized) HTML need different y values.
+        """
+        lengths = [len(v) for v in layer_order.values()]
+        py = min(pad, plot_height / (max(lengths) - 1)) if max(lengths) > 1 else pad
+        ky = min((plot_height - (len(idxs) - 1) * py) / max(node_flow[idxs].sum(), 1e-12)
+                 for idxs in layer_order.values())
+
+        ys = [0.0] * n_nodes
+        for layer_idx, idxs in sorted(layer_order.items()):
+            cursor = 0.0
+            for node_idx in idxs:
+                node_height = node_flow[node_idx] * ky
+                ys[node_idx] = (cursor + 0.5 * node_height) / plot_height
+                cursor += node_height + py
+            print(f"  Layer {layer_idx} packed stack: {cursor - py:.1f}px of {plot_height:.1f}px")
+
+        # root/outcome node fixed at y=0.33 matching original
+        ys[root_idx] = 0.33
+        return ys
 
     # -------------------------------------------------------------------
     # 8. node and edge colours
@@ -669,6 +697,13 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     # labels have room — Plotly has no auto-declutter for Sankey text.
     width = 1100. / scale
     height = 0.65 * width / scale
+    # top/bottom margin: the densest layer fills the plot area exactly, so the
+    # first and last labels are centred on the very edge of it and need somewhere
+    # to sit. Margins shrink the plot area, so y is computed against what is left.
+    margin_t, margin_b = 10, 10
+    node_pad = 14            # vertical gap between nodes — keeps stacked labels apart
+    y_pos = packed_y_positions(height - margin_t - margin_b, node_pad)
+    print(f"  y_pos range: [{min(y_pos):.4f}, {max(y_pos):.4f}]")
 
     data_trace = dict(
         type='sankey',
@@ -677,7 +712,7 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
         orientation="h",         # left to right flow
         valueformat=".0f",
         node=dict(
-            pad=14,              # vertical gap between nodes — keeps stacked labels apart
+            pad=node_pad,
             thickness=10,        # node bar width in pixels
             line=dict(color="white", width=0.5),
             label=all_node_labels,
@@ -696,7 +731,7 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     layout = dict(
         height=height,
         width=width,
-        margin=dict(l=0, r=0, b=0.1, t=8),
+        margin=dict(l=0, r=0, b=margin_b, t=margin_t),
         font=dict(size=9, family='Arial')
     )
 
@@ -715,10 +750,14 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     layout_html = dict(
         height=height_html,
         width=width_html,
-        margin=dict(l=0, r=0, b=0.1, t=8),
+        margin=dict(l=0, r=0, b=margin_b, t=margin_t),
         font=dict(size=12, family='Arial')
     )
-    fig_html = go.Figure(dict(data=[data_trace], layout=layout_html))
+    # shorter canvas -> different pixel node heights, so re-pack rather than reusing y_pos
+    trace_html = dict(data_trace)
+    trace_html['node'] = dict(data_trace['node'],
+                              y=packed_y_positions(height_html - margin_t - margin_b, node_pad))
+    fig_html = go.Figure(dict(data=[trace_html], layout=layout_html))
     fig_html.write_html(f"{figures_dir}/{prefix}_sankey.html")
     print(f"  Saved {prefix}_sankey.html")
     print(f"=== plot_sankey complete ===\n")
