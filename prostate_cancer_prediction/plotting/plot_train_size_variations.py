@@ -283,26 +283,23 @@ def _compute_pvalues_corrected(pnet_results, other_results):
     return pvalues
 
 
-def _significance_legacy(pnet_results, dense_results, pnetfc_results, alpha=0.05):
+def _significance_legacy(pnet_results, other_results, alpha=0.05):
     """Per-comparison significance flags with no multiplicity correction.
 
     Retained for :func:`plot_train_size_comparisons` exactly as published: each
     training-set size is thresholded at ``alpha`` on its own.
     """
-    return (
-        _compute_stats(pnet_results, dense_results, alpha=alpha),
-        _compute_stats(pnet_results, pnetfc_results, alpha=alpha),
-    )
+    return _compute_stats(pnet_results, other_results, alpha=alpha)
 
 
-def _significance_corrected_fdr(pnet_results, dense_results, pnetfc_results, alpha=0.05):
-    """Corrected paired p-values with Benjamini-Hochberg FDR, one family per
-    comparison.
+def _significance_corrected_fdr(pnet_results, other_results, alpha=0.05):
+    """Corrected paired p-values with Benjamini-Hochberg FDR across the
+    training-set sizes of this comparison.
+
+    Each comparison is its own family — the correction spans the sizes within a
+    comparison, not the comparisons themselves.
     """
-    return (
-        _fdr_across_sizes(_compute_pvalues_corrected(pnet_results, dense_results), alpha),
-        _fdr_across_sizes(_compute_pvalues_corrected(pnet_results, pnetfc_results), alpha),
-    )
+    return _fdr_across_sizes(_compute_pvalues_corrected(pnet_results, other_results), alpha)
 
 
 def _fdr_across_sizes(pvalues, alpha):
@@ -328,25 +325,16 @@ def _build_comparison_results(pnet_df, other_df, stats):
     }
 
 
+# Each comparison is (run-directory prefix, legend label, filename slug). The
+# prefix has the sweep's suffix (e.g. "_nested_CV") appended before loading.
+COMPARISON_DENSE = ("dense_single_layer_train_size_variation", "Dense Single Layer", "dense")
+COMPARISON_PNETFC = ("pnetfc_train_size_variation", "P-NET-FC", "pnetfc")
+
+
 def _render_train_size_comparisons(run_dir, figures_dir, loader, stats_fn, prefix_suffix,
-                                   fname_prefix, metrics):
+                                   fname_prefix, metrics, comparisons):
     for metric in metrics:
         pnet_results = loader(run_dir, f"pnet_train_size_variation{prefix_suffix}", metric)
-        pnetfc_results = loader(run_dir, f"pnetfc_train_size_variation{prefix_suffix}", metric)
-        dense_results = loader(run_dir, f"dense_single_layer_train_size_variation{prefix_suffix}", metric)
-
-        # compute stats before aggregation (need per-fold values for the t-test).
-        # Both comparisons go through one call so a multiplicity correction can
-        # span them; sorted() inside the stats functions keeps the per-size order
-        # matching _aggregate_train_size.
-        pnet_dense_stats, pnet_pnetfc_stats = stats_fn(
-            pnet_results, dense_results, pnetfc_results
-        )
-
-        # aggregate after stats — both will be sorted by n_samples
-        pnet_results = _aggregate_train_size(pnet_results)
-        pnetfc_results = _aggregate_train_size(pnetfc_results)
-        dense_results = _aggregate_train_size(dense_results)
 
         y_limit = METRICS_Y_LIMITS[metric]
         # METRIC_DISPLAY overrides the shown name (auc -> AUROC); otherwise
@@ -358,28 +346,28 @@ def _render_train_size_comparisons(run_dir, figures_dir, loader, stats_fn, prefi
         # filename slug follows the display name so plots are named e.g. *_auroc.pdf
         slug = METRIC_DISPLAY.get(metric, metric).lower()
 
-        plots = [
-            (
-                "",
-                _build_comparison_results(pnet_results, dense_results, pnet_dense_stats),
-                "Dense Single Layer",
-                f"{fname_prefix}_pnet_vs_dense_{slug}.pdf",
-            ),
-            (
-                "",
-                _build_comparison_results(pnet_results, pnetfc_results, pnet_pnetfc_stats),
-                "P-NET-FC",
-                f"{fname_prefix}_pnet_vs_pnetfc_{slug}.pdf",
-            ),
-        ]
+        for prefix, label, model_slug in comparisons:
+            other_results = loader(run_dir, f"{prefix}{prefix_suffix}", metric)
 
-        for title, comparison_results, dense_label, fname in plots:
+            # compute stats before aggregation (need per-fold values for the
+            # t-test); sorted() inside the stats functions keeps the per-size
+            # order matching _aggregate_train_size.
+            stats = stats_fn(pnet_results, other_results)
+
+            comparison_results = _build_comparison_results(
+                _aggregate_train_size(pnet_results),
+                _aggregate_train_size(other_results),
+                stats,
+            )
+
             fig, ax = plt.subplots(figsize=(10, 7))
             ComparativeAnalysis(comparison_results).plot(
-                ax, title, ylabel=ylabel, y_limit=y_limit, dense_label=dense_label
+                ax, "", ylabel=ylabel, y_limit=y_limit, dense_label=label
             )
             fig.tight_layout()
-            fig.savefig(os.path.join(figures_dir, fname))
+            fig.savefig(
+                os.path.join(figures_dir, f"{fname_prefix}_pnet_vs_{model_slug}_{slug}.pdf")
+            )
             plt.close(fig)
 
 
@@ -387,9 +375,12 @@ def plot_train_size_comparisons(run_dir, figures_dir, metrics=METRICS):
     # Inner-fold validation metric (mean +- SD across inner CV folds).
     # Significance stars come from the original unpaired, uncorrected t-test —
     # kept as published for reproducibility. See _compute_stats.
+    # Only the dense comparison is available: the single-split P-NET-FC
+    # train-size sweep was not run (it exists for nested CV only).
     _render_train_size_comparisons(
         run_dir, figures_dir, _load_train_size_results, _significance_legacy,
         prefix_suffix="", fname_prefix="train_size", metrics=metrics,
+        comparisons=[COMPARISON_DENSE],
     )
 
 
@@ -402,4 +393,5 @@ def plot_train_size_comparisons_nested_CV(run_dir, figures_dir, metrics=METRICS)
     _render_train_size_comparisons(
         run_dir, figures_dir, _load_train_size_results_nested_CV, _significance_corrected_fdr,
         prefix_suffix="_nested_CV", fname_prefix="train_size_nested_CV", metrics=metrics,
+        comparisons=[COMPARISON_DENSE, COMPARISON_PNETFC],
     )

@@ -120,7 +120,7 @@ def run():
         *pnetfc_train_size_variation_nested_CV_configs,
         *dense_single_layer_train_size_variation_nested_CV_configs,
 
-        # # Stratified 5-fold CV
+        # Stratified 5-fold CV
         pnet_stratified_5_fold_CV_config,
         pnetfc_stratified_5_fold_CV_config,
         pnet_GO_stratified_5_fold_CV_config,
