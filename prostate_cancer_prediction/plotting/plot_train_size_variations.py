@@ -227,7 +227,7 @@ def _aggregate_train_size(df):
 
 
 def _compute_stats(pnet_results, other_results, alpha=0.05):
-    """Unpaired Student t-test per training-set size.
+    """Unpaired Student t-test per training-set size, one-sided (P-NET > other).
 
     Retained *only* for :func:`plot_train_size_comparisons`, whose scores are
     inner-fold validation metrics from a single outer split. This test is
@@ -241,6 +241,7 @@ def _compute_stats(pnet_results, other_results, alpha=0.05):
         ttest_ind(
             pnet_results.loc[pnet_results["n_samples"] == n, "response_metric"].to_numpy(),
             other_results.loc[other_results["n_samples"] == n, "response_metric"].to_numpy(),
+            alternative="greater",
         ).pvalue < alpha
         for n in shared_sizes
     ]

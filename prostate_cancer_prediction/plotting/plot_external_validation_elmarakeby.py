@@ -43,7 +43,7 @@ def _plot_confusion_matrix(ax, conf_mat):
     # sums to 100%. conf_mat is row=actual, col=predicted, so transpose.
     cm = conf_mat.T
     labels = np.array([["TN", "FN"], ["FP", "TP"]])
-    classes = ["localized", "metastatic"]
+    classes = ["localised", "metastatic"]
 
     im = ax.imshow(cm, interpolation="nearest", cmap=cmap)
     fig = ax.get_figure()
