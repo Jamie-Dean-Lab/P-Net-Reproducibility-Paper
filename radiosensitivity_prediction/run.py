@@ -55,7 +55,7 @@ def run():
     plot_external_validation(run_dir, figures_dir)
 
     # Sankey diagram
-    pnet_run_dir = os.path.join(run_dir, "pnet_test", "test_0", "best_r2")
+    pnet_run_dir = os.path.join(run_dir, "pnet", "test_0", "best_r2")
     plot_sankey(
         pnet_run_dir,
         n_hidden_layers=5,
