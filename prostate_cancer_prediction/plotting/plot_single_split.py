@@ -1,7 +1,10 @@
 import os
 
+import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from sklearn.metrics import (average_precision_score, precision_recall_curve,
+                             roc_auc_score, roc_curve)
 
 from prostate_cancer_prediction.plotting.pnet_auprc import PlotAUPRC
 from prostate_cancer_prediction.plotting.pnet_roc import PlotROC
@@ -74,6 +77,49 @@ def _resolve_results_dir(run_dir, model, selection_metric):
     return best_dir if os.path.isdir(best_dir) else base
 
 
+def _auprc_source_data(results):
+    """Return the plotted precision/recall curve points as one long dataframe.
+
+    Mirrors PlotAUPRC.plot so the CSV is the source data for the figure: one row
+    per curve point, plus the average precision quoted in the legend.
+    """
+    frames = []
+    for label, df in results.items():
+        y_true = np.array(df["response"])
+        pred_scores = np.array(df["response_pred"])
+        precision, recall, thresholds = precision_recall_curve(y_true, pred_scores)
+        # precision_recall_curve returns one fewer threshold than curve points:
+        # the final (recall=0, precision=1) point has no corresponding threshold.
+        frames.append(pd.DataFrame({
+            "model": label,
+            "auprc": average_precision_score(y_true, pred_scores),
+            "threshold": np.append(thresholds, np.nan),
+            "recall": recall,
+            "precision": precision,
+        }))
+    return pd.concat(frames, ignore_index=True)
+
+
+def _auroc_source_data(results):
+    """Return the plotted FPR/TPR curve points as one long dataframe.
+
+    Mirrors PlotROC.plot; the AUC column is the value quoted in the legend.
+    """
+    frames = []
+    for label, df in results.items():
+        y_true = np.array(df["response"])
+        pred_scores = np.array(df["response_pred"])
+        fpr, tpr, thresholds = roc_curve(y_true, pred_scores)
+        frames.append(pd.DataFrame({
+            "model": label,
+            "auroc": roc_auc_score(y_true, pred_scores),
+            "threshold": thresholds,
+            "fpr": fpr,
+            "tpr": tpr,
+        }))
+    return pd.concat(frames, ignore_index=True)
+
+
 def plot_single_split_curves(run_dir, figures_dir, models=None, tag="", concat_val=False,
                              selection_metric="auc"):
     if models is None:
@@ -95,9 +141,12 @@ def plot_single_split_curves(run_dir, figures_dir, models=None, tag="", concat_v
         tabular.append(summary)
 
     suffix = f"_{tag}" if tag else ""
-    for plotter, fname in [(PlotAUPRC, f"single_split_auprc{suffix}.pdf"),
-                           (PlotROC, f"single_split_auroc{suffix}.pdf")]:
+    for plotter, source_data, stem in [
+            (PlotAUPRC, _auprc_source_data, f"single_split_auprc{suffix}"),
+            (PlotROC, _auroc_source_data, f"single_split_auroc{suffix}")]:
         fig, ax = plt.subplots()
         plotter(results).plot(ax, "")
-        fig.savefig(os.path.join(figures_dir, fname))
+        fig.savefig(os.path.join(figures_dir, f"{stem}.pdf"))
         plt.close(fig)
+        source_data(results).to_csv(
+            os.path.join(figures_dir, f"{stem}_source_data.csv"), index=False)

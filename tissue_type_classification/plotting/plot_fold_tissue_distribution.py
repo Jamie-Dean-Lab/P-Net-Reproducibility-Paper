@@ -23,6 +23,17 @@ def _tissue_map():
     return labels.idxmax(axis=1)
 
 
+def _counts_source_data(counts):
+    """Return the plotted counts as a long dataframe.
+
+    One row per (tissue, fold) heatmap cell, tissues in row order. Zero counts are kept,
+    as they are part of the figure.
+    """
+    long = counts.stack().rename("n_samples").rename_axis(["tissue", "fold"]).reset_index()
+    long["fold"] = long["fold"].astype(int)
+    return long
+
+
 def plot_fold_tissue_distribution():
     folds = outer_fold_ids(base_config)
     n_folds = len(folds)
@@ -61,7 +72,10 @@ def plot_fold_tissue_distribution():
     os.makedirs(figures_dir, exist_ok=True)
     fig.savefig(f"{figures_dir}/fold_tissue_distribution.pdf", bbox_inches="tight")
     plt.close(fig)
-    print(f"Saved to {figures_dir}/fold_tissue_distribution.pdf")
+    _counts_source_data(counts).to_csv(
+        f"{figures_dir}/fold_tissue_distribution_source_data.csv", index=False)
+    print(f"Saved to {figures_dir}/fold_tissue_distribution.pdf and "
+          f"fold_tissue_distribution_source_data.csv")
     print(counts.to_string())
 
 

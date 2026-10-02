@@ -8,6 +8,107 @@ import plotly.graph_objects as go
 
 
 
+def _sankey_source_data(all_node_ids, all_node_labels, node_to_idx, layer_order, node_flow,
+                        diagram_source, diagram_target, diagram_values,
+                        node_importance, deeplift, n_hidden_layers):
+    """Return (nodes, links) dataframes holding the plotted diagram.
+
+    A Sankey is two tables, so the source data is too: one row per node and one
+    row per link, taken from the arrays handed to the plotly trace. Both carry
+    ``node_id`` as well as the displayed ``label``, because labels are not unique
+    (every residual node reads "residual") and pathway labels are shortened for
+    display, so the id is what ties a row back to the Reactome/GO identifier.
+
+    Node ``flow`` is the max(outgoing, incoming) quantity that sets the node's
+    drawn height; ``position_in_layer`` is its rank top-to-bottom. Pixel x/y are
+    layout rather than data — and y differs between the PDF and HTML outputs —
+    so they are deliberately left out.
+
+    The nodes table also carries the DeepLIFT scores the diagram was derived
+    from, so a reader can check node selection and edge weighting rather than
+    only redraw the result:
+
+    ``coef``            raw DeepLIFT importance; ranks the pathway layers.
+    ``coef_combined``   degree-adjusted importance; ranks the gene layer, which
+                        is additionally filtered to genes present in the
+                        Reactome/GO graph before ranking.
+    ``selection_metric`` which of the two selected that node's layer.
+    ``layer_coef_sum``  sum of clipped ``coef`` over *all* nodes of the layer,
+                        the denominator of the normalisation below.
+    ``node_importance`` log(1 + 100 * coef / layer_coef_sum), the per-node value
+                        ``adjust_values`` weights edges by. Residual nodes carry
+                        the fixed 0.1 and input nodes their fixed placeholder
+                        value, which is why those rows have an importance but no
+                        ``coef`` — they are aggregates, not single features.
+
+    One caveat the columns make visible: ``node_importance`` is looked up by node
+    id alone (section 2 builds one flat dict across the layers), so a pathway that
+    appears in more than one layer carries a single importance everywhere — the
+    one from the last layer written, i.e. its highest. Its ``coef`` and
+    ``layer_coef_sum`` are per layer, so for those few nodes the three columns do
+    not satisfy the formula above in every row. That is the behaviour the figure
+    was drawn with, not a defect in the export.
+    """
+    n_nodes = len(all_node_ids)
+    idx_to_layer = {idx: layer for (layer, _), idx in node_to_idx.items()}
+    rank_in_layer = {node_idx: rank
+                     for idxs in layer_order.values()
+                     for rank, node_idx in enumerate(idxs)}
+
+    # DeepLIFT frame backing each layer: layer 1 is the gene layer (h0),
+    # layer i+1 the i-th pathway layer (h{i}).
+    layer_deeplift = {i + 1: deeplift[f"h{i}"]
+                      for i in range(n_hidden_layers + 1) if f"h{i}" in deeplift}
+    layer_coef_sum = {layer: float(df["coef"].clip(lower=0).sum())
+                      for layer, df in layer_deeplift.items()}
+    # genes are ranked on coef_combined, pathway layers on raw coef (section 1)
+    selection_metric = {layer: ("coef_combined" if layer == 1 else "coef")
+                        for layer in layer_deeplift}
+
+    def _scored(layer, node_id):
+        """Whether this node is a single feature with DeepLIFT scores of its own —
+        false for the residual, input and outcome nodes."""
+        df = layer_deeplift.get(layer)
+        return df is not None and node_id in df.index
+
+    def _score(layer, node_id, column):
+        if not _scored(layer, node_id):
+            return float("nan")
+        return float(layer_deeplift[layer][column].loc[node_id])
+
+    layers = [idx_to_layer[i] for i in range(n_nodes)]
+    nodes = pd.DataFrame({
+        "node_index": list(range(n_nodes)),
+        "layer": layers,
+        "position_in_layer": [rank_in_layer.get(i) for i in range(n_nodes)],
+        "node_id": all_node_ids,
+        "label": all_node_labels,
+        "flow": [float(node_flow[i]) for i in range(n_nodes)],
+        "coef": [_score(l, nid, "coef") for l, nid in zip(layers, all_node_ids)],
+        "coef_combined": [_score(l, nid, "coef_combined")
+                          for l, nid in zip(layers, all_node_ids)],
+        "selection_metric": [selection_metric.get(l) if _scored(l, nid) else None
+                             for l, nid in zip(layers, all_node_ids)],
+        "layer_coef_sum": [layer_coef_sum.get(l) for l in layers],
+        "node_importance": [node_importance.get(nid, float("nan"))
+                            for nid in all_node_ids],
+    }).sort_values(["layer", "position_in_layer"]).reset_index(drop=True)
+
+    links = pd.DataFrame({
+        "source_layer": [idx_to_layer[i] for i in diagram_source],
+        "source_index": list(diagram_source),
+        "source_id": [all_node_ids[i] for i in diagram_source],
+        "source_label": [all_node_labels[i] for i in diagram_source],
+        "target_layer": [idx_to_layer[i] for i in diagram_target],
+        "target_index": list(diagram_target),
+        "target_id": [all_node_ids[i] for i in diagram_target],
+        "target_label": [all_node_labels[i] for i in diagram_target],
+        "value": [float(v) for v in diagram_values],
+    }).sort_values(["source_layer", "value"], ascending=[True, False]).reset_index(drop=True)
+
+    return nodes, links
+
+
 def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
                 short_name_csv=None, format_pathway_names=False, output_prefix=None,
                 input_nodes=None, input_node_labels=None, input_node_colors=None):
@@ -742,6 +843,16 @@ def plot_sankey(pnet_run_dir, n_hidden_layers, figures_dir, dataset_id_mappings,
     fig = go.Figure(dict(data=[data_trace], layout=layout))
     fig.write_image(f"{figures_dir}/{prefix}_sankey.pdf", width=width, height=height, format='pdf')
     print(f"  Saved {prefix}_sankey.pdf")
+
+    nodes_df, links_df = _sankey_source_data(
+        all_node_ids, all_node_labels, node_to_idx, layer_order, node_flow,
+        diagram_source, diagram_target, diagram_values,
+        node_importance, deeplift, n_hidden_layers,
+    )
+    nodes_df.to_csv(f"{figures_dir}/{prefix}_sankey_nodes_source_data.csv", index=False)
+    links_df.to_csv(f"{figures_dir}/{prefix}_sankey_links_source_data.csv", index=False)
+    print(f"  Saved {prefix}_sankey_nodes_source_data.csv ({len(nodes_df)} nodes) and "
+          f"{prefix}_sankey_links_source_data.csv ({len(links_df)} links)")
 
     # interactive HTML at larger size for exploration
     scale = 0.5

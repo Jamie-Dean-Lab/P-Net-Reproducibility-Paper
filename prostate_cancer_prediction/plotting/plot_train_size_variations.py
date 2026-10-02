@@ -81,7 +81,7 @@ class ComparativeAnalysis:
 
     def compute_xtickslabels(self):
         # number_of_samples and statistically_significant are both in sorted
-        # n_samples order (guaranteed by _aggregate_train_size and _compute_stats)
+        # n_samples order (guaranteed by _aggregate_train_size and the significance functions)
         significance = ['*' if sig else 'NS' for sig in self.statistically_significant]
         x_ticks_labels = [
             str(nb_sample) + '\n' + sig
@@ -226,7 +226,7 @@ def _aggregate_train_size(df):
     )
 
 
-def _compute_stats(pnet_results, other_results, alpha=0.05):
+def _compute_pvalues_legacy(pnet_results, other_results):
     """Unpaired Student t-test per training-set size, one-sided (P-NET > other).
 
     Retained *only* for :func:`plot_train_size_comparisons`, whose scores are
@@ -234,15 +234,17 @@ def _compute_stats(pnet_results, other_results, alpha=0.05):
     statistically wrong for cross-validation scores — the folds are paired and
     their training sets overlap, so it is both unpaired and uncorrected — but the
     published figure was produced with it and is kept reproducible.
+
+    Returns the raw p-values, one per training-set size.
     """
     # sorted() ensures order matches _aggregate_train_size output
     shared_sizes = sorted(pnet_results["n_samples"].unique())
     return [
-        ttest_ind(
+        float(ttest_ind(
             pnet_results.loc[pnet_results["n_samples"] == n, "response_metric"].to_numpy(),
             other_results.loc[other_results["n_samples"] == n, "response_metric"].to_numpy(),
             alternative="greater",
-        ).pvalue < alpha
+        ).pvalue)
         for n in shared_sizes
     ]
 
@@ -284,13 +286,29 @@ def _compute_pvalues_corrected(pnet_results, other_results):
     return pvalues
 
 
+# Naming of the test behind each figure's significance marks, carried into the
+# source-data CSVs so a p-value column is never ambiguous about its test.
+_LEGACY_TEST = "one-sided unpaired Student t-test (P-NET > comparison), uncorrected"
+_CORRECTED_TEST = ("two-sided Nadeau & Bengio corrected resampled paired t-test, "
+                   "Benjamini-Hochberg FDR across training-set sizes")
+
+
 def _significance_legacy(pnet_results, other_results, alpha=0.05):
     """Per-comparison significance flags with no multiplicity correction.
 
     Retained for :func:`plot_train_size_comparisons` exactly as published: each
     training-set size is thresholded at ``alpha`` on its own.
+
+    Returns a dict with the test name, the flags, and the p-values they were
+    thresholded from, all in sorted n_samples order.
     """
-    return _compute_stats(pnet_results, other_results, alpha=alpha)
+    pvalues = _compute_pvalues_legacy(pnet_results, other_results)
+    return {
+        "test": _LEGACY_TEST,
+        "alpha": alpha,
+        "p_value": pvalues,
+        "significant": [p < alpha for p in pvalues],
+    }
 
 
 def _significance_corrected_fdr(pnet_results, other_results, alpha=0.05):
@@ -299,14 +317,29 @@ def _significance_corrected_fdr(pnet_results, other_results, alpha=0.05):
 
     Each comparison is its own family — the correction spans the sizes within a
     comparison, not the comparisons themselves.
+
+    Returns a dict with the test name, the flags, and both the raw and the
+    FDR-adjusted p-values, all in sorted n_samples order. The flags follow the adjusted values, so ``p_value`` alone
+    will not reproduce them.
     """
-    return _fdr_across_sizes(_compute_pvalues_corrected(pnet_results, other_results), alpha)
+    pvalues = _compute_pvalues_corrected(pnet_results, other_results)
+    rejected, pvalues_fdr = _fdr_across_sizes(pvalues, alpha)
+    return {
+        "test": _CORRECTED_TEST,
+        "alpha": alpha,
+        "p_value": pvalues,
+        "p_value_fdr_bh": pvalues_fdr,
+        "significant": rejected,
+    }
 
 
 def _fdr_across_sizes(pvalues, alpha):
-    """Benjamini-Hochberg across the training-set sizes of a single comparison."""
-    rejected, _, _, _ = multipletests(pvalues, alpha=alpha, method="fdr_bh")
-    return list(rejected)
+    """Benjamini-Hochberg across the training-set sizes of a single comparison.
+
+    Returns (rejection flags, adjusted p-values).
+    """
+    rejected, pvalues_corrected, _, _ = multipletests(pvalues, alpha=alpha, method="fdr_bh")
+    return list(rejected), list(pvalues_corrected)
 
 
 def _build_comparison_results(pnet_df, other_df, stats):
@@ -324,6 +357,40 @@ def _build_comparison_results(pnet_df, other_df, stats):
         "dense_upper_bound": (other_df["mean"] + other_df["std"]).to_numpy(),
         "statistically_significant": np.array(stats),
     }
+
+
+def _comparison_source_data(comparison_results, significance, metric_label, comparison_label):
+    """Return the plotted points of one train-size comparison as a dataframe.
+
+    Built from the dict handed to ComparativeAnalysis.plot so the CSV is the
+    plotted data: each model's mean curve, the mean +- 1 SD band drawn by
+    fill_between, and the significance flag shown under each x tick. Values are
+    keyed by ``n_samples``, i.e. the x tick *labels* — the underlying x positions
+    are evenly spaced tick indices (see ComparativeAnalysis.compute_xticks).
+
+    ``significance`` is the dict returned by the figure's significance function;
+    its p-values are reported alongside the flag they produced. Both it and
+    ``comparison_results`` are in sorted n_samples order, so they align row-wise.
+    """
+    frame = pd.DataFrame({
+        "metric": metric_label,
+        "n_samples": comparison_results["number_of_samples"],
+        "pnet_mean": comparison_results["pnet_auroc"],
+        "pnet_lower": comparison_results["pnet_lower_bound"],
+        "pnet_upper": comparison_results["pnet_upper_bound"],
+        "comparison_model": comparison_label,
+        "comparison_mean": comparison_results["dense_auroc"],
+        "comparison_lower": comparison_results["dense_lower_bound"],
+        "comparison_upper": comparison_results["dense_upper_bound"],
+    })
+    frame["test"] = significance["test"]
+    frame["alpha"] = significance["alpha"]
+    frame["p_value"] = significance["p_value"]
+    # only the corrected test adjusts for multiplicity across sizes
+    if "p_value_fdr_bh" in significance:
+        frame["p_value_fdr_bh"] = significance["p_value_fdr_bh"]
+    frame["significant"] = comparison_results["statistically_significant"]
+    return frame
 
 
 # Each comparison is (run-directory prefix, legend label, filename slug). The
@@ -358,24 +425,27 @@ def _render_train_size_comparisons(run_dir, figures_dir, loader, stats_fn, prefi
             comparison_results = _build_comparison_results(
                 _aggregate_train_size(pnet_results),
                 _aggregate_train_size(other_results),
-                stats,
+                stats["significant"],
             )
+
+            stem = f"{fname_prefix}_pnet_vs_{model_slug}_{slug}"
 
             fig, ax = plt.subplots(figsize=(10, 7))
             ComparativeAnalysis(comparison_results).plot(
                 ax, "", ylabel=ylabel, y_limit=y_limit, dense_label=label
             )
             fig.tight_layout()
-            fig.savefig(
-                os.path.join(figures_dir, f"{fname_prefix}_pnet_vs_{model_slug}_{slug}.pdf")
-            )
+            fig.savefig(os.path.join(figures_dir, f"{stem}.pdf"))
             plt.close(fig)
+
+            _comparison_source_data(comparison_results, stats, ylabel, label).to_csv(
+                os.path.join(figures_dir, f"{stem}_source_data.csv"), index=False)
 
 
 def plot_train_size_comparisons(run_dir, figures_dir, metrics=METRICS):
     # Inner-fold validation metric (mean +- SD across inner CV folds).
     # Significance stars come from the original unpaired, uncorrected t-test —
-    # kept as published for reproducibility. See _compute_stats.
+    # kept as published for reproducibility. See _compute_pvalues_legacy.
     # Only the dense comparison is available: the single-split P-NET-FC
     # train-size sweep was not run (it exists for nested CV only).
     _render_train_size_comparisons(

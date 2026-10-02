@@ -147,11 +147,31 @@ def _finish_axes(ax, ylabel):
         ax.spines[side].set_visible(False)
 
 
+def _fold_distribution_source_data(dd, order, means, stds, registry, metric_label):
+    """Return the plotted points of one fold-distribution figure as a long dataframe.
+
+    One row per strip-plot point (models in x-axis order), with the mean +/- sd
+    marker drawn for that model and the reference model's mean that sets the
+    dashed line. ``fold`` is the row position in ``combined``, i.e. the order the
+    folds were loaded in. Missing values are dropped, as the strip plot drops them.
+    """
+    points = dd[order].melt(var_name="model", value_name="value", ignore_index=False)
+    points = points.rename_axis("fold").reset_index().dropna(subset=["value"])
+    points.insert(0, "metric", metric_label)
+    points["mean"] = points["model"].map(means)
+    points["sd"] = points["model"].map(stds)
+    points["reference_model"] = registry.reference
+    points["reference_mean"] = means[registry.reference]
+    return points[["metric", "model", "fold", "value", "mean", "sd",
+                   "reference_model", "reference_mean"]]
+
+
 def plot_fold_distribution(combined, registry, metric_display, figures_dir,
                            filename, bounded_metrics=None):
     """
     One figure per metric: each fold's score as a jittered point per model, with a
-    mean +/- sd marker and a dashed line at the reference model's mean.
+    mean +/- sd marker and a dashed line at the reference model's mean. The plotted
+    values are written alongside each figure as ``<stem>_source_data.csv``.
 
     args:
         combined (DataFrame)   : output of load_per_fold_scores / load_run_scores
@@ -206,6 +226,11 @@ def plot_fold_distribution(combined, registry, metric_display, figures_dir,
         plt.savefig(os.path.join(figures_dir, filename(metric)))
         plt.close()
 
+        stem = os.path.splitext(filename(metric))[0]
+        _fold_distribution_source_data(
+            dd, order, means, stds, registry, metric_display[metric]
+        ).to_csv(os.path.join(figures_dir, f"{stem}_source_data.csv"), index=False)
+
 
 def load_single_values(run_dir, registry, metrics, dataset_tag, subdir="external_validation"):
     """
@@ -229,12 +254,28 @@ def load_single_values(run_dir, registry, metrics, dataset_tag, subdir="external
     return pd.DataFrame(records).T
 
 
+def _single_values_source_data(vals, registry, metric_label):
+    """Return the plotted bars of one single-value figure as a dataframe.
+
+    One row per bar (models in x-axis order), plus the reference model's value
+    that sets the dashed line.
+    """
+    return pd.DataFrame({
+        "metric": metric_label,
+        "model": vals.index,
+        "value": vals.values,
+        "reference_model": registry.reference,
+        "reference_value": vals[registry.reference],
+    })
+
+
 def plot_single_values(scores, registry, metric_display, figures_dir, filename,
                        bounded_metrics=None):
     """
     One figure per metric: a single bar per model, with a dashed line at the
     reference model. Used for external validation, which is one fit per model and
-    therefore has no spread to show.
+    therefore has no spread to show. The plotted values are written alongside each
+    figure as ``<stem>_source_data.csv``.
     """
     if scores is None:
         return
@@ -271,3 +312,7 @@ def plot_single_values(scores, registry, metric_display, figures_dir, filename,
         plt.tight_layout()
         plt.savefig(os.path.join(figures_dir, filename(metric)))
         plt.close()
+
+        stem = os.path.splitext(filename(metric))[0]
+        _single_values_source_data(vals, registry, metric_display[metric]).to_csv(
+            os.path.join(figures_dir, f"{stem}_source_data.csv"), index=False)

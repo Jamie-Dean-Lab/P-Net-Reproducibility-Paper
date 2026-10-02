@@ -91,8 +91,28 @@ def aggregate(val_df):
     return agg
 
 
-def plot_sensitivity(agg, figures_dir, metric_label, filename_token, bbox_inches=None):
-    """One OAT curve per hyperparameter: mean validation score +/- sd vs value."""
+def _sensitivity_source_data(val_df, agg, param, metric_label):
+    """Return the data behind one OAT curve as a long dataframe.
+
+    One row per validation fold at each swept value (values in x-axis order), with
+    the mean +/- sd marker plotted for that value and whether it is the baseline
+    (circled in red on the figure).
+    """
+    points = val_df[val_df["param"] == param].merge(
+        agg[agg["param"] == param][["value", "mean", "std", "is_baseline"]],
+        on="value", how="left",
+    ).rename(columns={"std": "sd"}).sort_values(["value", "fold"])
+    points.insert(0, "metric", metric_label)
+    points["param"] = DISPLAY.get(param, param)
+    return points[["metric", "param", "value", "fold", "score", "mean", "sd", "is_baseline"]]
+
+
+def plot_sensitivity(val_df, agg, figures_dir, metric_label, filename_token, bbox_inches=None):
+    """
+    One OAT curve per hyperparameter: mean validation score +/- sd vs value. The
+    per-fold scores behind each curve are written alongside each figure as
+    ``<stem>_source_data.csv``.
+    """
     os.makedirs(figures_dir, exist_ok=True)
 
     for param, sub in agg.groupby("param"):
@@ -118,12 +138,16 @@ def plot_sensitivity(agg, figures_dir, metric_label, filename_token, bbox_inches
         ax.spines["right"].set_visible(False)
 
         fig.tight_layout()
-        path = os.path.join(figures_dir, f"sensitivity_{param}_{filename_token}.pdf")
+        stem = f"sensitivity_{param}_{filename_token}"
+        path = os.path.join(figures_dir, f"{stem}.pdf")
         if bbox_inches:
             fig.savefig(path, bbox_inches=bbox_inches)
         else:
             fig.savefig(path)
         plt.close(fig)
+
+        _sensitivity_source_data(val_df, agg, param, metric_label).to_csv(
+            os.path.join(figures_dir, f"{stem}_source_data.csv"), index=False)
 
 
 def analyse(run_dir, figures_dir, metric, metric_label, label_prefix="",
@@ -140,11 +164,12 @@ def analyse(run_dir, figures_dir, metric, metric_label, label_prefix="",
     if filename_token is None:
         filename_token = metric_label
 
-    agg = aggregate(load_val_results(run_dir, metric, label_prefix))
+    val_df = load_val_results(run_dir, metric, label_prefix)
+    agg = aggregate(val_df)
 
     summary_path = os.path.join(run_dir, f"sensitivity_val_summary_{metric}.csv")
     agg.to_csv(summary_path, index=False)
-    plot_sensitivity(agg, figures_dir, metric_label, filename_token, bbox_inches)
+    plot_sensitivity(val_df, agg, figures_dir, metric_label, filename_token, bbox_inches)
 
     print(f"Validation sensitivity summary ({metric}) written to {summary_path}")
     print(f"Figures written to {figures_dir}")

@@ -18,9 +18,11 @@ metric_display = {
 
 
 def _collect_metrics(run_dir, run_prefix, split):
-    """Read every run's summary_results.csv and return one row of metrics per run."""
+    """Read every run's summary_results.csv and return one row of metrics per run,
+    plus the run_id of each row (same order)."""
     paths = sorted(glob.glob(os.path.join(run_dir, f"{run_prefix}_*", "summary_results.csv")))
     records = []
+    run_ids = []
     for path in paths:
         df = pd.read_csv(path, index_col=0)
         if split not in df.index:
@@ -29,7 +31,42 @@ def _collect_metrics(run_dir, run_prefix, split):
         # Columns are saved as e.g. 'response_auc' -> strip the label prefix.
         row = {col.split("_", 1)[-1]: float(val) for col, val in df.loc[split].items()}
         records.append(row)
-    return pd.DataFrame(records)
+        run_ids.append(os.path.basename(os.path.dirname(path)))
+    return pd.DataFrame(records), run_ids
+
+
+def _histogram_source_data(ax, values, run_ids, label, chosen_seed_run, reference):
+    """Return the plotted histogram of one metric as (bins, runs) dataframes.
+
+    ``bins`` is read back from the bars seaborn drew, so the edges and counts are
+    exactly those in the figure: one row per bar, empty bins included. ``runs`` has
+    one row per run with the bin it was counted in (bins are left-closed, the last
+    one closed on both sides, as in numpy.histogram). Both carry the chosen-seed
+    value that sets the dashed line (NaN if that run's summary was missing).
+    """
+    bars = sorted(ax.patches, key=lambda p: p.get_x())
+    left = np.array([p.get_x() for p in bars])
+    right = left + np.array([p.get_width() for p in bars])
+    bins = pd.DataFrame({
+        "metric": label,
+        "bin": range(len(bars)),
+        "bin_left": left,
+        "bin_right": right,
+        "count": [int(round(p.get_height())) for p in bars],
+        "reference_run": chosen_seed_run,
+        "reference_value": reference,
+    })
+    bin_index = np.clip(np.searchsorted(left, values.to_numpy(), side="right") - 1,
+                        0, len(bars) - 1)
+    runs = pd.DataFrame({
+        "metric": label,
+        "run_id": [run_ids[i] for i in values.index],
+        "value": values.to_numpy(),
+        "bin": bin_index,
+        "reference_run": chosen_seed_run,
+        "reference_value": reference,
+    })
+    return bins, runs
 
 
 def _read_summary(path, split):
@@ -61,7 +98,7 @@ def plot_network_order_variation(run_dir, figures_dir,
         chosen_seed_run (str) : run_id whose metrics give the chosen-seed (42)
                                 reference line drawn on each plot
     """
-    data = _collect_metrics(run_dir, run_prefix, split)
+    data, run_ids = _collect_metrics(run_dir, run_prefix, split)
     if data.empty:
         print(f"No results found for '{run_prefix}_*' under {run_dir}, nothing to plot.")
         return
@@ -107,8 +144,15 @@ def plot_network_order_variation(run_dir, figures_dir,
         plt.tight_layout()
         # 'auc' is the data-column key; the file is named with the AUROC label
         slug = "auroc" if metric == "auc" else metric
-        plt.savefig(os.path.join(out_dir, f"{run_prefix}_{split}_{slug}.pdf"))
+        stem = f"{run_prefix}_{split}_{slug}"
+        plt.savefig(os.path.join(out_dir, f"{stem}.pdf"))
+        # read the drawn bars back before the figure is closed
+        bins, runs = _histogram_source_data(
+            ax, data[metric].dropna(), run_ids, metric_display.get(metric, metric),
+            chosen_seed_run, chosen.get(metric, np.nan))
         plt.close()
+        bins.to_csv(os.path.join(out_dir, f"{stem}_bins_source_data.csv"), index=False)
+        runs.to_csv(os.path.join(out_dir, f"{stem}_runs_source_data.csv"), index=False)
 
     # Save the collated metrics alongside the figures for reference.
     data.to_csv(os.path.join(out_dir, f"{run_prefix}_{split}_metrics.csv"), index=False)

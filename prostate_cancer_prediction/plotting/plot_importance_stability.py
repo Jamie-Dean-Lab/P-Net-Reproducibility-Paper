@@ -110,6 +110,53 @@ def _offdiag_mean(square_df):
     return np.nanmean(a[mask])
 
 
+def _membership_source_data(top, top_k, label_col):
+    """Return the plotted bars of a top-K membership figure as a dataframe.
+
+    ``top`` is the consensus-ordered table the bars were drawn from. One row per
+    bar, top of the figure first; ``mean_rank`` is the value that sets each bar's
+    colour, and ``colour_scale_min``/``max`` are the limits of the colour bar.
+    """
+    data = pd.DataFrame({
+        "position": range(1, len(top) + 1),
+        "feature": top.index,
+    })
+    if label_col:
+        data["name"] = top[label_col].to_numpy()
+    data["top_k"] = top_k
+    data["topk_frequency"] = top["topk_frequency"].to_numpy()
+    data["n_present"] = top["n_folds_present"].to_numpy()
+    data["mean_rank"] = top["mean_rank"].to_numpy()
+    data["median_rank"] = top["median_rank"].to_numpy()
+    data["colour_scale_min"] = top["mean_rank"].min()
+    data["colour_scale_max"] = top["mean_rank"].max()
+    return data
+
+
+def _violin_source_data(values, feats, label_of, label_col, value_name,
+                        selected_by, top, repeat_dirs, unit):
+    """Return the plotted points of a violin figure as a long dataframe.
+
+    One row per feature per repeat (features top of the figure first), holding the
+    value the violin is estimated from, plus the median drawn as the black line
+    and the statistic the top-N features were selected on. NaNs are dropped, as
+    they are before plotting. ``repeat_dirs`` maps each repeat column to the
+    directory its feature_importance_*.csv was read from.
+    """
+    frames = []
+    for position, f in enumerate(feats, start=1):
+        s = values.loc[f].dropna()
+        frame = pd.DataFrame({"position": position, "feature": f,
+                              unit: s.index, value_name: s.to_numpy()})
+        if label_col:
+            frame.insert(2, "name", label_of[f])
+        frame["source_dir"] = [repeat_dirs.get(r, "") for r in s.index]
+        frame["median"] = np.median(s.to_numpy())
+        frame[selected_by] = top.loc[f, selected_by]
+        frames.append(frame)
+    return pd.concat(frames, ignore_index=True)
+
+
 def _plot_topk_membership(table, display, top_k, out_dir, label_col=None, top_n=20, unit="fold"):
     """Save top-K membership frequency bars for the consensus features."""
     top = table.head(top_n).iloc[::-1]  # reverse so rank 1 sits at the top of barh
@@ -140,8 +187,13 @@ def _plot_topk_membership(table, display, top_k, out_dir, label_col=None, top_n=
     fig.savefig(f"{out_dir}/{display}_top{top_k}_membership.pdf")
     plt.close(fig)
 
+    # bars were drawn bottom-up from the reversed table; undo that for the CSV
+    _membership_source_data(top.iloc[::-1], top_k, label_col).to_csv(
+        f"{out_dir}/{display}_top{top_k}_membership_source_data.csv", index=False)
 
-def _plot_top_importance(wide, table, display, top_n, out_dir, label_col=None, unit="fold"):
+
+def _plot_top_importance(wide, table, display, top_n, out_dir, label_col=None, unit="fold",
+                         repeat_dirs=None):
     """Save a violin plot of importance score distributions for the top-N features by mean importance score."""
     top = table.sort_values("mean_importance", ascending=False).head(top_n)
     feats = list(top.index)
@@ -174,8 +226,13 @@ def _plot_top_importance(wide, table, display, top_n, out_dir, label_col=None, u
     fig.savefig(f"{out_dir}/{display}_top{top_n}_importance.pdf")
     plt.close(fig)
 
+    _violin_source_data(wide, feats, label_of, label_col, "importance", "mean_importance",
+                        top, repeat_dirs or {}, unit).to_csv(
+        f"{out_dir}/{display}_top{top_n}_importance_source_data.csv", index=False)
 
-def _plot_top_rank(ranks, table, display, top_n, out_dir, label_col=None, unit="fold"):
+
+def _plot_top_rank(ranks, table, display, top_n, out_dir, label_col=None, unit="fold",
+                   repeat_dirs=None):
     """Save a violin plot of rank distributions for the top-N features by mean rank."""
     top = table.sort_values("mean_rank", ascending=True).head(top_n)
     feats = list(top.index)
@@ -209,6 +266,10 @@ def _plot_top_rank(ranks, table, display, top_n, out_dir, label_col=None, unit="
     fig.savefig(f"{out_dir}/{display}_top{top_n}_rank.pdf")
     plt.close(fig)
 
+    _violin_source_data(ranks, feats, label_of, label_col, "rank", "mean_rank",
+                        top, repeat_dirs or {}, unit).to_csv(
+        f"{out_dir}/{display}_top{top_n}_rank_source_data.csv", index=False)
+
 
 def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
                                  run_id,
@@ -232,6 +293,7 @@ def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
       * {layer}_top{K}_membership.pdf  -- top-K membership frequency bars
       * {layer}_top{K}_importance.pdf  -- mean +/- SD importance of the top-K features
       * {layer}_top{K}_rank.pdf        -- median & IQR rank of the top-K features
+      * {figure stem}_source_data.csv  -- the plotted values behind each figure
       * stability_summary.csv          -- one row per layer (mean Spearman)
     """
     if fold_dirs is None:
@@ -240,6 +302,9 @@ def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
 
     out_dir = f"{figures_dir}/importance_stability/{run_id}"
     os.makedirs(out_dir, exist_ok=True)
+
+    # repeat column name (as _load_fold_importance labels it) -> its directory
+    repeat_dirs = {f"{unit}_{i}": d for i, d in enumerate(fold_dirs)}
 
     # pathway id -> human-readable name (col0=id, col1=name, col2=namespace);
     # same tab-separated format for Reactome (ReactomePathways.txt) and GO
@@ -285,8 +350,10 @@ def analyse_importance_stability(run_dir, figures_dir, n_hidden_layers,
         print(f"  top consensus features:\n{table.head(top_k)[cols].to_string()}")
 
         _plot_topk_membership(table, display, top_k, out_dir, label_col=label_col, unit=unit)
-        _plot_top_importance(wide, table, display, 15, out_dir, label_col=label_col, unit=unit)
-        _plot_top_rank(ranks, table, display, 15, out_dir, label_col=label_col, unit=unit)
+        _plot_top_importance(wide, table, display, 15, out_dir, label_col=label_col, unit=unit,
+                             repeat_dirs=repeat_dirs)
+        _plot_top_rank(ranks, table, display, 15, out_dir, label_col=label_col, unit=unit,
+                       repeat_dirs=repeat_dirs)
 
         summary_rows.append({
             "layer": display,

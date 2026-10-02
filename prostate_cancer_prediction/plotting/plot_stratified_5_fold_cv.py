@@ -3,7 +3,42 @@ import os
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from matplotlib import ticker
+from matplotlib import cbook, ticker
+
+# whisker reach in IQRs, shared by the boxplot and its source data
+WHIS = 1.5
+
+
+def _box_source_data(val_scores, models_display, metric, metric_label, order, reference):
+    """Return the plotted points of one box-plot figure as a long dataframe.
+
+    One row per validation fold per model (models in x-axis order), with the box
+    statistics drawn for that model. The statistics come from
+    matplotlib.cbook.boxplot_stats with the same ``whis`` the figure uses, which is
+    what seaborn's boxplot draws from; ``is_outlier`` marks points drawn as fliers.
+    ``reference_median`` is P-NET's median, which sets the dashed line.
+    """
+    frames = []
+    for short_name, val in val_scores.items():
+        label = models_display[short_name]
+        points = val[["fold", metric]].rename(columns={metric: "value"}).dropna()
+        stats = cbook.boxplot_stats(points["value"].to_numpy(), whis=WHIS)[0]
+        points = points.assign(
+            metric=metric_label, model=label,
+            median=stats["med"], q1=stats["q1"], q3=stats["q3"],
+            whisker_low=stats["whislo"], whisker_high=stats["whishi"],
+            is_outlier=(points["value"] < stats["whislo"]) | (points["value"] > stats["whishi"]),
+        )
+        frames.append(points)
+    data = pd.concat(frames, ignore_index=True)
+    data["model"] = pd.Categorical(data["model"], categories=order, ordered=True)
+    data = data.sort_values(["model", "fold"], kind="stable")
+    data["model"] = data["model"].astype(str)
+    data["reference_model"] = "P-NET"
+    data["reference_median"] = reference
+    return data[["metric", "model", "fold", "value", "median", "q1", "q3",
+                 "whisker_low", "whisker_high", "is_outlier",
+                 "reference_model", "reference_median"]]
 
 
 def plot_stratified_5_fold_CV(run_dir, figures_dir):
@@ -55,6 +90,8 @@ def plot_stratified_5_fold_CV(run_dir, figures_dir):
     metric_cols = ["auc", "auprc", "f1", "accuracy", "precision", "recall"]
 
     all_data = []
+    # per-model validation rows with their fold numbers, for the source data only
+    val_scores = {}
     for model_name in model_names:
         path = f"{run_dir}/{model_name}/test_0/cv_0/fold_summaries.csv"
         if not os.path.exists(path):
@@ -64,6 +101,7 @@ def plot_stratified_5_fold_CV(run_dir, figures_dir):
         data[metric_cols] = data[metric_cols].astype(float)
         val_data = data[data["split"] == "val"][metric_cols].copy()
         short_name = model_name.replace("_stratified_5_fold_CV", "")
+        val_scores[short_name] = data[data["split"] == "val"][["fold"] + metric_cols]
         val_data.columns = pd.MultiIndex.from_tuples(
             [(short_name, col) for col in metric_cols]
         )
@@ -91,7 +129,7 @@ def plot_stratified_5_fold_CV(run_dir, figures_dir):
             y="value",
             hue="variable",
             data=dd,
-            whis=1.5,
+            whis=WHIS,
             order=order,
             palette=my_pal,
             legend=False,
@@ -118,3 +156,8 @@ def plot_stratified_5_fold_CV(run_dir, figures_dir):
         plt.tight_layout()
         plt.savefig(os.path.join(figures_dir, f"stratified_5_fold_CV_{slug}.pdf"))
         plt.close()
+
+        _box_source_data(val_scores, models_display, metric, metric_display[metric],
+                         order, avg).to_csv(
+            os.path.join(figures_dir, f"stratified_5_fold_CV_{slug}_source_data.csv"),
+            index=False)
