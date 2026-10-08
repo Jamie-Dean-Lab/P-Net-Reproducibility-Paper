@@ -53,7 +53,7 @@ Kaleido (used to export Sankey diagrams as PNG) requires Google Chrome or Chromi
 All scripts should be run from the root directory rather than from the individual experiment folders. `run_all.py` in the root directory will execute all models across all four tasks sequentially, but this is expected to take an extremely long time. It is strongly recommended to run each task's `run.py` individually instead. If you are running the radiosensitivity experiment scripts you will also need to have R installed.
 
 ## Datasets
-All datasets are downloaded automatically the first time each experiment's script is run, so no manual data download is required. The tissue type, radiosensitivity and glioma datasets are downloaded from https://zenodo.org/records/21979483, and the prostate cancer dataset is downloaded from the original P-Net release at https://zenodo.org/records/10775529. The radiosensitivity task additionally downloads the Cleveland radiosensitivity data through an R script, which is why R is required for that task.
+All datasets are downloaded automatically the first time each experiment's script is run, so no manual data download is required. The tissue type, radiosensitivity and glioma datasets are downloaded from https://doi.org/10.5281/zenodo.17340265, and the prostate cancer dataset is downloaded from the original P-Net release at https://zenodo.org/records/10775529. The radiosensitivity task additionally downloads the Cleveland radiosensitivity data through an R script, which is why R is required for that task.
 
 ## Structure of the repository
 All code pertaining to P-Net and the supporting pipeline can be found in the architecture folder. All other folders are experiment specific and this is the intended way to use the repository.
